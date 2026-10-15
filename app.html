@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#050507">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="OX 서울마우스">
+  <meta name="description" content="OX PC방 상일동역점과 서울마우스. 매장 안내, G102 수리 예상금액 계산, 택배 준비 체크리스트.">
+  <title>OX PC방 · 서울마우스 앱</title>
+  <link rel="canonical" href="https://anarita82.github.io/app.html">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css?v=20261015-app">
+  <link rel="stylesheet" href="app.css?v=20261015-app">
+  <script src="pwa.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body class="app-page">
+  <a class="skip-link" href="#main">본문 바로가기</a>
+  <header class="app-header">
+    <a class="app-brand" href="index.html"><img src="icon-192.png" width="44" height="44" alt="OX"><span>OX PC방 <small>상일동역점 / 서울마우스</small></span></a>
+    <button class="app-install" type="button" data-install hidden>＋ 앱 설치</button>
+  </header>
+  <main id="main" class="app-main">
+    <section class="app-store" aria-labelledby="store-title">
+      <p class="eyebrow">OX PC · SEOUL MOUSE</p>
+      <h1 id="store-title">OX PC방 상일동역점</h1>
+      <p>상일동역 4번 출구 50m · 24시간 운영</p>
+      <a class="button button-primary" href="index.html#location">매장 위치</a>
+    </section>
+    <nav class="app-shortcuts" aria-label="빠른 이동">
+      <a href="index.html#spec">PC 사양 <span aria-hidden="true">↗</span></a>
+      <a href="index.html#food">음식 메뉴 <span aria-hidden="true">↗</span></a>
+      <a href="index.html#gear">브랜드존 <span aria-hidden="true">↗</span></a>
+      <a href="index.html#seoulmouse">마우스 수리 <span aria-hidden="true">↗</span></a>
+    </nav>
+    <section id="repair-estimate" class="app-section" aria-labelledby="estimate-title">
+      <p class="eyebrow">SEOUL MOUSE</p>
+      <h2 id="estimate-title">G102 수리 예상금액</h2>
+      <p class="app-muted">현금 가격 · 2026년 8월 1일 기준</p>
+      <form id="estimate-form">
+        <div class="app-price-row"><span>기본 수리 <small>내부 버튼·인코더 총 7개 + 피트</small></span><strong>7,000원</strong></div>
+        <label class="app-price-row"><span><input type="checkbox" name="cable" value="2000"> 케이블 교체</span><strong>+2,000원</strong></label>
+        <label class="app-price-row"><span><input type="checkbox" name="roller" value="4000"> 휠 롤러 교체</span><strong>+4,000원</strong></label>
+        <div class="app-total"><span>예상 합계</span><output id="estimate-total" aria-live="polite">7,000원</output></div>
+      </form>
+      <p class="app-muted">G102 기준 예상금액입니다. 실제 수리 항목과 최종 비용은 점검 후 확정됩니다. 다른 모델과 무선 마우스는 별도 상담해 주세요.</p>
+      <p class="app-timing">일반 수리·AS 처리 15~20일<br><small>택배 도착일 기준 · 주말·휴무일 포함</small></p>
+      <p class="app-muted">이전 수리 시 케이블을 교체하지 않은 제품이 이후 단선으로 고장 난 경우, AS 시 케이블 교체비 2,000원이 청구됩니다.</p>
+      <div class="app-contact"><a class="button app-kakao" href="https://pf.kakao.com/_xkmQYn/chat" target="_blank" rel="noopener noreferrer">카카오톡 상담</a><a class="button button-ghost" href="tel:01031004361">전화 상담</a></div>
+    </section>
+    <section id="parcel-checklist" class="app-section" aria-labelledby="parcel-title">
+      <p class="eyebrow">DELIVERY</p>
+      <h2 id="parcel-title">택배 준비 체크리스트</h2>
+      <div class="app-checklist">
+        <label><input type="checkbox" data-check="consult"> 모델과 증상 상담하기</label>
+        <label><input type="checkbox" data-check="memo"> 성함·연락처·회송 주소 메모 동봉</label>
+        <label><input type="checkbox" data-check="pack"> 완충재로 감싸 박스에 포장</label>
+        <label><input type="checkbox" data-check="address"> 받는 사람·주소 확인하기</label>
+      </div>
+      <p id="checklist-progress" class="app-muted" aria-live="polite">0 / 4 완료</p>
+      <address id="delivery-address">서울특별시 송파구 풍납동 78-83 지층 제노PC방<br>서울마우스 / 유상균<br>010-3100-4361</address>
+      <div class="app-contact"><button class="button button-ghost" type="button" id="copy-address">택배 주소 복사</button><button class="button button-ghost" type="button" id="reset-checklist">체크 초기화</button></div>
+      <p id="copy-status" class="app-muted" role="status"></p>
+      <p class="app-muted" id="storage-status">체크 상태는 이 기기에만 저장됩니다.</p>
+    </section>
+  </main>
+  <footer class="app-footer"><a href="index.html">홈페이지</a><a href="privacy.html">개인정보 안내</a><span data-offline-status>온라인 이용 가능</span></footer>
+</body>
+</html>
