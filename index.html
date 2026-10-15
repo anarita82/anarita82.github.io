@@ -21,7 +21,7 @@
   <meta property="og:url" content="https://anarita82.github.io/">
   <link rel="canonical" href="https://anarita82.github.io/">
   <link rel="preload" href="hero-pcroom.png" as="image">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20261015-header">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -44,10 +44,14 @@
   <a class="skip-link" href="#main">본문 바로가기</a>
 
   <header class="site-header" data-header>
-    <a class="brand" href="#home" aria-label="OX PC방 상일동역점과 서울마우스 홈">
-      <span class="brand-mark">OX</span>
-      <span class="brand-text"><span class="brand-store brand-store-full">PC방 상일동역점</span><span class="brand-store brand-store-short">PC방</span> <b>/ 서울마우스</b></span>
-    </a>
+    <div class="brand" aria-label="매장 바로가기">
+      <a class="brand-pc" href="#home" aria-label="OX PC방 상일동역점 홈">
+        <span class="brand-mark">OX</span>
+        <span class="brand-text">PC방 상일동역점</span>
+      </a>
+      <span class="brand-divider" aria-hidden="true">/</span>
+      <a class="brand-repair" href="#seoulmouse">서울마우스</a>
+    </div>
 
     <button class="menu-button" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation">
       <span></span>
@@ -461,6 +465,6 @@
     <p>© <span id="year"></span> OX PC방 상일동역점. All rights reserved.</p>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20261015-header"></script>
 </body>
 </html>

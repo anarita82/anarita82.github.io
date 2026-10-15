@@ -29,6 +29,12 @@ navMenu?.addEventListener("click", (event) => {
   }
 });
 
+document.querySelector(".brand")?.addEventListener("click", (event) => {
+  if (event.target instanceof Element && event.target.closest("a")) {
+    closeMenu();
+  }
+});
+
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeMenu();

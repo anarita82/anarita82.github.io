@@ -21,7 +21,7 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 84px;
+  scroll-padding-top: 116px;
 }
 
 body {
@@ -83,11 +83,12 @@ p {
   inset: 0 0 auto;
   z-index: 50;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  height: 76px;
-  padding: 0 max(20px, calc((100vw - 1180px) / 2));
+  align-items: start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+  height: 108px;
+  padding: 6px max(20px, calc((100vw - 1180px) / 2));
   background: rgba(5, 5, 7, 0.78);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(18px);
@@ -107,6 +108,32 @@ p {
   font-weight: 900;
 }
 
+.brand-pc {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-divider {
+  color: var(--muted);
+  font-size: 26px;
+}
+
+.brand-repair {
+  color: #ffffff;
+  font-size: 26px;
+  white-space: nowrap;
+}
+
+.brand a:hover {
+  color: #ff526a;
+}
+
+.brand a:focus-visible {
+  outline: 2px solid #ff526a;
+  outline-offset: 4px;
+}
+
 .brand-mark {
   display: inline-grid;
   place-items: center;
@@ -120,10 +147,8 @@ p {
 }
 
 .brand-text {
-  overflow: hidden;
   color: var(--silver);
-  font-size: 17px;
-  text-overflow: ellipsis;
+  font-size: 26px;
   white-space: nowrap;
 }
 
@@ -180,10 +205,10 @@ p {
 
 .hero {
   position: relative;
-  min-height: 92vh;
+  min-height: min(740px, 90vh);
   display: grid;
-  align-items: end;
-  padding: 150px max(20px, calc((100vw - 1180px) / 2)) 68px;
+  align-items: start;
+  padding: 140px max(20px, calc((100vw - 1180px) / 2)) 48px;
   overflow: hidden;
 }
 
@@ -1026,7 +1051,11 @@ summary:focus-visible {
 
 @media (max-width: 980px) {
   .site-header {
-    height: 70px;
+    height: 80px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
   }
 
   .menu-button {
@@ -1036,7 +1065,7 @@ summary:focus-visible {
 
   .nav-menu {
     position: fixed;
-    top: 70px;
+    top: 80px;
     right: 20px;
     left: 20px;
     display: none;
@@ -1067,7 +1096,7 @@ summary:focus-visible {
 
   .hero {
     min-height: auto;
-    padding-top: 124px;
+    padding-top: 108px;
   }
 
   .hero-panel {
@@ -1100,11 +1129,40 @@ summary:focus-visible {
   }
 
   html {
-    scroll-padding-top: 72px;
+    scroll-padding-top: 104px;
   }
 
   .site-header {
     padding-inline: 16px;
+    height: 96px;
+    gap: 8px;
+  }
+
+  .brand {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 8px;
+    row-gap: 0;
+  }
+
+  .brand-pc {
+    grid-column: 1 / -1;
+    gap: 8px;
+  }
+
+  .brand-divider {
+    display: none;
+  }
+
+  .brand-repair {
+    grid-column: 1 / -1;
+    padding-left: 50px;
+    font-size: 20px;
+    line-height: 1.5;
+  }
+
+  .nav-menu {
+    top: 96px;
   }
 
   .brand-mark {
@@ -1113,8 +1171,7 @@ summary:focus-visible {
   }
 
   .brand-text {
-    max-width: 220px;
-    font-size: 14px;
+    font-size: 18px;
   }
 
   .brand-store-full {
@@ -1126,7 +1183,7 @@ summary:focus-visible {
   }
 
   .hero {
-    padding: 112px 16px 54px;
+    padding: 120px 16px 40px;
   }
 
   .hero-media {
