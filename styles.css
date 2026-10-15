@@ -726,6 +726,119 @@ h3 {
   gap: 18px;
 }
 
+.repair-pricing,
+.repair-policy {
+  padding: 32px 0;
+  border-top: 1px solid var(--line);
+}
+
+.repair-pricing h3,
+.repair-policy h3 {
+  font-size: 24px;
+}
+
+.repair-price-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.repair-price-table caption {
+  padding-bottom: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: left;
+}
+
+.repair-price-table th,
+.repair-price-table td {
+  padding: 18px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.repair-price-table thead th {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.repair-price-table th:last-child,
+.repair-price-table td:last-child {
+  width: 112px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.repair-price-table tbody th span,
+.repair-policy-list dd span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.repair-base-price td {
+  color: #ffe07a;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.repair-price-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.repair-policy-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+}
+
+.repair-policy-list dt {
+  color: var(--muted-strong);
+}
+
+.repair-policy-list dd {
+  margin: 8px 0 0;
+}
+
+.repair-policy-list dd strong {
+  font-size: 28px;
+}
+
+.repair-as-note {
+  padding-left: 16px;
+  border-left: 3px solid #ffe07a;
+  color: var(--muted-strong);
+  line-height: 1.8;
+}
+
+.repair-as-note > strong:first-child {
+  display: block;
+  margin-bottom: 8px;
+  color: #ffe07a;
+}
+
+@media (max-width: 640px) {
+  .repair-policy-list {
+    grid-template-columns: 1fr;
+  }
+
+  .repair-price-table th,
+  .repair-price-table td {
+    padding: 14px 4px;
+  }
+
+  .repair-price-table th:last-child,
+  .repair-price-table td:last-child {
+    width: 92px;
+  }
+}
+
 .repair-info-grid article {
   min-height: 230px;
 }
