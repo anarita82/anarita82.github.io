@@ -1,21 +1,21 @@
 {
   "id": "./app.html",
-  "name": "OX PC방 · 서울마우스",
-  "short_name": "OX 서울마우스",
+  "name": "서울마우스",
+  "short_name": "서울마우스",
   "lang": "ko",
-  "description": "매장 안내, G102 수리 예상금액과 택배 준비 체크리스트",
+  "description": "마우스 전문 수리 상담, G102 수리 예상금액과 전국 택배 준비 체크리스트",
   "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#050507",
   "theme_color": "#050507",
   "icons": [
-    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+    {"src": "seoulmouse-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "seoulmouse-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
   ],
   "shortcuts": [
     {"name": "서울마우스 수리 안내", "url": "./index.html#seoulmouse"},
     {"name": "G102 수리 예상금액", "url": "./app.html#repair-estimate"},
-    {"name": "음식 메뉴", "url": "./index.html#food"}
+    {"name": "택배 접수 준비", "url": "./app.html#parcel-checklist"}
   ]
 }

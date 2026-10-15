@@ -6,7 +6,7 @@
 .app-brand small { display: block; font-size: 13px; color: var(--muted-strong); margin-top: 4px; }
 .app-install { min-height: 44px; padding: 6px 12px; color: #ffffff; background: #a8122a; border: 1px solid #e8213d; border-radius: 6px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .app-main { max-width: 1060px; margin: auto; }
-.app-store { padding: 32px 24px; background: linear-gradient(90deg, rgba(5,5,7,.92), rgba(5,5,7,.6)), url('hero-pcroom.png') center / cover; }
+.app-store { padding: 32px 24px; background: #101014; border-top: 2px solid #e8213d; }
 .app-store h1 { font-size: 38px; line-height: 1.3; letter-spacing: 0; margin: 10px 0 14px; }
 .app-store p:not(.eyebrow) { color: var(--silver); font-size: 15px; }
 .app-store .button { margin-top: 20px; width: auto; }

@@ -1,9 +1,10 @@
 const CACHE_PREFIX = 'oxpc-app-';
-const CACHE_NAME = CACHE_PREFIX + '20261015-1';
+const CACHE_NAME = CACHE_PREFIX + '20261015-seoulmouse-2';
 const ASSETS = ['app.html', 'app.css', 'app.js', 'pwa.js', 'offline.html', 'index.html',
   'styles.css', 'script.js', 'spec-details.css', 'fps-seats.html', 'benq-540hz.html',
   'rtx5080-pc.html', 'privacy.html', 'manifest.webmanifest', 'hero-pcroom.png',
-  'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+  'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
+  'seoulmouse-192.png', 'seoulmouse-512.png', 'seoulmouse-apple-touch-icon.png'];
 const allowedPaths = new Set(ASSETS.map((path) => new URL(path, self.registration.scope).pathname));
 const cacheKey = (url) => new URL(url.pathname, self.registration.scope).href;
 
