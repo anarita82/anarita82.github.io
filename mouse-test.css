@@ -1,0 +1,28 @@
+.test-main { max-width: 1060px; margin: auto; }
+.test-intro { padding: 28px 24px; border-top: 2px solid #e8213d; background: #101014; }
+.test-intro h1 { font-size: 32px; margin: 10px 0; letter-spacing: 0; }
+.test-section { padding: 28px 24px; border-bottom: 1px solid var(--line); }
+.test-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.test-section h2 { font-size: 24px; letter-spacing: 0; margin: 0; }
+.test-section h3 { font-size: 16px; margin-top: 24px; }
+.test-reset { width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #53535b; border-radius: 6px; background: #19191e; color: white; font-size: 26px; cursor: pointer; }
+.test-pad { min-height: 200px; margin: 20px 0; background: #17171d; border: 1px solid #575760; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; }
+.test-pad strong { font-size: 20px; }
+.test-pad.fast { border-color: #ffc247; background: #342a16; }
+.test-pad span { color: #dadadf; font-size: 14px; }
+.test-table-wrap { overflow-x: auto; }
+.test-main table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 15px; }
+.test-main caption { text-align: left; margin-bottom: 10px; font-weight: 800; }
+.test-main th, .test-main td { border-bottom: 1px solid #34343b; padding: 12px 6px; text-align: center; font-variant-numeric: tabular-nums; }
+.test-main thead { color: #bcbcc8; }
+.test-note { color: #bcbcc8; font-size: 13px; margin-top: 16px; }
+#drag-pad { display: block; width: 100%; height: 320px; background: #111116; border: 1px solid #575760; border-radius: 6px; margin-top: 20px; cursor: crosshair; touch-action: none; }
+.test-state { margin-top: 12px; min-height: 28px; color: #72e4c2; font-weight: 700; }
+.test-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.test-metrics dt { font-size: 13px; color: #bcbcc8; }
+.test-metrics dd { margin: 6px 0 0; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.test-log { margin: 8px 0 0; padding-left: 22px; font-size: 14px; color: #d0d0da; max-height: 180px; overflow: auto; }
+.test-log li { padding: 4px 0; }
+.test-advice p { margin: 16px 0; }
+.test-advice .button { width: auto; }
+@media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } #drag-pad { height: 260px; } .test-metrics { gap: 8px; } .test-metrics dd { font-size: 21px; } }
