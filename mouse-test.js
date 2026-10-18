@@ -60,21 +60,24 @@ function finish(reason, cancelled = false) {
 }
 canvas.addEventListener('pointerdown', (event) => {
   if (event.pointerType !== 'mouse') { $('#drag-status').textContent = '실제 마우스를 연결해 주세요.'; return; }
-  if (event.button !== 0 || active) return;
+  if (![0, 2].includes(event.button) || active) return;
   event.preventDefault();
-  active = { id: event.pointerId, start: performance.now(), last: point(event) };
+  active = { id: event.pointerId, start: performance.now(), last: point(event),
+    mask: event.button === 0 ? 1 : 2, label: names[event.button] };
   canvas.setPointerCapture(event.pointerId);
-  $('#drag-status').textContent = '왼쪽 버튼 유지 중';
+  $('#drag-status').textContent = active.label + ' 버튼 유지 중';
   tick();
 });
 canvas.addEventListener('pointermove', (event) => {
   if (!active || active.id !== event.pointerId) return;
-  if (!(event.buttons & 1)) { finish('왼쪽 버튼 해제 상태 감지'); return; }
+  if (!(event.buttons & active.mask)) { finish(active.label + ' 버튼 해제 상태 감지'); return; }
   const next = point(event);
   ctx.strokeStyle = '#72e4c2'; ctx.lineWidth = 3; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(active.last.x, active.last.y); ctx.lineTo(next.x, next.y); ctx.stroke(); active.last = next;
 });
-canvas.addEventListener('pointerup', (event) => { if (active?.id === event.pointerId && !(event.buttons & 1)) finish('왼쪽 버튼 해제'); });
+canvas.addEventListener('pointerup', (event) => {
+  if (active?.id === event.pointerId && !(event.buttons & active.mask)) finish(active.label + ' 버튼 해제');
+});
 canvas.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
 canvas.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
 window.addEventListener('blur', () => finish('창 포커스 이탈 · 다시 측정', true));
