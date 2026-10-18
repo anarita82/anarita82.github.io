@@ -7,6 +7,10 @@ const buttonMasks = [1, 4, 2, 8, 16];
 let heldButtons = 0;
 let clickPointer = null;
 let doubleDetected = false;
+let simultaneousDetected = false;
+function alertTitle() {
+  return [doubleDetected && '더블', simultaneousDetected && '동시 입력'].filter(Boolean).join(' · ');
+}
 function renderClicks() {
   $('#double-total').textContent = '더블클릭 감지 ' + clicks.reduce((sum, item) => sum + item.fast, 0) + '회';
   clicks.forEach((item, index) => {
@@ -18,7 +22,6 @@ function renderClicks() {
 function updateClickButtons(event) {
   const next = event.buttons & 31;
   const newlyPressed = next & ~heldButtons;
-  const wasMultiple = (heldButtons & (heldButtons - 1)) !== 0;
   const pressed = [];
   if (newlyPressed) {
     buttonMasks.forEach((mask, button) => {
@@ -30,22 +33,21 @@ function updateClickButtons(event) {
   }
   heldButtons = next;
   const multiple = (next & (next - 1)) !== 0;
-  clickPad.classList.toggle('fast', doubleDetected || multiple);
-  $('#click-pad strong').textContent = doubleDetected ? '더블' : '클릭 측정 영역';
+  simultaneousDetected ||= multiple;
+  clickPad.classList.toggle('fast', doubleDetected || simultaneousDetected);
+  $('#click-pad strong').textContent = alertTitle() || '클릭 측정 영역';
   if (multiple) {
     const heldNames = names.filter((_, index) => next & buttonMasks[index]);
     $('#click-status').textContent = (doubleDetected ? '더블 · ' : '') + heldNames.join(' + ') + ' · 동시 입력 감지';
-  } else if (doubleDetected) {
-    $('#click-status').textContent = '80ms 이하 중복 입력 감지 · 초기화 전까지 유지';
+  } else if (doubleDetected || simultaneousDetected) {
+    $('#click-status').textContent = alertTitle() + ' 감지 · 초기화 전까지 경고 유지';
   } else if (pressed.length) {
     $('#click-status').textContent = pressed.join(' + ') + ' · 입력 기록됨';
-  } else if (wasMultiple) {
-    $('#click-status').textContent = '동시 입력 해제';
   }
 }
 clickPad.addEventListener('pointerdown', (event) => {
   if (event.pointerType !== 'mouse') {
-    if (!doubleDetected) $('#click-status').textContent = '실제 마우스를 연결해 주세요.';
+    if (!doubleDetected && !simultaneousDetected) $('#click-status').textContent = '실제 마우스를 연결해 주세요.';
     return;
   }
   event.preventDefault();
@@ -64,8 +66,8 @@ clickPad.addEventListener('pointerup', (event) => {
 function stopClickTracking() {
   const id = clickPointer;
   heldButtons = 0; clickPointer = null;
-  clickPad.classList.toggle('fast', doubleDetected);
-  $('#click-status').textContent = doubleDetected ? '80ms 이하 중복 입력 감지 · 초기화 전까지 유지' : '마우스 입력 대기';
+  clickPad.classList.toggle('fast', doubleDetected || simultaneousDetected);
+  $('#click-status').textContent = alertTitle() ? alertTitle() + ' 감지 · 초기화 전까지 경고 유지' : '마우스 입력 대기';
   if (id !== null && clickPad.hasPointerCapture(id)) clickPad.releasePointerCapture(id);
 }
 clickPad.addEventListener('pointercancel', stopClickTracking);
@@ -75,7 +77,7 @@ for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
   clickPad.addEventListener(type, (event) => event.preventDefault());
 }
 $('#reset-click').addEventListener('click', () => {
-  doubleDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
+  doubleDetected = false; simultaneousDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
   $('#click-pad strong').textContent = '클릭 측정 영역';
 });
 const canvas = $('#drag-pad');
