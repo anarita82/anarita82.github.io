@@ -8,6 +8,7 @@ let heldButtons = 0;
 let clickPointer = null;
 let doubleDetected = false;
 function renderClicks() {
+  $('#double-total').textContent = '더블클릭 감지 ' + clicks.reduce((sum, item) => sum + item.fast, 0) + '회';
   clicks.forEach((item, index) => {
     $('#count-' + index).textContent = item.count;
     $('#fast-' + index).textContent = item.fast;
