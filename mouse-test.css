@@ -8,7 +8,9 @@
 .test-reset { min-width: 112px; height: 48px; padding: 0 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #ff526a; border-radius: 6px; background: #a8122a; color: white; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
 .test-reset span { font-size: 24px; line-height: 1; }
 .test-reset:hover { background: #cd1635; }
-#double-total { display: block; color: inherit; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.test-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 20px 0 12px; border-bottom: 1px solid var(--line); }
+.test-summary span { color: var(--muted-strong); font-size: 13px; }
+#double-total { display: block; color: #ff526a; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .test-pad { min-height: 200px; margin: 20px 0; background: #17171d; border: 1px solid #575760; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; }
 .test-pad strong { font-size: 20px; }
 .test-pad.fast { border-color: #ffffff; background: #ffffff; color: #101014; }
