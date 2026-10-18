@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="mouse-test.css">
-  <script type="module" src="mouse-test.js"></script>
+  <script type="module" src="mouse-test.js?v=20261019-side"></script>
   <script src="pwa.js" defer></script>
 </head>
 <body class="app-page">
@@ -30,7 +30,7 @@
     </section>
     <section class="test-section" aria-labelledby="click-title">
       <div class="test-heading"><h2 id="click-title">01. 더블클릭 확인</h2><button type="button" id="reset-click" class="test-reset" title="클릭 기록 초기화" aria-label="클릭 기록 초기화">↺</button></div>
-      <p class="app-muted">아래 영역에서 같은 버튼을 천천히 한 번씩 눌러 주세요. 80ms 이내 연속 입력을 별도로 집계합니다.</p>
+      <p class="app-muted">아래 영역에서 왼쪽·가운데·오른쪽·사이드 버튼을 각각 천천히 한 번씩 눌러 주세요. 80ms 이내 연속 입력을 버튼별로 집계합니다.</p>
       <div id="click-pad" class="test-pad" aria-label="마우스 클릭 측정 영역">
         <img src="seoulmouse-192.png" alt="" width="56" height="56">
         <strong>클릭 측정 영역</strong><span id="click-status" role="status">마우스 입력 대기</span>
@@ -39,8 +39,11 @@
         <tr><th scope="row">왼쪽</th><td id="count-0">0</td><td id="fast-0">0</td><td id="interval-0">—</td></tr>
         <tr><th scope="row">가운데</th><td id="count-1">0</td><td id="fast-1">0</td><td id="interval-1">—</td></tr>
         <tr><th scope="row">오른쪽</th><td id="count-2">0</td><td id="fast-2">0</td><td id="interval-2">—</td></tr>
+        <tr><th scope="row">사이드 뒤로</th><td id="count-3">0</td><td id="fast-3">0</td><td id="interval-3">—</td></tr>
+        <tr><th scope="row">사이드 앞으로</th><td id="count-4">0</td><td id="fast-4">0</td><td id="interval-4">—</td></tr>
       </tbody></table></div>
       <p class="test-note">80ms는 참고 기준입니다. 의도적으로 빠르게 두 번 누른 입력도 포함되며, 횟수가 0이어도 정상 제품임을 보증하지 않습니다.</p>
+      <p class="test-note">사이드 버튼은 커서를 클릭 측정 영역 안에 둔 상태에서 하나씩 눌러 주세요. 마우스 설정에서 버튼을 키보드·매크로 등으로 바꾼 경우 기본 ‘뒤로/앞으로’ 기능으로 설정해야 측정할 수 있습니다. 브라우저·기기 설정에 따라 입력이 전달되지 않거나 페이지 이동이 발생할 수 있습니다.</p>
     </section>
     <section class="test-section" aria-labelledby="drag-title">
       <div class="test-heading"><h2 id="drag-title">02. 드래그·이동 확인</h2><button type="button" id="reset-drag" class="test-reset" title="드래그 기록 초기화" aria-label="드래그 기록 초기화">↺</button></div>

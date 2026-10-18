@@ -1,6 +1,6 @@
-import { newClicks, recordClick } from './mouse-test-core.mjs';
+import { newClicks, recordClick } from './mouse-test-core.mjs?v=20261019-side';
 const $ = (selector) => document.querySelector(selector);
-const names = ['왼쪽', '가운데', '오른쪽'];
+const names = ['왼쪽', '가운데', '오른쪽', '사이드 뒤로', '사이드 앞으로'];
 let clicks = newClicks();
 const clickPad = $('#click-pad');
 function renderClicks() {
@@ -19,7 +19,10 @@ clickPad.addEventListener('pointerdown', (event) => {
   clickPad.classList.toggle('fast', result.isFast);
   $('#click-status').textContent = names[event.button] + (result.isFast ? ' · 80ms 이하 입력 감지' : ' · 입력 기록됨');
 });
-for (const type of ['contextmenu', 'auxclick']) clickPad.addEventListener(type, (event) => event.preventDefault());
+// Cancel navigation only inside the test pad; normal browser shortcuts remain available elsewhere.
+for (const type of ['pointerup', 'mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
+  clickPad.addEventListener(type, (event) => event.preventDefault());
+}
 $('#reset-click').addEventListener('click', () => {
   clicks = newClicks(); renderClicks(); clickPad.classList.remove('fast'); $('#click-status').textContent = '마우스 입력 대기';
 });
