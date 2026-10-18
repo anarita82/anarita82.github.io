@@ -3,6 +3,10 @@ const $ = (selector) => document.querySelector(selector);
 const names = ['왼쪽', '가운데', '오른쪽', '사이드 뒤로', '사이드 앞으로'];
 let clicks = newClicks();
 const clickPad = $('#click-pad');
+const buttonMasks = [1, 4, 2, 8, 16];
+let heldButtons = 0;
+let clickPointer = null;
+let lastFast = false;
 function renderClicks() {
   clicks.forEach((item, index) => {
     $('#count-' + index).textContent = item.count;
@@ -10,21 +14,62 @@ function renderClicks() {
     $('#interval-' + index).textContent = item.interval === null ? '—' : Math.round(item.interval) + 'ms';
   });
 }
+function updateClickButtons(event) {
+  const next = event.buttons & 31;
+  const newlyPressed = next & ~heldButtons;
+  const wasMultiple = (heldButtons & (heldButtons - 1)) !== 0;
+  const pressed = [];
+  if (newlyPressed) {
+    lastFast = false;
+    buttonMasks.forEach((mask, button) => {
+      if (!(newlyPressed & mask)) return;
+      const result = recordClick(clicks, button, event.timeStamp);
+      if (result) { lastFast ||= result.isFast; pressed.push(names[button]); }
+    });
+    renderClicks();
+  }
+  heldButtons = next;
+  const multiple = (next & (next - 1)) !== 0;
+  clickPad.classList.toggle('fast', lastFast || multiple);
+  if (multiple) {
+    const heldNames = names.filter((_, index) => next & buttonMasks[index]);
+    $('#click-status').textContent = heldNames.join(' + ') + ' · 동시 입력 감지';
+  } else if (pressed.length) {
+    $('#click-status').textContent = pressed.join(' + ') + (lastFast ? ' · 80ms 이하 입력 감지' : ' · 입력 기록됨');
+  } else if (wasMultiple) {
+    $('#click-status').textContent = lastFast ? '80ms 이하 입력 감지' : '동시 입력 해제';
+  }
+}
 clickPad.addEventListener('pointerdown', (event) => {
   if (event.pointerType !== 'mouse') { $('#click-status').textContent = '실제 마우스를 연결해 주세요.'; return; }
   event.preventDefault();
-  const result = recordClick(clicks, event.button, event.timeStamp);
-  if (!result) return;
-  renderClicks();
-  clickPad.classList.toggle('fast', result.isFast);
-  $('#click-status').textContent = names[event.button] + (result.isFast ? ' · 80ms 이하 입력 감지' : ' · 입력 기록됨');
+  clickPointer = event.pointerId;
+  clickPad.setPointerCapture(event.pointerId);
+  updateClickButtons(event);
 });
+// Additional mouse-button presses arrive as pointermove, not another pointerdown.
+clickPad.addEventListener('pointermove', (event) => {
+  if (event.pointerType === 'mouse' && event.pointerId === clickPointer) updateClickButtons(event);
+});
+clickPad.addEventListener('pointerup', (event) => {
+  event.preventDefault();
+  if (event.pointerId === clickPointer) updateClickButtons(event);
+});
+function stopClickTracking() {
+  const id = clickPointer;
+  heldButtons = 0; clickPointer = null;
+  clickPad.classList.toggle('fast', lastFast);
+  if (!lastFast) $('#click-status').textContent = '마우스 입력 대기';
+  if (id !== null && clickPad.hasPointerCapture(id)) clickPad.releasePointerCapture(id);
+}
+clickPad.addEventListener('pointercancel', stopClickTracking);
+clickPad.addEventListener('lostpointercapture', stopClickTracking);
 // Cancel navigation only inside the test pad; normal browser shortcuts remain available elsewhere.
-for (const type of ['pointerup', 'mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
+for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
   clickPad.addEventListener(type, (event) => event.preventDefault());
 }
 $('#reset-click').addEventListener('click', () => {
-  clicks = newClicks(); renderClicks(); clickPad.classList.remove('fast'); $('#click-status').textContent = '마우스 입력 대기';
+  lastFast = false; stopClickTracking(); clicks = newClicks(); renderClicks();
 });
 const canvas = $('#drag-pad');
 const ctx = canvas.getContext('2d');
@@ -80,8 +125,12 @@ canvas.addEventListener('pointerup', (event) => {
 });
 canvas.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
 canvas.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
-window.addEventListener('blur', () => finish('창 포커스 이탈 · 다시 측정', true));
-document.addEventListener('visibilitychange', () => { if (document.hidden) finish('탭 전환 · 다시 측정', true); });
+window.addEventListener('blur', () => {
+  finish('창 포커스 이탈 · 다시 측정', true); stopClickTracking();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { finish('탭 전환 · 다시 측정', true); stopClickTracking(); }
+});
 for (const type of ['contextmenu', 'auxclick']) canvas.addEventListener(type, (event) => event.preventDefault());
 $('#reset-drag').addEventListener('click', () => {
   finish('초기화', true); releases = 0; cancels = 0; logs = []; ctx.clearRect(0, 0, canvas.width, canvas.height);
