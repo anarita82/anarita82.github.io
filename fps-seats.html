@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://www.google-analytics.com; font-src 'self'; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>FPS 최적화 좌석 안내 | OX PC방 상일동역점</title>
   <meta name="description" content="빠른 화면 전환과 정밀한 조작에 집중하는 게이머를 위한 좌석. 540Hz 모니터와 RTX 5080, RAM 32GB 구성을 만나보세요.">
@@ -15,6 +15,8 @@
   <link rel="canonical" href="https://anarita82.github.io/fps-seats.html">
   <link rel="stylesheet" href="styles.css?v=20261015-spec">
   <link rel="stylesheet" href="spec-details.css?v=20261015-spec">
+  <link rel="stylesheet" href="analytics.css">
+  <script src="analytics.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문 바로가기</a>

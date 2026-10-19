@@ -2,23 +2,29 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; img-src 'self' https://www.google-analytics.com; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>개인정보 안내 | OX PC방 상일동역점 / 서울마우스</title>
   <link rel="canonical" href="https://anarita82.github.io/privacy.html">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="analytics.css">
+  <script src="analytics.js" defer></script>
 </head>
 <body>
   <main class="section">
     <p class="eyebrow">OX PC / Seoul Mouse</p>
     <h1>개인정보 안내</h1>
-    <p class="section-lead">이 홈페이지에는 회원가입, 결제, 상담 입력 폼이 없습니다. 상담은 전화 또는 카카오톡 채널로 연결됩니다.</p>
+    <p class="section-lead">이 홈페이지에는 회원가입, 결제, 상담 입력 폼이 없습니다. 상담은 전화 또는 카카오톡 오픈채팅으로 연결됩니다.</p>
     <div class="repair-guide">
       <h2>외부 서비스 이용</h2>
       <p>카카오톡 상담, 네이버 블로그, 네이버 지도 링크는 해당 서비스로 이동합니다. 해당 서비스의 개인정보 안내를 확인해 주세요.</p>
       <h2>접속 정보</h2>
-      <p>홈페이지에 별도의 방문 분석 도구나 광고 추적 코드를 추가하지 않았습니다. 사이트 제공 과정에서 호스팅 서비스가 접속 기록을 처리할 수 있습니다.</p>
+      <p>방문자가 방문 통계 수집에 동의한 경우 Google Analytics 4를 이용해 방문 날짜, 페이지 조회, 유입 사이트·캠페인, 브라우저·기기 등 이용 통계를 처리합니다. Google LLC가 제공하는 외부 서비스이며 데이터는 Google의 처리 환경에서 처리됩니다. 광고 개인 최적화 및 Google Signals 기능은 사용하지 않습니다.</p>
+      <p>동의 전 또는 거부 시 Google 통계 태그를 불러오지 않습니다. 브라우저의 추적 거부(DNT) 또는 글로벌 개인정보 보호 제어(GPC)가 켜져 있으면 통계를 수집하지 않습니다. 동의 여부는 이 브라우저에 저장되며 언제든 아래에서 변경할 수 있습니다. 통계 쿠키의 설정 유효기간은 28일입니다. 통계 수집 거부 시 이 사이트의 해당 통계 쿠키 삭제를 시도하며, 이미 처리된 과거 통계까지 자동 삭제되는 것은 아닙니다.</p>
+      <p>웹주소의 임의 검색 매개변수·주소 조각과 유입 페이지의 상세 경로는 통계로 전송하지 않습니다. 유입 구분용 UTM 매개변수에는 개인정보를 넣지 마세요. 호스팅 서비스는 사이트 제공 과정에서 별도로 접속 기록을 처리할 수 있습니다.</p>
+      <p><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google 개인정보처리방침</a> · <a href="https://support.google.com/analytics/answer/6004245?hl=ko" target="_blank" rel="noopener noreferrer">Google Analytics 데이터 보호 안내</a></p>
+      <button type="button" data-analytics-settings>방문 통계 동의 변경</button>
       <h2>수리 상담</h2>
       <p>회송 주소와 연락처 등 수리에 필요한 정보는 상담 시 안내에 따라 전달해 주세요. 비밀번호나 결제 정보는 보내지 마세요.</p>
       <h2>웹앱의 기기 내 저장</h2>

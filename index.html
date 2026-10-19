@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-HHJn2Ej4VisIRAd9jVeU9Z8n62pZCSmvuxyDWjAjh14='; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com 'sha256-HHJn2Ej4VisIRAd9jVeU9Z8n62pZCSmvuxyDWjAjh14='; style-src 'self'; img-src 'self' data: https://www.google-analytics.com; font-src 'self'; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="google-site-verification" content="_oT3iblKBV8bBHxBhKy2GhGhcBGJkLaC1-1BOFlFdac">
   <meta name="google-adsense-account" content="ca-pub-7335456692438268">
@@ -43,6 +43,8 @@
       ]
     }
   </script>
+  <link rel="stylesheet" href="analytics.css">
+  <script src="analytics.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">본문 바로가기</a>
@@ -469,6 +471,7 @@
       <strong>OX PC방 상일동역점</strong>
       <p>고성능 게이밍 PC · 게이밍 기어 브랜드존 · 서울마우스</p>
       <a href="privacy.html">개인정보 안내</a>
+      <a href="admin.html">운영 관리</a>
     </div>
     <p>© <span id="year"></span> OX PC방 상일동역점. All rights reserved.</p>
   </footer>

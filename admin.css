@@ -1,0 +1,27 @@
+.admin-header { max-width: 1080px; margin: auto; padding: 20px 24px; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid var(--line); }
+.admin-header a:first-child { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; }
+.admin-header a:last-child { margin-left: auto; font-size: 14px; }
+.admin-header > span { color: var(--muted); font-size: 14px; }
+.admin-main { max-width: 1080px; margin: auto; }
+.admin-title,.admin-section { padding: 28px 24px; border-bottom: 1px solid var(--line); }
+.admin-title h1 { font-size: 30px; letter-spacing: 0; margin: 8px 0; }
+.admin-title > p:not(.eyebrow) { color: var(--muted-strong); font-size: 14px; }
+#connection-status { margin-top: 12px; color: #ffd073; }
+.admin-section h2 { font-size: 22px; letter-spacing: 0; margin-bottom: 12px; }
+.admin-muted { color: var(--muted-strong); font-size: 14px; margin: 12px 0; }
+.admin-reports { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 20px; }
+.admin-reports a { display: grid; grid-template-columns: minmax(0,1fr) auto; padding: 20px 12px; min-height: 100px; border-block-end: 1px solid var(--line); gap: 4px 12px; }
+.admin-reports strong { font-size: 18px; }
+.admin-reports span:not([aria-hidden]) { color: var(--muted); font-size: 13px; grid-column: 1; }
+.admin-reports span[aria-hidden] { grid-column: 2; grid-row: 1 / 3; align-self: center; color: #ff526a; }
+.admin-reports [aria-disabled=true] { opacity: .55; cursor: not-allowed; }
+.admin-reports a[href]:hover { background: #16161b; }
+.campaign-form { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) auto; gap: 16px; align-items: end; margin-top: 20px; }
+.admin-main label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; min-width: 0; }
+.admin-main input,.admin-main select { width: 100%; min-height: 44px; border: 1px solid #575760; border-radius: 4px; background: #17171d; color: #fff; padding: 8px 10px; font: inherit; min-width: 0; }
+.admin-main button { min-height: 44px; border: 1px solid #ff526a; background: #a8122a; color: #fff; padding: 8px 16px; border-radius: 4px; font: inherit; font-weight: 700; cursor: pointer; }
+.campaign-output { margin-top: 24px; }
+.campaign-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; font-size: 14px; }
+.admin-footer { padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; color: var(--muted); font-size: 14px; }
+.admin-main :focus-visible { outline: 2px solid #ff526a; outline-offset: 3px; }
+@media(max-width:700px) { .admin-header { gap: 12px; flex-wrap: wrap; padding: 16px; } .admin-title,.admin-section { padding: 24px 16px; } .admin-reports { grid-template-columns: 1fr; } .campaign-form { grid-template-columns: 1fr; } .admin-title h1 { font-size: 26px; } }

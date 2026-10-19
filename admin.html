@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <title>운영 관리 | 서울마우스</title>
+  <link rel="icon" href="seoulmouse-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+  <script type="module" src="admin.js"></script>
+</head>
+<body>
+  <header class="admin-header"><a href="app.html"><img src="seoulmouse-192.png" width="40" height="40" alt="">서울마우스</a><span>운영 관리</span><a href="app.html">웹앱 열기 ↗</a></header>
+  <main class="admin-main">
+    <section class="admin-title"><p class="eyebrow">SEOUL MOUSE</p><h1>방문 통계 관리</h1><p>anarita82.github.io · 홈페이지 및 웹앱</p><p id="connection-status" role="status">통계 연결 상태 확인 중</p></section>
+    <section class="admin-section" aria-labelledby="reports-title">
+      <h2 id="reports-title">방문 보고서</h2>
+      <p class="admin-muted">통계 보고서는 권한이 있는 구글 계정으로 로그인한 뒤 열립니다. 이 페이지에는 방문자 데이터가 저장되거나 공개되지 않습니다.</p>
+      <nav class="admin-reports" aria-label="방문 통계 보고서">
+        <a data-report="overview" aria-disabled="true"><strong>일별 방문 현황</strong><span>사용자 · 방문 · 페이지 조회</span><span aria-hidden="true">↗</span></a>
+        <a data-report="traffic" aria-disabled="true"><strong>유입 경로</strong><span>검색 · 블로그 · 카페 · 공유 링크</span><span aria-hidden="true">↗</span></a>
+        <a data-report="pages" aria-disabled="true"><strong>페이지별 조회</strong><span>홈페이지 · 수리 안내 · 마우스 테스트</span><span aria-hidden="true">↗</span></a>
+        <a data-report="realtime" aria-disabled="true"><strong>실시간 방문</strong><span>현재 접속 흐름</span><span aria-hidden="true">↗</span></a>
+      </nav>
+      <p class="admin-muted">수집 연결 전 방문은 소급 집계되지 않습니다. 광고 차단·동의 거부·앱 내 브라우저 등에 따라 일부 방문이나 유입 경로가 누락될 수 있습니다.</p>
+      <p class="admin-muted">일별 확인 시 보고서의 기간을 ‘어제’ 또는 원하는 날짜로 선택하세요. 일반 보고서 반영에는 24~48시간이 걸릴 수 있습니다. 유입 경로 표는 ‘세션 소스/매체’를 선택하면 출처별로 확인할 수 있습니다.</p>
+    </section>
+    <section class="admin-section" aria-labelledby="campaign-title">
+      <h2 id="campaign-title">유입 경로 구분 링크</h2>
+      <form id="campaign-form" class="campaign-form">
+        <label>보낼 페이지<select id="destination"><option value="app.html">서울마우스 웹앱</option><option value="index.html#seoulmouse">서울마우스 수리 안내</option><option value="mouse-test.html">마우스 자가 테스트</option><option value="index.html">OX PC방 홈페이지</option></select></label>
+        <label>게시할 곳<select id="source"><option value="naver_blog">네이버 블로그</option><option value="naver_cafe">네이버 카페</option><option value="kakao">카카오톡</option><option value="qr">매장 QR</option></select></label>
+        <label>캠페인 이름<input id="campaign" value="seoulmouse" maxlength="80" pattern="[a-zA-Z0-9_.\-]+" required autocomplete="off"></label>
+        <button type="submit">링크 만들기</button>
+      </form>
+      <label class="campaign-output">공유 링크<input id="campaign-url" readonly type="url" aria-describedby="campaign-help"></label>
+      <div class="campaign-actions"><button id="copy-campaign" type="button">링크 복사</button><span id="copy-status" role="status"></span></div>
+      <p class="admin-muted" id="campaign-help">이 링크를 해당 게시물에 사용하면 동의한 방문의 유입 경로를 구분할 수 있습니다. 캠페인 이름은 영문·숫자·밑줄·하이픈·마침표만 사용하고, 고객 이름·연락처 등 개인정보는 넣지 마세요.</p>
+    </section>
+    <footer class="admin-footer"><a href="https://analytics.google.com/" target="_blank" rel="noopener noreferrer">구글 애널리틱스 열기 ↗</a><a href="privacy.html">개인정보 안내</a></footer>
+  </main>
+</body>
+</html>

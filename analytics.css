@@ -1,0 +1,8 @@
+.analytics-prompt { position: fixed; z-index: 10000; left: 0; right: 0; bottom: 0; padding: 18px 24px; background: #16161c; color: #f6f7fb; border-top: 2px solid #e8213d; box-shadow: 0 -6px 24px #0008; max-height: 45vh; overflow: auto; }
+.analytics-prompt p { max-width: 1060px; margin: 0 auto 12px; font-size: 14px; }
+.analytics-prompt > div { max-width: 1060px; margin: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.analytics-prompt button { min-width: 80px; min-height: 44px; border-radius: 4px; border: 1px solid #81818c; background: #292930; color: #fff; padding: 8px 16px; font: inherit; cursor: pointer; }
+.analytics-prompt a { color: #dddde6; font-size: 13px; text-decoration: underline; }
+body.analytics-prompt-open { padding-bottom: 190px; }
+[data-analytics-settings] { min-height: 44px; padding: 8px 16px; border: 1px solid #81818c; border-radius: 4px; background: #292930; color: #fff; font: inherit; cursor: pointer; }
+@media(max-width:640px) { .analytics-prompt { padding: 16px; } body.analytics-prompt-open { padding-bottom: 250px; } }
