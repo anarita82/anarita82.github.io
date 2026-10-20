@@ -33,15 +33,12 @@ let heldButtons = 0;
 let clickPointer = null;
 let doubleDetected = false;
 let simultaneousDetected = false;
-let regularDoubles = 0;
-let lastLeftWasFast = false;
-let leftDoublePending = false;
 function alertTitle() {
   return [doubleDetected && '더블', simultaneousDetected && '동시 입력'].filter(Boolean).join(' · ');
 }
 function renderClicks() {
   $('#click-total').textContent = '전체 클릭 ' + clicks.reduce((sum, item) => sum + item.count, 0) + '회';
-  $('#double-total').textContent = '더블클릭 감지 ' + (regularDoubles + clicks.reduce((sum, item) => sum + item.fast, 0)) + '회';
+  $('#double-total').textContent = '더블클릭 감지 ' + clicks.reduce((sum, item) => sum + item.fast, 0) + '회';
   clicks.forEach((item, index) => {
     $('#count-' + index).textContent = item.count;
     $('#fast-' + index).textContent = item.fast;
@@ -56,7 +53,6 @@ function updateClickButtons(event) {
     buttonMasks.forEach((mask, button) => {
       if (!(newlyPressed & mask)) return;
       const result = recordClick(clicks, button, event.timeStamp);
-      if (result && button === 0) { lastLeftWasFast = result.isFast; leftDoublePending = true; }
       if (result) { doubleDetected ||= result.isFast; pressed.push(names[button]); }
     });
     renderClicks();
@@ -77,7 +73,6 @@ function updateClickButtons(event) {
 }
 clickPad.addEventListener('pointerdown', (event) => {
   if (event.pointerType !== 'mouse') {
-    leftDoublePending = false;
     if (!doubleDetected && !simultaneousDetected) $('#click-status').textContent = '실제 마우스를 연결해 주세요.';
     return;
   }
@@ -86,19 +81,8 @@ clickPad.addEventListener('pointerdown', (event) => {
   clickPad.setPointerCapture(event.pointerId);
   updateClickButtons(event);
 });
-// A browser double-click can be slower than the 80ms chatter threshold.
-clickPad.addEventListener('dblclick', (event) => {
-  if (event.button !== 0 || !leftDoublePending || clicks[0].count < 2 ||
-      (event.pointerType && event.pointerType !== 'mouse') || event.sourceCapabilities?.firesTouchEvents) return;
-  event.preventDefault();
-  leftDoublePending = false;
-  if (!lastLeftWasFast) regularDoubles++;
-  doubleDetected = true;
-  renderClicks();
-  clickPad.classList.toggle('fast', true);
-  $('#click-pad strong').textContent = alertTitle();
-  $('#click-status').textContent = $('#double-total').textContent + ' · 초기화 전까지 경고 유지';
-});
+// Browser double-click timing is unrelated to the per-button chatter threshold.
+clickPad.addEventListener('dblclick', (event) => event.preventDefault());
 // Additional mouse-button presses arrive as pointermove, not another pointerdown.
 clickPad.addEventListener('pointermove', (event) => {
   if (event.pointerType === 'mouse' && event.pointerId === clickPointer) updateClickButtons(event);
@@ -121,7 +105,6 @@ for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
   clickPad.addEventListener(type, (event) => event.preventDefault());
 }
 $('#reset-click').addEventListener('click', () => {
-  regularDoubles = 0; lastLeftWasFast = false; leftDoublePending = false;
   doubleDetected = false; simultaneousDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
   $('#click-pad strong').textContent = '클릭 측정 영역';
   resetWheel();

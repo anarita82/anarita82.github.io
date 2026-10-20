@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="mouse-test.css?v=20261020-count-row">
-  <script type="module" src="mouse-test.js?v=20261020-double-count"></script>
+  <script type="module" src="mouse-test.js?v=20261020-chatter-fix"></script>
   <script src="pwa.js" defer></script>
   <link rel="stylesheet" href="analytics.css">
   <script src="analytics.js" defer></script>
@@ -53,7 +53,7 @@
         <tr><th scope="row">사이드 뒤로</th><td id="count-3">0</td><td id="fast-3">0</td><td id="interval-3">—</td></tr>
         <tr><th scope="row">사이드 앞으로</th><td id="count-4">0</td><td id="fast-4">0</td><td id="interval-4">—</td></tr>
       </tbody></table></div>
-      <p class="test-note">더블클릭 감지 횟수는 브라우저가 인식한 왼쪽 더블클릭과 모든 버튼의 80ms 이내 중복 입력을 합산하며, 같은 입력은 중복 집계하지 않습니다. 표의 ‘80ms 이하’는 빠른 중복 입력만 표시합니다. 의도적인 더블클릭도 포함되며, 횟수가 0이어도 정상 제품임을 보증하지 않습니다.</p>
+      <p class="test-note">더블클릭 감지 횟수는 같은 버튼에서 80ms 이내에 발생한 재입력의 합계이며, 표의 ‘80ms 이하’ 합계와 같습니다. 브라우저의 일반 더블클릭 판정은 집계하지 않습니다. 의도적으로 80ms 이내에 빠르게 누른 경우도 포함되므로 고장 확정이 아닌 참고용입니다. 횟수가 0이어도 정상 제품임을 보증하지 않습니다.</p>
       <p class="test-note">빠른 중복 입력 또는 버튼 2개 이상 동시 입력이 한 번이라도 감지되면 빨간색 배경과 감지 내용이 초기화 전까지 고정됩니다. 이후 일반 클릭을 하거나 버튼을 놓아도 경고가 해제되지 않습니다. 의도적인 빠른 클릭·동시 누름도 포함되므로 이 표시만으로 고장을 확정할 수 없습니다.</p>
       <p class="test-note">사이드 버튼은 커서를 클릭 측정 영역 안에 둔 상태에서 하나씩 눌러 주세요. 마우스 설정에서 버튼을 키보드·매크로 등으로 바꾼 경우 기본 ‘뒤로/앞으로’ 기능으로 설정해야 측정할 수 있습니다. 브라우저·기기 설정에 따라 입력이 전달되지 않거나 페이지 이동이 발생할 수 있습니다.</p>
     </section>
