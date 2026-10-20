@@ -15,9 +15,9 @@
   <link rel="apple-touch-icon" href="seoulmouse-apple-touch-icon.png">
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css?v=20261015-app">
-  <link rel="stylesheet" href="app.css?v=20261015-seoulmouse">
+  <link rel="stylesheet" href="app.css?v=20261020-shared">
   <script src="pwa.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=20261020-shared" defer></script>
   <link rel="stylesheet" href="analytics.css">
   <script src="analytics.js" defer></script>
 </head>
@@ -27,7 +27,7 @@
     <a class="app-brand" href="index.html#seoulmouse"><img src="seoulmouse-192.png" width="44" height="44" alt=""><span>서울마우스 <small>마우스 전문 수리 · 상담 환영</small></span></a>
     <button class="app-install" type="button" data-install hidden>＋ 앱 설치</button>
   </header>
-  <main id="main" class="app-main">
+  <main id="main" class="app-main repair-main">
     <section class="app-store" aria-labelledby="store-title">
       <p class="eyebrow">SEOUL MOUSE · MOUSE REPAIR SPECIALIST</p>
       <h1 id="store-title">서울마우스</h1>
@@ -41,6 +41,158 @@
       <a href="#parcel-checklist">택배 접수 준비 <span aria-hidden="true">↓</span></a>
       <a href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">수리 상담 <span aria-hidden="true">↗</span></a>
     </nav>
+<!-- SEOULMOUSE:START -->
+    <section id="seoulmouse" class="section section-band seoulmouse-section" aria-labelledby="seoulmouse-title">
+      <div class="section-heading heading-row">
+        <div>
+          <p class="eyebrow">Seoul Mouse / Mouse Repair Specialist</p>
+          <p class="repair-category">서울마우스 · 마우스 전문 수리 <span>상담 환영</span></p>
+          <h2 id="seoulmouse-title">고장 난 마우스,<br>다시 제대로 움직이게.</h2>
+        </div>
+        <p>
+          서울마우스는 게이밍 마우스 점검 및 전문 수리를 진행합니다.
+          개인 고객의 마우스 1개부터 PC방 단체 수리까지 방문 및 전국 택배로 접수합니다.
+        </p>
+      </div>
+
+      <div class="repair-hero">
+        <div class="repair-copy">
+          <span class="card-kicker">ALL-IN-ONE REPAIR</span>
+          <h3>한 번의 수리로 주요 소모부품을 한 번에.</h3>
+          <p>
+            더블클릭, 휠 불량, 버튼 입력 문제처럼 오래 사용한 게이밍 마우스에서 자주 생기는 증상을
+            분해 점검 후 주요 내부 부품 중심으로 정비합니다.
+          </p>
+          <div class="repair-flow" aria-label="수리 진행 순서">
+            <span>분해</span>
+            <span>세척</span>
+            <span>부품 교체</span>
+            <span>재조립</span>
+            <span>최종 테스트</span>
+          </div>
+          <div class="repair-actions" aria-label="서울마우스 빠른 이동">
+            <a class="button button-kakao" href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">카카오톡 상담</a>
+            <a class="button button-primary" href="tel:01031004361">전화 상담 · 010-3100-4361</a>
+            <a class="button button-ghost" href="#seoulmouse-detail">서울마우스 자세히 보기</a>
+            <a class="button button-ghost" href="#seoulmouse-delivery">택배 수리 안내</a>
+            <a class="button button-ghost" href="mouse-test.html">마우스 자가 테스트 · 클릭·휠·드래그</a>
+            <a class="button button-ghost" href="#repair-estimate">수리 예상금액</a>
+          </div>
+        </div>
+
+        <div class="repair-panel" id="seoulmouse-detail">
+          <span class="card-kicker">Repair Items</span>
+          <h3>올인원 기본 교체 항목</h3>
+          <ul class="repair-parts" aria-label="올인원 수리 교체 항목">
+            <li>좌·우 클릭</li>
+            <li>사이드 버튼 2개</li>
+            <li>DPI 버튼</li>
+            <li>휠 클릭</li>
+            <li>휠 인코더</li>
+            <li>마우스 피트</li>
+          </ul>
+          <p>마우스 모델과 내부 구조에 따라 실제 교체 가능한 부품은 달라질 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="repair-pricing" id="repair-pricing" aria-labelledby="repair-pricing-title">
+        <div class="section-heading heading-row">
+          <div>
+            <p class="eyebrow">G102 Repair Price</p>
+            <h3 id="repair-pricing-title">G102 수리 가격표</h3>
+          </div>
+          <p>현금 가격 · 2026년 8월 1일 기준<br>무선 마우스 및 다른 모델은 별도 상담해 주세요.</p>
+        </div>
+        <table class="repair-price-table">
+          <caption>G102 기본 수리 및 추가 수리 비용</caption>
+          <thead>
+            <tr><th scope="col">수리 항목</th><th scope="col">현금 가격</th></tr>
+          </thead>
+          <tbody>
+            <tr class="repair-base-price">
+              <th scope="row">기본 수리 <span>내부 버튼·휠 인코더 총 7개 및 마우스 피트 교체</span></th>
+              <td>7,000원</td>
+            </tr>
+            <tr><th scope="row">케이블 교체 <span>피복 벗겨짐·단선</span></th><td>2,000원</td></tr>
+            <tr><th scope="row">휠 롤러 교체 <span>부풀어오름·찢어짐</span></th><td>4,000원</td></tr>
+          </tbody>
+        </table>
+        <p class="repair-price-note">기본 교체 항목: 좌·우 클릭 2개, 휠 인코더·휠 클릭 2개, 사이드 앞·뒤 버튼·DPI 버튼 3개, 마우스 피트.</p>
+        <p class="repair-price-note">왕복 택배비: 매장(본인) 부담.</p>
+      </div>
+
+      <div class="repair-policy" aria-labelledby="repair-policy-title">
+        <h3 id="repair-policy-title">수리·AS 처리 안내</h3>
+        <dl class="repair-policy-list">
+          <div><dt>일반 수리 처리기간</dt><dd><strong>15~20일</strong><span>택배 도착일 기준 · 주말·휴무일 포함</span></dd></div>
+          <div><dt>AS 처리기간</dt><dd><strong>15~20일</strong><span>택배 도착일 기준 · 주말·휴무일 포함</span></dd></div>
+        </dl>
+        <p class="repair-as-note"><strong>AS 케이블 교체 비용 안내</strong>이전 수리 시 케이블을 교체하지 않은 제품이 이후 케이블 단선으로 고장 난 경우, AS 접수 시 케이블 교체 비용 <strong>2,000원</strong>이 청구됩니다.</p>
+      </div>
+
+      <div class="repair-info-grid" id="seoulmouse-delivery">
+        <article>
+          <span>Visit</span>
+          <h3>방문 접수</h3>
+          <p>매장에 직접 마우스를 가지고 방문해 수리 접수를 진행할 수 있습니다. 방문 전 연락 부탁드립니다.</p>
+          <strong>서울마우스 · 방문 전 접수 장소 확인</strong>
+        </article>
+        <article>
+          <span>Delivery</span>
+          <h3>전국 택배 접수</h3>
+          <p>멀리 있어도 전국 어디서나 택배로 접수할 수 있습니다. 에어캡 등 완충 포장 후 보내주세요.</p>
+          <strong>서울특별시 송파구 풍납동 78-83 지층 제노PC방</strong>
+        </article>
+        <article>
+          <span>Test</span>
+          <h3>수리 전·후 테스트</h3>
+          <p>좌·우 클릭, 사이드 버튼, DPI, 휠 클릭, 스크롤 등 주요 기능을 수리 전후로 확인합니다.</p>
+          <strong>유상균 / <a href="tel:01031004361">010-3100-4361</a></strong>
+        </article>
+      </div>
+      <div class="repair-cases" id="repair-cases">
+        <div class="section-heading">
+          <p class="eyebrow">Repair Stories</p>
+          <h3>블로그에서 보는 실제 수리 사례</h3>
+        </div>
+        <article class="article-card">
+          <span class="article-category">로지텍 G102 · 더블클릭 / 휠 불량</span>
+          <h3><a href="https://blog.naver.com/anarita/224080686239" target="_blank" rel="noopener noreferrer">G102 더블클릭·휠 고장, 부품 교체 수리 사례</a></h3>
+          <p>좌·우 더블클릭과 불규칙한 스크롤 증상을 점검한 사례입니다. 스위치 교체, 휠 인코더 청소·윤활, 케이블 확인과 조립 후 테스트 과정을 소개합니다.</p>
+          <a class="button button-ghost" href="https://blog.naver.com/anarita/224080686239" target="_blank" rel="noopener noreferrer">수리 사진과 원문 보기</a>
+          <time datetime="2025-11-19">2025.11.19 · 네이버 블로그</time>
+        </article>
+      </div>
+      <div class="repair-guide">
+        <h3>택배 보내기 전 준비</h3>
+        <ol>
+          <li>마우스 모델과 고장 증상을 전화로 상담해 주세요.</li>
+          <li>성함, 연락처, 회송 주소를 메모해 함께 넣어 주세요. 고장 증상 표기는 선택 사항입니다.</li>
+          <li>마우스를 완충재로 감싼 뒤 흔들리지 않도록 박스에 포장해 주세요.</li>
+          <li>받는 사람은 서울마우스 / 유상균, 연락처는 010-3100-4361로 기재해 주세요.</li>
+        </ol>
+        <p>보내실 곳: 서울특별시 송파구 풍납동 78-83 지층 제노PC방</p>
+      </div>
+      <div class="repair-faq">
+        <h3>자주 묻는 질문</h3>
+        <details>
+          <summary>수리 비용과 처리기간은 어떻게 되나요?</summary>
+          <p>G102 기본 수리는 현금 기준 7,000원입니다. 케이블 교체는 2,000원, 휠 롤러 교체는 4,000원이며, 무선 마우스와 다른 모델은 별도 상담해 주세요. 일반 수리와 AS 처리기간은 모두 택배 도착일 기준 15~20일이며, 주말·휴무일을 포함합니다. <a href="#repair-pricing">G102 가격표 보기</a></p>
+        </details>
+        <details>
+          <summary>AS 접수 시 케이블 교체 비용이 발생하나요?</summary>
+          <p>이전 수리 시 케이블을 교체하지 않은 제품이 이후 케이블 단선으로 고장 난 경우, 케이블 교체 비용 2,000원이 청구됩니다. AS 처리기간은 택배 도착일 기준 15~20일이며, 주말·휴무일을 포함합니다.</p>
+        </details>
+        <details>
+          <summary>모든 마우스를 올인원 수리할 수 있나요?</summary>
+          <p>모델과 내부 구조에 따라 교체 가능한 부품이 달라집니다. 모델명을 알려 주시면 수리 가능 여부를 안내해 드립니다.</p>
+        </details>
+        <details>
+          <summary>방문과 택배 접수 장소가 같은가요?</summary>
+          <p>방문은 사전에 전화로 접수 장소를 확인해 주세요. 택배는 위에 안내된 풍납동 제노PC방 주소로 보내 주세요.</p>
+        </details>
+      </div>
+      <div class="repair-tools">
     <section id="repair-estimate" class="app-section" aria-labelledby="estimate-title">
       <p class="eyebrow">SEOUL MOUSE</p>
       <h2 id="estimate-title">G102 수리 예상금액</h2>
@@ -71,6 +223,9 @@
       <p id="copy-status" class="app-muted" role="status"></p>
       <p class="app-muted" id="storage-status">체크 상태는 이 기기에만 저장됩니다.</p>
     </section>
+      </div>
+    </section>
+<!-- SEOULMOUSE:END -->
   </main>
   <footer class="app-footer"><a href="index.html#seoulmouse">서울마우스 안내</a><a href="privacy.html">개인정보 안내</a><a href="admin.html">운영 관리</a><span data-offline-status>온라인 이용 가능</span></footer>
 </body>

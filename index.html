@@ -26,6 +26,8 @@
   <link rel="canonical" href="https://anarita82.github.io/">
   <link rel="preload" href="hero-pcroom.png" as="image">
   <link rel="stylesheet" href="styles.css?v=20261015-spec">
+  <link rel="stylesheet" href="app.css?v=20261020-shared">
+  <script src="app.js?v=20261020-shared" defer></script>
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -315,6 +317,7 @@
       </div>
     </section>
 
+<!-- SEOULMOUSE:START -->
     <section id="seoulmouse" class="section section-band seoulmouse-section" aria-labelledby="seoulmouse-title">
       <div class="section-heading heading-row">
         <div>
@@ -323,8 +326,8 @@
           <h2 id="seoulmouse-title">고장 난 마우스,<br>다시 제대로 움직이게.</h2>
         </div>
         <p>
-          직접 써보고 고르는 장비 체험에서 한 걸음 더 나아가, OX PC방 상일동역점에서는
-          서울마우스와 함께 게이밍 마우스 점검 및 수리 안내를 제공합니다.
+          서울마우스는 게이밍 마우스 점검 및 전문 수리를 진행합니다.
+          개인 고객의 마우스 1개부터 PC방 단체 수리까지 방문 및 전국 택배로 접수합니다.
         </p>
       </div>
 
@@ -344,10 +347,12 @@
             <span>최종 테스트</span>
           </div>
           <div class="repair-actions" aria-label="서울마우스 빠른 이동">
-            <a class="button button-kakao" href="https://pf.kakao.com/_xkmQYn/chat" target="_blank" rel="noopener noreferrer">카카오톡 상담</a>
+            <a class="button button-kakao" href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">카카오톡 상담</a>
             <a class="button button-primary" href="tel:01031004361">전화 상담 · 010-3100-4361</a>
             <a class="button button-ghost" href="#seoulmouse-detail">서울마우스 자세히 보기</a>
             <a class="button button-ghost" href="#seoulmouse-delivery">택배 수리 안내</a>
+            <a class="button button-ghost" href="mouse-test.html">마우스 자가 테스트 · 클릭·휠·드래그</a>
+            <a class="button button-ghost" href="#repair-estimate">수리 예상금액</a>
           </div>
         </div>
 
@@ -406,7 +411,7 @@
           <span>Visit</span>
           <h3>방문 접수</h3>
           <p>매장에 직접 마우스를 가지고 방문해 수리 접수를 진행할 수 있습니다. 방문 전 연락 부탁드립니다.</p>
-          <strong>OX PC방 상일동역점 / 서울마우스</strong>
+          <strong>서울마우스 · 방문 전 접수 장소 확인</strong>
         </article>
         <article>
           <span>Delivery</span>
@@ -463,7 +468,40 @@
           <p>방문은 사전에 전화로 접수 장소를 확인해 주세요. 택배는 위에 안내된 풍납동 제노PC방 주소로 보내 주세요.</p>
         </details>
       </div>
+      <div class="repair-tools">
+    <section id="repair-estimate" class="app-section" aria-labelledby="estimate-title">
+      <p class="eyebrow">SEOUL MOUSE</p>
+      <h2 id="estimate-title">G102 수리 예상금액</h2>
+      <p class="app-muted">현금 가격 · 2026년 8월 1일 기준</p>
+      <form id="estimate-form">
+        <div class="app-price-row"><span>기본 수리 <small>내부 버튼·인코더 총 7개 + 피트</small></span><strong>7,000원</strong></div>
+        <label class="app-price-row"><span><input type="checkbox" name="cable" value="2000"> 케이블 교체</span><strong>+2,000원</strong></label>
+        <label class="app-price-row"><span><input type="checkbox" name="roller" value="4000"> 휠 롤러 교체</span><strong>+4,000원</strong></label>
+        <div class="app-total"><span>예상 합계</span><output id="estimate-total" aria-live="polite">7,000원</output></div>
+      </form>
+      <p class="app-muted">G102 기준 예상금액입니다. 실제 수리 항목과 최종 비용은 점검 후 확정됩니다. 다른 모델과 무선 마우스는 별도 상담해 주세요.</p>
+      <p class="app-timing">일반 수리·AS 처리 15~20일<br><small>택배 도착일 기준 · 주말·휴무일 포함</small></p>
+      <p class="app-muted">이전 수리 시 케이블을 교체하지 않은 제품이 이후 단선으로 고장 난 경우, AS 시 케이블 교체비 2,000원이 청구됩니다.</p>
+      <div class="app-contact"><a class="button app-kakao" href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">카카오톡 상담</a><a class="button button-ghost" href="tel:01031004361">전화 상담</a></div>
     </section>
+    <section id="parcel-checklist" class="app-section" aria-labelledby="parcel-title">
+      <p class="eyebrow">DELIVERY</p>
+      <h2 id="parcel-title">택배 준비 체크리스트</h2>
+      <div class="app-checklist">
+        <label><input type="checkbox" data-check="consult"> 모델과 증상 상담하기</label>
+        <label><input type="checkbox" data-check="memo"> 성함·연락처·회송 주소 메모 동봉</label>
+        <label><input type="checkbox" data-check="pack"> 완충재로 감싸 박스에 포장</label>
+        <label><input type="checkbox" data-check="address"> 받는 사람·주소 확인하기</label>
+      </div>
+      <p id="checklist-progress" class="app-muted" aria-live="polite">0 / 4 완료</p>
+      <address id="delivery-address">서울특별시 송파구 풍납동 78-83 지층 제노PC방<br>서울마우스 / 유상균<br>010-3100-4361</address>
+      <div class="app-contact"><button class="button button-ghost" type="button" id="copy-address">택배 주소 복사</button><button class="button button-ghost" type="button" id="reset-checklist">체크 초기화</button></div>
+      <p id="copy-status" class="app-muted" role="status"></p>
+      <p class="app-muted" id="storage-status">체크 상태는 이 기기에만 저장됩니다.</p>
+    </section>
+      </div>
+    </section>
+<!-- SEOULMOUSE:END -->
   </main>
 
   <footer class="site-footer">

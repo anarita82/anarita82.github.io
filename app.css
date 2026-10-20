@@ -20,7 +20,7 @@
 .app-price-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .app-price-row strong { flex-shrink: 0; }
 .app-price-row small { display: block; color: var(--muted); font-size: 13px; }
-.app-page input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; accent-color: #e8213d; margin: 0 8px 0 0; flex-shrink: 0; }
+.app-page input[type=checkbox], .seoulmouse-section input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; accent-color: #e8213d; margin: 0 8px 0 0; flex-shrink: 0; }
 .app-total { display: flex; justify-content: space-between; align-items: center; min-height: 78px; gap: 16px; }
 .app-total output { font-size: 28px; color: #ff526a; font-weight: 900; }
 .app-timing { margin-top: 24px; font-weight: 800; }
@@ -29,7 +29,22 @@
 .app-contact .button { width: auto; cursor: pointer; font: inherit; font-weight: 800; }
 .app-kakao { color: #171301; background: #fee500; border: 1px solid #fee500; }
 .app-checklist label { display: flex; align-items: center; min-height: 56px; border-bottom: 1px solid var(--line); padding: 12px 0; }
-.app-page address { font-style: normal; margin-top: 24px; }
+.app-page address, .seoulmouse-section address { font-style: normal; margin-top: 24px; }
+.app-main.repair-main { display: block; }
+.repair-tools { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: 32px; border-top: 1px solid var(--line); }
+.repair-tools > .app-section { min-width: 0; padding: 24px 0; }
+.repair-tools > .app-section + .app-section { padding-left: 24px; border-left: 1px solid var(--line); }
+.repair-tools > .app-section:first-child { padding-right: 24px; }
+.repair-main .seoulmouse-section { padding: 32px 24px; }
+.repair-main .seoulmouse-section .section-heading h2 { font-size: 32px; }
+.repair-main .repair-hero { grid-template-columns: minmax(0,1fr); }
+.repair-main .repair-info-grid { grid-template-columns: minmax(0,1fr); }
+@media(max-width:640px) {
+  .repair-tools { grid-template-columns: minmax(0,1fr); }
+  .repair-tools > .app-section:first-child, .repair-tools > .app-section + .app-section { padding: 24px 0; border-left: 0; }
+  .repair-main .seoulmouse-section { padding: 28px 16px; }
+  .repair-main .seoulmouse-section .section-heading h2 { font-size: 28px; }
+}
 .app-footer { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 24px; padding: 24px 20px; color: var(--muted); font-size: 13px; }
 .app-page button:focus-visible, .app-page a:focus-visible { outline: 2px solid #ff526a; outline-offset: 3px; }
 @media (min-width: 850px) {
