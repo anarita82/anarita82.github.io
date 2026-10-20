@@ -11,7 +11,10 @@
 .test-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 20px 0 12px; border-bottom: 1px solid var(--line); }
 .test-summary span { color: var(--muted-strong); font-size: 13px; }
 #double-total { display: block; color: #ff526a; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
-.test-click-summary { padding-top: 0; margin-bottom: 20px; }
+.test-click-summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: center; min-height: 72px; padding-top: 0; margin-bottom: 20px; }
+.test-click-summary output { min-width: 0; overflow-wrap: anywhere; }
+.test-click-summary #double-total { text-align: right; }
+@media(max-width:640px) { .test-click-summary #click-total, .test-click-summary #double-total { font-size: 18px; } }
 #click-total { display: block; color: #72e4c2; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .test-input-grid { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,1fr); min-height: 268px; margin: 20px 0; }
 .test-pad { min-width: 0; padding: 12px; background: #17171d; border: 1px solid #575760; border-radius: 6px 0 0 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; text-align: center; overflow-wrap: anywhere; }
