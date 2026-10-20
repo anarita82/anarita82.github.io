@@ -3,6 +3,31 @@ const $ = (selector) => document.querySelector(selector);
 const names = ['왼쪽', '가운데', '오른쪽', '사이드 뒤로', '사이드 앞으로'];
 let clicks = newClicks();
 const clickPad = $('#click-pad');
+const wheelPad = $('#wheel-pad');
+let wheelUp = 0;
+let wheelDown = 0;
+function resetWheel() {
+  wheelUp = 0; wheelDown = 0;
+  $('#wheel-up').textContent = '0';
+  $('#wheel-down').textContent = '0';
+  $('#wheel-total').textContent = '0';
+  $('#wheel-direction').textContent = '대기';
+  wheelPad.classList.toggle('up', false);
+  wheelPad.classList.toggle('down', false);
+}
+wheelPad.addEventListener('wheel', (event) => {
+  if (event.ctrlKey) return;
+  event.preventDefault();
+  if (!Number.isFinite(event.deltaY) || event.deltaY === 0) return;
+  const up = event.deltaY < 0;
+  if (up) wheelUp++; else wheelDown++;
+  $('#wheel-up').textContent = String(wheelUp);
+  $('#wheel-down').textContent = String(wheelDown);
+  $('#wheel-total').textContent = String(wheelUp + wheelDown);
+  $('#wheel-direction').textContent = up ? '↑ 위' : '↓ 아래';
+  wheelPad.classList.toggle('up', up);
+  wheelPad.classList.toggle('down', !up);
+}, { passive: false });
 const buttonMasks = [1, 4, 2, 8, 16];
 let heldButtons = 0;
 let clickPointer = null;
@@ -80,6 +105,7 @@ for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
 $('#reset-click').addEventListener('click', () => {
   doubleDetected = false; simultaneousDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
   $('#click-pad strong').textContent = '클릭 측정 영역';
+  resetWheel();
 });
 const canvas = $('#drag-pad');
 const ctx = canvas.getContext('2d');
