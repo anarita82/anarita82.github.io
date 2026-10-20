@@ -11,9 +11,8 @@
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="mouse-test.css?v=20261020-dpi">
+  <link rel="stylesheet" href="mouse-test.css?v=20261020-no-dpi">
   <script type="module" src="mouse-test.js?v=20261020-unified"></script>
-  <script type="module" src="dpi-test.js?v=20261020-dpi"></script>
   <script src="pwa.js" defer></script>
   <link rel="stylesheet" href="analytics.css">
   <script src="analytics.js" defer></script>
@@ -64,19 +63,6 @@
       <dl class="test-metrics"><div><dt>유지 시간</dt><dd id="hold-time">0.0초</dd></div><div><dt>버튼 해제 감지</dt><dd id="release-count">0</dd></div><div><dt>측정 중단</dt><dd id="cancel-count">0</dd></div></dl>
       <p class="test-note">정상적으로 손을 뗀 경우도 ‘버튼 해제’에 포함됩니다. 탭 전환·포커스 이탈 등은 ‘측정 중단’으로 구분합니다. 선이 멈췄다는 사실만으로 센서·케이블 고장을 확정할 수 없습니다.</p>
       <h3>최근 드래그 기록</h3><ol id="drag-log" class="test-log"><li>아직 기록이 없습니다.</li></ol>
-    </section>
-    <section class="test-section" aria-labelledby="dpi-title" id="dpi-test">
-      <div class="test-heading"><h2 id="dpi-title">03. DPI·버튼 확인</h2><button type="button" id="reset-dpi" class="test-reset" aria-label="DPI 측정 초기화"><span aria-hidden="true">↺</span> 초기화</button></div>
-      <p class="test-note">웹에서는 기기의 실제 DPI 값을 직접 읽거나 DPI 변경 버튼을 자동 식별할 수 없습니다. 설정값은 직접 입력하고, 아래 측정값은 기기 DPI가 아닌 화면 이동 기반 참고값으로 구분합니다.</p>
-      <div class="dpi-fields">
-        <label for="dpi-setting">설정 DPI · 직접 입력<input id="dpi-setting" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="예: 800"></label>
-        <label for="dpi-distance">실제 마우스 이동 거리 (cm)<input id="dpi-distance" type="number" min="0.1" max="100" step="0.1" value="1" inputmode="decimal"></label>
-      </div>
-      <p id="dpi-setting-status" class="test-state" role="status">설정 DPI 미입력 · 자동 감지 불가</p>
-      <div id="dpi-move-pad" class="dpi-pad" aria-label="DPI 화면감도 추정 측정 영역"><strong>DPI 추정 · 화면감도</strong><output id="dpi-estimate" aria-live="polite">측정 대기</output><span>화면 이동 <output id="dpi-pixels">0</output> px</span></div>
-      <p class="test-note">이동 거리를 입력한 뒤 영역 안에서 왼쪽 버튼을 누르고, 마우스를 책상 위에서 해당 거리만큼 한 방향으로 움직여 놓아 주세요. 화면 끝에 닿거나 방향을 바꿨다면 다시 측정해 주세요. 결과 단위는 화면 px/in이며, 운영체제 감도·가속·화면 배율·브라우저 확대의 영향을 받으므로 실제 하드웨어 DPI와 다릅니다.</p>
-      <div id="dpi-button-pad" class="dpi-pad" aria-label="DPI 버튼 전달 입력 확인 영역"><strong>DPI 버튼 입력 확인</strong><span id="dpi-button-status" role="status">입력 대기 · DPI 전용 신호 식별 불가</span><output id="dpi-button-count" aria-live="polite">전달 입력 0회</output></div>
-      <p class="test-note">커서를 위 영역에 놓고 DPI 버튼을 눌러보세요. 브라우저에 전달된 마우스 버튼 번호만 기록합니다. DPI 버튼이 내부 설정만 바꾸는 모델은 입력이 표시되지 않으며, 미표시는 고장 판정이 아닙니다. 다른 버튼으로 재설정한 경우에도 DPI 버튼이라고 확정하지 않습니다.</p>
     </section>
     <section class="test-section test-advice" aria-labelledby="result-title">
       <h2 id="result-title">반복해서 이상 입력이 보이나요?</h2>
