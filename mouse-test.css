@@ -44,4 +44,12 @@
 .test-log li { padding: 4px 0; }
 .test-advice p { margin: 16px 0; }
 .test-advice .button { width: auto; }
+.dpi-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; }
+.dpi-fields label { min-width: 0; font-size: 14px; color: #dadadf; }
+.dpi-fields input { display: block; width: 100%; min-width: 0; margin-top: 8px; padding: 12px; border: 1px solid #575760; border-radius: 4px; background: #17171d; color: #fff; font: inherit; }
+.dpi-pad { min-height: 160px; padding: 20px 16px; margin-top: 20px; border: 1px solid #575760; border-radius: 6px; background: #17171d; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; touch-action: none; user-select: none; text-align: center; overflow-wrap: anywhere; }
+.dpi-pad output { font-variant-numeric: tabular-nums; }
+#dpi-estimate { color: #72e4c2; font-size: 22px; font-weight: 800; }
+#dpi-button-status { color: #dadadf; }
+@media(max-width:480px) { .dpi-fields { grid-template-columns: minmax(0,1fr); } }
 @media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } #drag-pad { height: 260px; } .test-metrics { gap: 8px; } .test-metrics dd { font-size: 21px; } }
