@@ -1,0 +1,22 @@
+.download-main { max-width: 1060px; margin: auto; padding: 0 24px; }
+.download-nav { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 16px 0; border-block: 1px solid var(--line); font-size: 14px; }
+.download-nav a, .download-source { color: #72e4c2; text-decoration: underline; text-underline-offset: 4px; }
+.download-head { padding: 32px 0; border-bottom: 1px solid var(--line); }
+.download-head h1 { margin: 8px 0; font-size: 38px; line-height: 1.3; letter-spacing: 0; overflow-wrap: anywhere; }
+.download-lead { font-size: 20px; color: #fff; font-weight: 700; }
+.download-head p, .download-section p { margin: 12px 0; }
+.download-action { display: inline-flex; align-items: center; justify-content: center; gap: 10px; max-width: 100%; margin-top: 16px; text-align: center; }
+.download-action span { font-size: 22px; }
+.download-domain, .download-note { color: var(--muted-strong); font-size: 13px; overflow-wrap: anywhere; }
+.download-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin: 24px 0; padding: 20px 0; border-block: 1px solid var(--line); }
+.download-facts dt { font-size: 13px; color: var(--muted-strong); }
+.download-facts dd { margin: 6px 0 0; font-weight: 800; }
+.download-section { padding: 28px 0; border-bottom: 1px solid var(--line); }
+.download-section h2 { font-size: 22px; letter-spacing: 0; line-height: 1.4; }
+.download-steps { padding-left: 24px; margin: 20px 0 0; }
+.download-steps li { padding: 8px 0 12px 8px; }
+.download-steps li::marker { color: #ff526a; font-weight: 800; }
+.download-steps p, .download-section > p { color: var(--muted-strong); }
+.download-related { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.download-notice p { font-size: 13px; }
+@media(max-width:640px) { .download-main { padding: 0 16px; } .download-head h1 { font-size: 30px; } .download-lead { font-size: 18px; } .download-action { width: 100%; } .download-facts { gap: 16px; font-size: 14px; } .download-related { flex-direction: column; } }
