@@ -8,15 +8,21 @@
   <title>운영 관리 | 서울마우스</title>
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin.css?v=20261020-intake">
   <script type="module" src="admin.js"></script>
 </head>
 <body>
   <header class="admin-header"><a href="app.html"><img src="seoulmouse-192.png" width="40" height="40" alt="">서울마우스</a><span>운영 관리</span><a href="app.html">웹앱 열기 ↗</a></header>
   <main class="admin-main">
-    <section class="admin-title"><p class="eyebrow">SEOUL MOUSE</p><h1>방문 통계 관리</h1><p>anarita82.github.io · 홈페이지 및 웹앱</p><p id="connection-status" role="status">통계 연결 상태 확인 중</p></section>
+    <section class="admin-title"><p class="eyebrow">SEOUL MOUSE</p><h1>서울마우스 운영 관리</h1><p>anarita82.github.io · 홈페이지 및 웹앱</p></section>
+    <section class="admin-section" aria-labelledby="intake-title">
+      <h2 id="intake-title">택배 입고 관리</h2>
+      <a class="intake-login" href="https://clspc.co.kr/wp-admin/admin.php?page=seoulmouse-intake">입고 관리 로그인 <span aria-hidden="true">↗</span></a>
+      <p class="admin-muted">관리자 아이디·비밀번호로 로그인합니다. 고객 정보와 송장 사진은 비공개 관리 서버에서만 열립니다.</p>
+    </section>
     <section class="admin-section" aria-labelledby="reports-title">
       <h2 id="reports-title">방문 보고서</h2>
+      <p id="connection-status" role="status">통계 연결 상태 확인 중</p>
       <p class="admin-muted">통계 보고서는 권한이 있는 구글 계정으로 로그인한 뒤 열립니다. 이 페이지에는 방문자 데이터가 저장되거나 공개되지 않습니다.</p>
       <nav class="admin-reports" aria-label="방문 통계 보고서">
         <a data-report="overview" aria-disabled="true"><strong>일별 방문 현황</strong><span>사용자 · 방문 · 페이지 조회</span><span aria-hidden="true">↗</span></a>

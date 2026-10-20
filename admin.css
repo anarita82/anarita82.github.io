@@ -23,5 +23,6 @@
 .campaign-output { margin-top: 24px; }
 .campaign-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; font-size: 14px; }
 .admin-footer { padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; color: var(--muted); font-size: 14px; }
+.intake-login { display: inline-flex; align-items: center; gap: 24px; min-height: 48px; padding: 12px 20px; background: #b51330; border: 1px solid #ff526a; border-radius: 4px; color: #fff; font-weight: 700; margin: 8px 0; }
 .admin-main :focus-visible { outline: 2px solid #ff526a; outline-offset: 3px; }
 @media(max-width:700px) { .admin-header { gap: 12px; flex-wrap: wrap; padding: 16px; } .admin-title,.admin-section { padding: 24px 16px; } .admin-reports { grid-template-columns: 1fr; } .campaign-form { grid-template-columns: 1fr; } .admin-title h1 { font-size: 26px; } }
