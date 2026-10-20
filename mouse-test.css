@@ -16,14 +16,12 @@
 .test-click-summary #double-total { text-align: right; }
 @media(max-width:640px) { .test-click-summary #click-total, .test-click-summary #double-total { font-size: 18px; } }
 #click-total { display: block; color: #72e4c2; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.test-input-grid { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,1fr); min-height: 268px; margin: 20px 0; }
-.test-pad { min-width: 0; padding: 12px; background: #17171d; border: 1px solid #575760; border-radius: 6px 0 0 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; text-align: center; overflow-wrap: anywhere; }
-.test-wheel { min-width: 0; padding: 12px 6px; border: 1px solid #575760; border-left: 0; border-radius: 0 6px 6px 0; background: #111b1c; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; overscroll-behavior: contain; user-select: none; text-align: center; overflow-wrap: anywhere; }
-.test-wheel strong { font-size: 16px; }
-.wheel-direction { display: grid; place-items: center; min-height: 36px; align-self: stretch; color: #72e4c2; font-size: 18px; font-weight: 800; }
-.test-wheel.up .wheel-direction { background: #72e4c2; color: #071510; }
-.test-wheel.down .wheel-direction { background: #f4c76b; color: #211700; }
-.wheel-counts { width: 100%; margin: 0; display: grid; gap: 6px; }
+.test-pad { min-width: 0; min-height: 268px; margin: 20px 0; padding: 16px; background: #17171d; border: 1px solid #575760; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; overscroll-behavior: contain; text-align: center; overflow-wrap: anywhere; }
+.wheel-feedback { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 12px; width: 100%; max-width: 360px; margin-top: 8px; }
+.wheel-direction { display: grid; place-items: center; min-width: 64px; min-height: 30px; font-weight: 800; }
+.test-pad.up .wheel-direction { background: #72e4c2; color: #071510; }
+.test-pad.down .wheel-direction { background: #f4c76b; color: #211700; }
+.wheel-counts { width: 100%; margin: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
 .wheel-counts div { display: flex; justify-content: space-between; gap: 4px; padding: 0 4px; }
 .wheel-counts dt { color: #d0d0da; font-size: 12px; }
 .wheel-counts dd { margin: 0; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }

@@ -3,7 +3,7 @@ const $ = (selector) => document.querySelector(selector);
 const names = ['왼쪽', '가운데', '오른쪽', '사이드 뒤로', '사이드 앞으로'];
 let clicks = newClicks();
 const clickPad = $('#click-pad');
-const wheelPad = $('#wheel-pad');
+const wheelPad = clickPad;
 let wheelUp = 0;
 let wheelDown = 0;
 function resetWheel() {
@@ -61,7 +61,7 @@ function updateClickButtons(event) {
   const multiple = (next & (next - 1)) !== 0;
   simultaneousDetected ||= multiple;
   clickPad.classList.toggle('fast', doubleDetected || simultaneousDetected);
-  $('#click-pad strong').textContent = alertTitle() || '클릭 측정 영역';
+  $('#click-pad strong').textContent = alertTitle() || '클릭·휠 측정 영역';
   if (multiple) {
     const heldNames = names.filter((_, index) => next & buttonMasks[index]);
     $('#click-status').textContent = (doubleDetected ? '더블 · ' : '') + heldNames.join(' + ') + ' · 동시 입력 감지';
@@ -106,7 +106,7 @@ for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
 }
 $('#reset-click').addEventListener('click', () => {
   doubleDetected = false; simultaneousDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
-  $('#click-pad strong').textContent = '클릭 측정 영역';
+  $('#click-pad strong').textContent = '클릭·휠 측정 영역';
   resetWheel();
 });
 const canvas = $('#drag-pad');
