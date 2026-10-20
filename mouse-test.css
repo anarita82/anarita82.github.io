@@ -11,6 +11,8 @@
 .test-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 20px 0 12px; border-bottom: 1px solid var(--line); }
 .test-summary span { color: var(--muted-strong); font-size: 13px; }
 #double-total { display: block; color: #ff526a; font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.test-click-summary { padding-top: 0; margin-bottom: 20px; }
+#click-total { display: block; color: #72e4c2; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .test-pad { min-height: 200px; margin: 20px 0; background: #17171d; border: 1px solid #575760; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; }
 .test-pad strong { font-size: 20px; }
 .test-pad.fast { border-color: #ff526a; background: #bd1230; color: #ffffff; }

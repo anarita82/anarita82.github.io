@@ -11,8 +11,8 @@
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="mouse-test.css?v=20261019-red-alert">
-  <script type="module" src="mouse-test.js?v=20261019-red-alert"></script>
+  <link rel="stylesheet" href="mouse-test.css?v=20261020-click-total">
+  <script type="module" src="mouse-test.js?v=20261020-click-total"></script>
   <script src="pwa.js" defer></script>
   <link rel="stylesheet" href="analytics.css">
   <script src="analytics.js" defer></script>
@@ -38,6 +38,7 @@
         <img src="seoulmouse-192.png" alt="" width="56" height="56">
         <strong>클릭 측정 영역</strong><span id="click-status" role="status">마우스 입력 대기</span>
       </div>
+      <div class="test-summary test-click-summary"><output id="click-total" aria-live="polite">전체 클릭 0회</output><span>전체 버튼 입력 합계</span></div>
       <div class="test-table-wrap"><table><caption>버튼별 클릭 기록</caption><thead><tr><th scope="col">버튼</th><th scope="col">입력</th><th scope="col">80ms 이하</th><th scope="col">최근 간격</th></tr></thead><tbody>
         <tr><th scope="row">왼쪽</th><td id="count-0">0</td><td id="fast-0">0</td><td id="interval-0">—</td></tr>
         <tr><th scope="row">가운데</th><td id="count-1">0</td><td id="fast-1">0</td><td id="interval-1">—</td></tr>

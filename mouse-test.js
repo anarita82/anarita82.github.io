@@ -12,6 +12,7 @@ function alertTitle() {
   return [doubleDetected && '더블', simultaneousDetected && '동시 입력'].filter(Boolean).join(' · ');
 }
 function renderClicks() {
+  $('#click-total').textContent = '전체 클릭 ' + clicks.reduce((sum, item) => sum + item.count, 0) + '회';
   $('#double-total').textContent = '더블클릭 감지 ' + clicks.reduce((sum, item) => sum + item.fast, 0) + '회';
   clicks.forEach((item, index) => {
     $('#count-' + index).textContent = item.count;
