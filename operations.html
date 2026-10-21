@@ -18,7 +18,8 @@
   <script src="operations-cloud.js?v=20261022-backup" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261022-orientation-final" defer></script>
-  <script src="operations.js?v=20261022-orientation" defer></script>
+  <script src="operations-autofill.js?v=20261022-autofill" defer></script>
+  <script src="operations.js?v=20261022-autofill" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -96,6 +97,7 @@
           <div class="ocr-actions"><button type="button" id="read-photo" class="secondary" disabled>사진에서 글자 읽기</button><button type="button" id="cancel-ocr" class="secondary" hidden>인식 중지</button></div>
           <progress id="ocr-progress" max="1" value="0" aria-label="문자 인식 진행률" hidden></progress>
           <p id="ocr-read-status" class="muted" role="status"></p>
+          <p id="autofill-status" class="muted" role="status" aria-live="polite"></p>
           <p class="muted">사진은 비공개 저장소에 보관되며, 문자 인식은 이 기기에서 처리됩니다.</p>
           <details><summary>송장 인식 내용</summary><pre id="ocr-text">인식 내용 없음</pre></details>
         </div>
