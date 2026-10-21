@@ -8,14 +8,15 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' blob: https://gtauxwbyuzmpbudsnozn.supabase.co; connect-src 'self' https://gtauxwbyuzmpbudsnozn.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
   <link rel="icon" href="seoulmouse-192.png">
-  <link rel="stylesheet" href="operations.css?v=20261021-ocr">
+  <link rel="stylesheet" href="operations.css?v=20261021-share">
   <script src="supabase-2.57.4.js" defer></script>
   <script src="jspdf-4.2.1.js" defer></script>
   <script src="operations-invoice.js?v=20261021-pdf" defer></script>
+  <script src="operations-share.js?v=20261021-share" defer></script>
   <script src="operations-cloud.js?v=20261021-pdf" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261021-ocr" defer></script>
-  <script src="operations.js?v=20261021-ocr" defer></script>
+  <script src="operations.js?v=20261021-share" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -63,6 +64,19 @@
       </section>
     </div>
   </main>
+  <dialog id="share-dialog">
+    <div class="dialog-heading"><h2>입금 요청서 발송 준비</h2><button type="button" class="close" data-close="share-dialog" aria-label="발송 준비 닫기">×</button></div>
+    <div id="share-preview" hidden>
+      <h3 id="share-customer"></h3><p id="share-code" class="muted"></p>
+      <div class="total-row"><span id="share-quantity"></span><strong id="share-total"></strong></div>
+      <details><summary>입금 요청 문구 확인</summary><pre id="share-message" class="share-message"></pre></details>
+      <label class="check-label"><input id="share-confirmed" type="checkbox"> 거래처·출고 수량·입금 요청 금액을 확인했습니다.</label>
+      <p id="share-support" class="muted"></p>
+    </div>
+    <p id="share-status" class="muted" role="status" aria-live="polite"></p>
+    <div class="share-buttons"><button type="button" id="share-native" class="primary" disabled>PDF 공유하기</button><button type="button" id="share-download" class="secondary" disabled>PDF 내려받기</button><button type="button" id="share-copy" class="secondary" disabled>요청 문구 복사</button></div>
+    <div class="dialog-actions"><button type="button" id="share-refresh" class="secondary">다시 준비</button><button type="button" id="share-mark-sent" class="secondary" disabled>실제 발송 완료 표시</button></div>
+  </dialog>
   <dialog id="photo-dialog">
     <div class="dialog-heading"><h2>입고 송장 사진</h2><button type="button" class="close" data-close="photo-dialog" aria-label="송장 사진 닫기">×</button></div>
     <img id="full-photo" class="full-photo" alt="선택한 입고 송장">

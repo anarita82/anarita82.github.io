@@ -12,6 +12,11 @@ let photoPreviewUrl = null;
 let shipmentKey = '';
 let ocrGeneration = 0;
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
+const shareController = window.smShare.createController({
+  load:id=>api(`/api/shipments/${id}/invoice`),
+  isActive:()=>!$('#workspace').hidden,
+  onSent:async id=>{await api(`/api/shipments/${id}/sent`,{confirmed:true}); await refresh(); notice('실제 발송 완료 확인을 저장했습니다.');},
+});
 
 async function api(path, data) {
   return cloudApi(path, data);
@@ -68,6 +73,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  shareController.reset();
   resetReceiptOcr();
   receipts = []; selected = null; render();
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
@@ -165,7 +171,9 @@ function renderShipment(record, shipment) {
       notice('입금 요청 문구가 복사되었습니다. 자동으로 발송되지는 않습니다.');
     } catch { notice('문구 복사에 실패했습니다. 브라우저 권한을 확인해 주세요.'); }
   });
-  actions.append(pdf, copy);
+  const share = element('button', 'PDF 발송 준비');
+  share.addEventListener('click',()=>shareController.open(shipment.id));
+  actions.append(pdf, share, copy);
   if (shipment.sent) actions.append(element('span', '발송 확인됨', 'sent-label'));
   else {
     const sent = element('button', '발송 완료 표시');
