@@ -69,6 +69,11 @@ async function cloudApi(path, data) {
     p_photo_path:data.photo_id, p_note:data.note, p_confirmed:data.confirmed,
   });
   if (path === '/api/shipments') return smRpc('sm_create_shipment', Object.fromEntries(Object.entries(data).map(([k,v]) => ['p_'+k,v])));
+  const invoice = path.match(/^\/api\/shipments\/([a-f0-9-]{36})\/invoice$/);
+  if (invoice && !data) {
+    const shipment = smResult(await smClient.from('sm_shipments').select('*,sm_receipts(*)').eq('id',invoice[1]).single());
+    return { record:shipment.sm_receipts, shipment };
+  }
   const sent = path.match(/^\/api\/shipments\/([a-f0-9-]{36})\/sent$/);
   if (sent) return smRpc('sm_mark_sent', { p_shipment_id:sent[1], p_confirmed:data.confirmed });
   throw new Error('지원하지 않는 작업입니다.');

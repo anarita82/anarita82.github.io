@@ -145,8 +145,17 @@ function renderShipment(record, shipment) {
   heading.append(element('span', `${shipment.sequence}차 출고 · ${shipment.shipped_date}`), element('strong', won(shipment.total)));
   row.append(heading, element('p', `출고 ${shipment.quantity}개 · 기본 수리 ${shipment.repaired}개 · 케이블 ${shipment.cables}개 · 휠 롤러 ${shipment.rollers}개`, 'muted'));
   const actions = element('div', undefined, 'ship-actions');
-  const pdf = element('button', '요청서 준비 중');
-  pdf.disabled = true;
+  const pdf = element('button', '입금 요청서 PDF 받기');
+  pdf.addEventListener('click', async () => {
+    pdf.disabled = true; pdf.textContent = 'PDF 만드는 중…';
+    try {
+      const fresh = await api(`/api/shipments/${shipment.id}/invoice`);
+      if ($('#workspace').hidden) return;
+      await window.smInvoice.download(fresh.record,fresh.shipment,() => !$('#workspace').hidden);
+      notice('PDF 다운로드를 요청했습니다. 기기의 다운로드 목록을 확인해 주세요. 자동 발송되지는 않습니다.');
+    } catch (error) { notice(error.message || 'PDF를 만들지 못했습니다. 다시 시도해 주세요.'); }
+    finally { pdf.disabled = false; pdf.textContent = '입금 요청서 PDF 받기'; }
+  });
   const copy = element('button', '입금 요청 문구 복사');
   copy.addEventListener('click', async () => {
     try {
@@ -282,7 +291,7 @@ $('#shipment-form').addEventListener('submit', async (event) => {
       base_price: Number($('#base-price').value), cable_price: Number($('#cable-price').value), roller_price: Number($('#roller-price').value),
       confirmed: $('#shipment-confirmed').checked,
     });
-    $('#shipment-dialog').close(); await refresh(); notice('출고를 저장했습니다. 입금 요청 문구를 복사할 수 있습니다.');
+    $('#shipment-dialog').close(); await refresh(); notice('출고를 저장했습니다. 입금 요청서 PDF를 받거나 요청 문구를 복사할 수 있습니다.');
   } catch (error) { $('#shipment-error').textContent = error.message; }
   finally { $('#save-shipment').disabled = false; }
 });
