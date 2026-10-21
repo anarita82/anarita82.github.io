@@ -1,0 +1,39 @@
+dialog{max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain}
+@media(max-width:700px){
+  body{overflow-wrap:anywhere}
+  button{min-height:44px;touch-action:manipulation}
+  input:not([type=checkbox]),select,textarea{font-size:16px;min-height:44px;min-width:0;max-width:100%}
+  input[type=date]{width:100%;min-width:0}
+  label{min-width:0}
+  .topbar{height:auto;min-height:68px;padding-top:10px;padding-bottom:10px}
+  .brand{min-width:0}.brand img{flex-shrink:0}
+  .page-heading{flex-wrap:wrap;gap:12px}
+  .list-heading{flex-wrap:wrap;padding:12px 14px;gap:8px}
+  .list-heading h2{font-size:15px}
+  .metrics{margin-bottom:12px}
+  .segments button,.text-button{min-height:44px}
+  .receipt-item{min-height:100px}
+  .receipt-item .item-foot{flex-wrap:wrap}
+  .detail-heading{flex-wrap:wrap}
+  .section-heading{flex-wrap:wrap;align-items:center}
+  .ship-row-head{flex-wrap:wrap;gap:8px}
+  .ship-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .ship-actions button{width:100%;white-space:normal}
+  dialog,#shipment-dialog,#share-dialog{width:calc(100% - 16px);max-width:600px;padding:16px 12px}
+  .dialog-heading{gap:8px;align-items:flex-start}
+  .dialog-heading .close{width:44px;height:44px;min-height:44px;margin-top:-6px}
+  .dialog-heading h2{font-size:19px;padding-top:4px}
+  .dialog-actions{position:sticky;bottom:-16px;background:white;padding:12px 0 calc(12px + env(safe-area-inset-bottom));margin-top:16px;flex-wrap:wrap;z-index:1}
+  .dialog-actions button{flex:1 1 100px;white-space:normal;word-break:keep-all}
+  .cost-grid{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.2fr);gap:8px}
+  .cost-grid strong{font-size:12px}
+  .cost-grid input{width:100%;padding:8px 4px!important}
+  .check-label{align-items:flex-start;line-height:1.65;padding:12px 0}
+  .check-label input{flex:0 0 22px;width:22px;height:22px;margin-top:1px;accent-color:var(--red)}
+  .photo-preview{height:170px}
+  .photo-column details{max-height:none}
+  .upload-label input{font-size:14px}
+  .share-buttons{display:grid;grid-template-columns:1fr}
+  .share-buttons button{width:100%}
+  #notice{overflow-wrap:anywhere;line-height:1.6}
+}

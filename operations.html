@@ -9,6 +9,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' blob: https://gtauxwbyuzmpbudsnozn.supabase.co; connect-src 'self' https://gtauxwbyuzmpbudsnozn.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
   <link rel="icon" href="seoulmouse-192.png">
   <link rel="stylesheet" href="operations.css?v=20261021-share">
+  <link rel="stylesheet" href="operations-mobile.css?v=20261022-mobile">
   <script src="supabase-2.57.4.js" defer></script>
   <script src="jspdf-4.2.1.js" defer></script>
   <script src="operations-invoice.js?v=20261021-pdf" defer></script>
@@ -98,11 +99,11 @@
           <details><summary>송장 인식 내용</summary><pre id="ocr-text">인식 내용 없음</pre></details>
         </div>
         <div class="fields">
-          <label>입고처 / 상호<input id="customer" required maxlength="80"></label>
+          <label>입고처 / 상호<input id="customer" autocomplete="organization" required maxlength="80"></label>
           <div id="ocr-suggestions" hidden><label>읽어낸 입고처 후보<select id="ocr-customer"></select></label><button type="button" id="apply-ocr-customer" class="secondary">선택한 입고처 적용</button></div>
           <label>실제 입고일<input id="received-date" type="date" required></label>
           <p id="detected-dates" class="muted">송장 날짜(참고): 없음</p>
-          <div class="field-row"><label>입고 수량<input id="received-quantity" type="number" min="1" max="10000" step="1" value="1" required></label><label>모델<select id="model"><option value="G102">G102</option><option value="other">다른 모델</option></select></label></div>
+          <div class="field-row"><label>입고 수량<input id="received-quantity" type="number" inputmode="numeric" min="1" max="10000" step="1" value="1" required></label><label>모델<select id="model"><option value="G102">G102</option><option value="other">다른 모델</option></select></label></div>
           <label id="other-model-label" hidden>모델명<input id="other-model" maxlength="50"></label>
           <label>메모<textarea id="receipt-note" rows="2" maxlength="1000"></textarea></label>
           <label class="check-label"><input id="receipt-confirmed" type="checkbox" required> 입고처·실제 입고일·수량을 확인했습니다.</label>
@@ -116,12 +117,12 @@
     <form id="shipment-form">
       <div class="dialog-heading"><div><h2>출고 · 입금 요청서</h2><p id="shipment-customer" class="muted"></p></div><button type="button" class="close" data-close="shipment-dialog" aria-label="출고 등록 닫기">×</button></div>
       <label>출고일<input id="shipped-date" type="date" required></label>
-      <div class="field-row"><label>이번 출고 수량<input id="shipped-quantity" type="number" min="1" max="10000" required></label><label>기본 수리 수량<input id="repaired" type="number" min="0" max="10000" required></label></div>
+      <div class="field-row"><label>이번 출고 수량<input id="shipped-quantity" type="number" inputmode="numeric" min="1" max="10000" required></label><label>기본 수리 수량<input id="repaired" type="number" inputmode="numeric" min="0" max="10000" required></label></div>
       <div class="cost-grid">
         <span>수리 항목</span><span>수량</span><span>단가(원)</span>
-        <strong>기본 수리</strong><span id="base-count"></span><input id="base-price" aria-label="기본 수리 단가" type="number" min="0" max="1000000" step="1" required>
-        <strong>케이블 교체</strong><input id="cables" aria-label="케이블 교체 수량" type="number" min="0" max="10000" step="1" value="0" required><input id="cable-price" aria-label="케이블 교체 단가" type="number" min="0" max="1000000" step="1" value="2000" required>
-        <strong>휠 롤러 교체</strong><input id="rollers" aria-label="휠 롤러 교체 수량" type="number" min="0" max="10000" step="1" value="0" required><input id="roller-price" aria-label="휠 롤러 교체 단가" type="number" min="0" max="1000000" step="1" value="4000" required>
+        <strong>기본 수리</strong><span id="base-count"></span><input id="base-price" aria-label="기본 수리 단가" type="number" inputmode="numeric" min="0" max="1000000" step="1" required>
+        <strong>케이블 교체</strong><input id="cables" aria-label="케이블 교체 수량" type="number" inputmode="numeric" min="0" max="10000" step="1" value="0" required><input id="cable-price" aria-label="케이블 교체 단가" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="2000" required>
+        <strong>휠 롤러 교체</strong><input id="rollers" aria-label="휠 롤러 교체 수량" type="number" inputmode="numeric" min="0" max="10000" step="1" value="0" required><input id="roller-price" aria-label="휠 롤러 교체 단가" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="4000" required>
       </div>
       <p class="muted">G102 기준 기본 7,000원 · 케이블 2,000원 · 휠 롤러 4,000원 / 다른 모델은 확인한 단가로 입력</p>
       <div class="total-row"><span>입금 요청 금액</span><output id="shipment-total" aria-live="polite">0원</output></div>
