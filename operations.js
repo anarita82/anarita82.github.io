@@ -13,8 +13,6 @@ let selectedPhotoFile = null;
 let shipmentKey = '';
 let ocrGeneration = 0;
 let backupGeneration = 0;
-const receiptEdits = new Set();
-const receiptAutoFields = new Map();
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
 const shareController = window.smShare.createController({
   load:id=>api(`/api/shipments/${id}/invoice`),
@@ -77,7 +75,6 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
-  receiptEdits.clear(); receiptAutoFields.clear(); $('#autofill-status').textContent = '';
   backupGeneration++;
   shareController.reset();
   resetReceiptOcr();
@@ -229,7 +226,7 @@ document.querySelectorAll('[data-close]').forEach((button) => button.addEventLis
 
 $('#new-receipt').addEventListener('click', () => {
   $('#receipt-form').reset();
-  receiptEdits.clear(); receiptAutoFields.clear(); $('#autofill-status').textContent = '';
+  $('#ocr-assistance').open = false;
   resetReceiptOcr();
   photoGeneration++; photoId = null; photoBusy = false; selectedPhotoFile = null;
   $('#save-receipt').disabled = false;
@@ -250,11 +247,10 @@ $('#model').addEventListener('change', () => {
 });
 
 $('#take-photo').addEventListener('click',()=>$('#camera-photo').click());
-$('#camera-photo').addEventListener('change',()=>selectReceiptPhoto($('#camera-photo').files[0],true));
-$('#photo').addEventListener('change',()=>selectReceiptPhoto($('#photo').files[0],true));
-async function selectReceiptPhoto(file, autoRead) {
+$('#camera-photo').addEventListener('change',()=>selectReceiptPhoto($('#camera-photo').files[0]));
+$('#photo').addEventListener('change',()=>selectReceiptPhoto($('#photo').files[0]));
+async function selectReceiptPhoto(file) {
   if (!file || !$('#receipt-dialog').open || $('#workspace').hidden) return;
-  clearReceiptAutoFields();
   resetReceiptOcr();
   const generation = ++photoGeneration;
   selectedPhotoFile = file;
@@ -282,7 +278,6 @@ async function selectReceiptPhoto(file, autoRead) {
     if (generation !== photoGeneration || !$('#receipt-dialog').open || $('#workspace').hidden) return;
     photoId = path;
     $('#ocr-status').textContent = '사진 비공개 저장 완료 · 입고 정보를 직접 확인해 주세요.';
-    if (autoRead) $('#read-photo').click();
   } catch (error) {
     if (generation === photoGeneration) { $('#receipt-error').textContent = error.message; $('#ocr-status').textContent = '사진 등록 실패'; }
   } finally {
@@ -299,36 +294,7 @@ function resetReceiptOcr() {
   $('#ocr-suggestions').hidden = true; $('#ocr-customer').replaceChildren();
   $('#detected-dates').textContent = '송장 날짜(참고): 없음';
 }
-function syncReceiptModel() {
-  $('#other-model-label').hidden = $('#model').value !== 'other';
-  $('#other-model').required = $('#model').value === 'other';
-}
-function clearReceiptAutoFields() {
-  for (const [id,item] of receiptAutoFields) {
-    if (!receiptEdits.has(id) && $('#'+id).value===item.value) $('#'+id).value=item.previous;
-  }
-  receiptAutoFields.clear(); $('#autofill-status').textContent = '';
-  syncReceiptModel();
-}
-function applyReceiptOcr(result) {
-  const current={customer:$('#customer').value},edited=Array.from(receiptEdits);
-  const updates=window.smAutofill.plan(result,current,edited);
-  const missing=window.smAutofill.reasons(result,current,edited);
-  const labels={customer:'입고처','received-date':'입고일','received-quantity':'마우스 수량',model:'모델'};
-  const applied=[];
-  for (const [id,value] of Object.entries(updates)) {
-    const input=$('#'+id);
-    if (!receiptAutoFields.has(id)) receiptAutoFields.set(id,{previous:input.value,value});
-    else receiptAutoFields.get(id).value=value;
-    input.value=value;
-    if (labels[id]) applied.push(labels[id]);
-  }
-  syncReceiptModel();
-  $('#receipt-confirmed').checked=false;
-  $('#autofill-status').textContent=(applied.length ? `자동 입력 완료: ${applied.join(' · ')}.` : '자동 입력 가능한 항목을 찾지 못했습니다.')+' '+missing.join(' / ')+'. 내용을 확인한 뒤 저장해 주세요.';
-}
 $('#receipt-dialog').addEventListener('close',()=>{
-  receiptEdits.clear(); receiptAutoFields.clear(); $('#autofill-status').textContent = '';
   resetReceiptOcr(); photoGeneration++; photoBusy = false; photoId = null; selectedPhotoFile = null;
   $('#photo').value = ''; $('#camera-photo').value = ''; $('#photo-preview').removeAttribute('src'); $('#photo-preview').hidden = true;
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
@@ -342,7 +308,6 @@ $('#cancel-ocr').addEventListener('click',()=>{
 $('#read-photo').addEventListener('click',async()=>{
   const file=selectedPhotoFile;
   if (!file) return;
-  clearReceiptAutoFields();
   const generation=++ocrGeneration;
   $('#read-photo').disabled = true; $('#cancel-ocr').hidden = false;
   $('#ocr-progress').hidden = false; $('#ocr-progress').value = 0;
@@ -359,7 +324,6 @@ $('#read-photo').addEventListener('click',async()=>{
     });
     if (!current()) return;
     $('#ocr-text').textContent = result.text || '읽어낸 글자가 없습니다.';
-    applyReceiptOcr(result);
     $('#ocr-read-status').textContent = result.text.trim() ? `${result.rotation ?? 0}도 방향 보정 · 인식 점수 ${Math.round(result.confidence)}/100 (정확도 보장 아님) · 가려진 글자와 입고처를 직접 확인해 주세요.` : '글자를 찾지 못했습니다. 송장 부분을 정면으로 다시 찍거나 직접 입력해 주세요.';
     for (const item of result.senders) {
       const option=element('option',item.value+' ('+item.source+')'); option.value=item.value;
@@ -377,11 +341,9 @@ $('#apply-ocr-customer').addEventListener('click',()=>{
   const candidate=$('#ocr-customer').value;
   if (!candidate) return;
   $('#customer').value = candidate; $('#receipt-confirmed').checked = false;
-  receiptEdits.add('customer');
   $('#customer').focus();
 });
 $('#receipt-form').addEventListener('input',event=>{
-  if (['customer','received-date','received-quantity','model','other-model','receipt-note'].includes(event.target.id)) receiptEdits.add(event.target.id);
   if (event.target.id!=='receipt-confirmed') $('#receipt-confirmed').checked = false;
 });
 

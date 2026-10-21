@@ -18,8 +18,7 @@
   <script src="operations-cloud.js?v=20261022-backup" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261022-orientation-final" defer></script>
-  <script src="operations-autofill.js?v=20261022-autofill-fix" defer></script>
-  <script src="operations.js?v=20261022-autofill-fix" defer></script>
+  <script src="operations.js?v=20261022-manual" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -94,18 +93,19 @@
           <button type="button" id="take-photo" class="photo-preview" aria-label="송장 사진 촬영"><img id="photo-preview" alt="선택한 송장" hidden><span id="photo-placeholder">송장 사진 촬영</span></button>
           <label class="upload-label">기존 사진 선택<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
           <p id="ocr-status" role="status" class="muted">사진 미등록 · JPG / PNG / WebP · 최대 12MB</p>
-          <div class="ocr-actions"><button type="button" id="read-photo" class="secondary" disabled>사진에서 글자 읽기</button><button type="button" id="cancel-ocr" class="secondary" hidden>인식 중지</button></div>
-          <progress id="ocr-progress" max="1" value="0" aria-label="문자 인식 진행률" hidden></progress>
-          <p id="ocr-read-status" class="muted" role="status"></p>
-          <p id="autofill-status" class="muted" role="status" aria-live="polite"></p>
-          <p class="muted">사진은 비공개 저장소에 보관되며, 문자 인식은 이 기기에서 처리됩니다.</p>
-          <details><summary>송장 인식 내용</summary><pre id="ocr-text">인식 내용 없음</pre></details>
+          <p class="muted">사진은 비공개 저장소에 보관됩니다.</p>
+          <details id="ocr-assistance"><summary>송장 글자 읽기 (선택)</summary>
+            <div class="ocr-actions"><button type="button" id="read-photo" class="secondary" disabled>사진에서 글자 읽기</button><button type="button" id="cancel-ocr" class="secondary" hidden>인식 중지</button></div>
+            <progress id="ocr-progress" max="1" value="0" aria-label="문자 인식 진행률" hidden></progress>
+            <p id="ocr-read-status" class="muted" role="status"></p>
+            <p id="detected-dates" class="muted">송장 날짜(참고): 없음</p>
+            <pre id="ocr-text">인식 내용 없음</pre>
+          </details>
         </div>
         <div class="fields">
           <label>입고처 / 상호<input id="customer" autocomplete="organization" required maxlength="80"></label>
           <div id="ocr-suggestions" hidden><label>읽어낸 입고처 후보<select id="ocr-customer"></select></label><button type="button" id="apply-ocr-customer" class="secondary">선택한 입고처 적용</button></div>
           <label>실제 입고일<input id="received-date" type="date" required></label>
-          <p id="detected-dates" class="muted">송장 날짜(참고): 없음</p>
           <div class="field-row"><label>입고 수량<input id="received-quantity" type="number" inputmode="numeric" min="1" max="10000" step="1" value="1" required></label><label>모델<select id="model"><option value="G102">G102</option><option value="other">다른 모델</option></select></label></div>
           <label id="other-model-label" hidden>모델명<input id="other-model" maxlength="50"></label>
           <label>메모<textarea id="receipt-note" rows="2" maxlength="1000"></textarea></label>
