@@ -66,15 +66,23 @@ $('#auth-form').addEventListener('submit', async (event) => {
   finally { $('#auth-submit').disabled = false; }
 });
 
+function clearPrivateView() {
+  receipts = []; selected = null; render();
+  document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+  document.querySelectorAll('form').forEach(form => form.reset());
+  for (const id of ['detail-code','detail-customer','detail-date','detail-model','detail-quantity','detail-state','detail-note','shipment-list','shipment-customer','ocr-text']) $('#'+id).textContent = '';
+  for (const id of ['detail-photo-image','full-photo','photo-preview']) $('#'+id).removeAttribute('src');
+  $('#detail-photo').removeAttribute('href');
+  if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+  photoPreviewUrl = null; photoGeneration++; photoId = null; smPhotoUrls.clear();
+  $('#workspace').hidden = true; $('#auth').hidden = false; $('#logout').hidden = true;
+}
+smClient?.auth.onAuthStateChange(event => {
+  if (event === 'SIGNED_OUT') clearPrivateView();
+});
 $('#logout').addEventListener('click', async () => {
   try {
-    await api('/api/logout', {}); receipts = []; selected = null; render();
-    document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
-    document.querySelectorAll('form').forEach(form => form.reset());
-    $('#detail-photo-image').removeAttribute('src'); $('#detail-photo').removeAttribute('href');
-    $('#full-photo').removeAttribute('src');
-    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
-    photoGeneration++; photoId = null; notice(''); await start();
+    await api('/api/logout', {}); clearPrivateView(); notice(''); await start();
   }
   catch (error) { notice(error.message); }
 });
