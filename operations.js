@@ -9,6 +9,7 @@ let photoId = null;
 let photoBusy = false;
 let photoGeneration = 0;
 let photoPreviewUrl = null;
+let selectedPhotoFile = null;
 let shipmentKey = '';
 let ocrGeneration = 0;
 let backupGeneration = 0;
@@ -84,7 +85,7 @@ function clearPrivateView() {
   for (const id of ['detail-photo-image','full-photo','photo-preview']) $('#'+id).removeAttribute('src');
   $('#detail-photo').removeAttribute('href');
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
-  photoPreviewUrl = null; photoGeneration++; photoId = null; smPhotoUrls.clear();
+  photoPreviewUrl = null; selectedPhotoFile = null; photoGeneration++; photoId = null; smPhotoUrls.clear();
   $('#workspace').hidden = true; $('#auth').hidden = false; $('#logout').hidden = true;
 }
 smClient?.auth.onAuthStateChange(event => {
@@ -226,7 +227,7 @@ document.querySelectorAll('[data-close]').forEach((button) => button.addEventLis
 $('#new-receipt').addEventListener('click', () => {
   $('#receipt-form').reset();
   resetReceiptOcr();
-  photoGeneration++; photoId = null; photoBusy = false;
+  photoGeneration++; photoId = null; photoBusy = false; selectedPhotoFile = null;
   $('#save-receipt').disabled = false;
   $('#received-date').value = serverToday;
   $('#receipt-error').textContent = '';
@@ -244,10 +245,15 @@ $('#model').addEventListener('change', () => {
   $('#other-model').required = $('#model').value === 'other';
 });
 
-$('#photo').addEventListener('change', async () => {
+$('#take-photo').addEventListener('click',()=>$('#camera-photo').click());
+$('#camera-photo').addEventListener('change',()=>selectReceiptPhoto($('#camera-photo').files[0],true));
+$('#photo').addEventListener('change',()=>selectReceiptPhoto($('#photo').files[0],false));
+async function selectReceiptPhoto(file, autoRead) {
+  if (!file || !$('#receipt-dialog').open || $('#workspace').hidden) return;
   resetReceiptOcr();
   const generation = ++photoGeneration;
-  const file = $('#photo').files[0];
+  selectedPhotoFile = file;
+  $('#camera-photo').value = ''; $('#photo').value = '';
   photoId = null;
   photoBusy = false; $('#save-receipt').disabled = false;
   $('#photo-preview').hidden = true; $('#photo-preview').removeAttribute('src'); $('#photo-placeholder').hidden = false;
@@ -268,15 +274,16 @@ $('#photo').addEventListener('change', async () => {
   photoBusy = true; $('#save-receipt').disabled = true;
   try {
     const path = await uploadPrivatePhoto(file);
-    if (generation !== photoGeneration) return;
+    if (generation !== photoGeneration || !$('#receipt-dialog').open || $('#workspace').hidden) return;
     photoId = path;
     $('#ocr-status').textContent = '사진 비공개 저장 완료 · 입고 정보를 직접 확인해 주세요.';
+    if (autoRead) $('#read-photo').click();
   } catch (error) {
     if (generation === photoGeneration) { $('#receipt-error').textContent = error.message; $('#ocr-status').textContent = '사진 등록 실패'; }
   } finally {
     if (generation === photoGeneration) { photoBusy = false; $('#save-receipt').disabled = false; }
   }
-});
+}
 
 function resetReceiptOcr() {
   ocrGeneration++;
@@ -288,18 +295,18 @@ function resetReceiptOcr() {
   $('#detected-dates').textContent = '송장 날짜(참고): 없음';
 }
 $('#receipt-dialog').addEventListener('close',()=>{
-  resetReceiptOcr(); photoGeneration++; photoBusy = false; photoId = null;
-  $('#photo').value = ''; $('#photo-preview').removeAttribute('src'); $('#photo-preview').hidden = true;
+  resetReceiptOcr(); photoGeneration++; photoBusy = false; photoId = null; selectedPhotoFile = null;
+  $('#photo').value = ''; $('#camera-photo').value = ''; $('#photo-preview').removeAttribute('src'); $('#photo-preview').hidden = true;
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
   photoPreviewUrl = null;
 });
 $('#cancel-ocr').addEventListener('click',()=>{
   resetReceiptOcr();
-  $('#read-photo').disabled = !$('#photo').files.length;
+  $('#read-photo').disabled = !selectedPhotoFile;
   $('#ocr-read-status').textContent = '문자 인식을 중지했습니다. 직접 입력할 수 있습니다.';
 });
 $('#read-photo').addEventListener('click',async()=>{
-  const file=$('#photo').files[0];
+  const file=selectedPhotoFile;
   if (!file) return;
   const generation=++ocrGeneration;
   $('#read-photo').disabled = true; $('#cancel-ocr').hidden = false;
@@ -343,7 +350,7 @@ $('#receipt-form').addEventListener('input',event=>{
 $('#receipt-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (photoBusy) return;
-  if ($('#photo').files.length && !photoId) { $('#receipt-error').textContent = '사진을 다시 등록하거나 파일 선택을 해제해 주세요.'; return; }
+  if (selectedPhotoFile && !photoId) { $('#receipt-error').textContent = '사진을 다시 촬영하거나 선택해 주세요.'; return; }
   $('#save-receipt').disabled = true;
   try {
     const receipt = await api('/api/receipts', {

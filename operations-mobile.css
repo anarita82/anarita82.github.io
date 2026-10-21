@@ -1,4 +1,7 @@
 dialog{max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain}
+#take-photo{width:100%;padding:0;border-radius:5px;color:#525964}
+#take-photo:hover{border-color:var(--red)}
+#camera-photo{width:100%;font-size:14px}
 @media(max-width:700px){
   body{overflow-wrap:anywhere}
   button{min-height:44px;touch-action:manipulation}

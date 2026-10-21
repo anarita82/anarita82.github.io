@@ -9,7 +9,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' blob: https://gtauxwbyuzmpbudsnozn.supabase.co; connect-src 'self' https://gtauxwbyuzmpbudsnozn.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
   <link rel="icon" href="seoulmouse-192.png">
   <link rel="stylesheet" href="operations.css?v=20261021-share">
-  <link rel="stylesheet" href="operations-mobile.css?v=20261022-mobile">
+  <link rel="stylesheet" href="operations-mobile.css?v=20261022-camera">
   <script src="supabase-2.57.4.js" defer></script>
   <script src="jspdf-4.2.1.js" defer></script>
   <script src="operations-invoice.js?v=20261021-pdf" defer></script>
@@ -18,7 +18,7 @@
   <script src="operations-cloud.js?v=20261022-backup" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261021-ocr" defer></script>
-  <script src="operations.js?v=20261022-backup" defer></script>
+  <script src="operations.js?v=20261022-camera" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -89,8 +89,9 @@
       <div class="dialog-heading"><h2>입고 등록</h2><button type="button" class="close" data-close="receipt-dialog" aria-label="입고 등록 닫기">×</button></div>
       <div class="receipt-form-grid">
         <div class="photo-column">
-          <label class="upload-label">택배 송장 사진<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
-          <div class="photo-preview"><img id="photo-preview" alt="선택한 송장" hidden><span id="photo-placeholder">송장 사진</span></div>
+          <label class="upload-label">택배 송장 촬영<input id="camera-photo" type="file" accept="image/*" capture="environment"></label>
+          <button type="button" id="take-photo" class="photo-preview" aria-label="송장 사진 촬영"><img id="photo-preview" alt="선택한 송장" hidden><span id="photo-placeholder">송장 사진 촬영</span></button>
+          <label class="upload-label">기존 사진 선택<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
           <p id="ocr-status" role="status" class="muted">사진 미등록 · JPG / PNG / WebP · 최대 12MB</p>
           <div class="ocr-actions"><button type="button" id="read-photo" class="secondary" disabled>사진에서 글자 읽기</button><button type="button" id="cancel-ocr" class="secondary" hidden>인식 중지</button></div>
           <progress id="ocr-progress" max="1" value="0" aria-label="문자 인식 진행률" hidden></progress>
