@@ -3,9 +3,9 @@ window.smAutofill = (() => {
   const unique = values => [...new Set(values)];
   function suggest(result) {
     const fields={};
-    if (!result || Number(result.confidence)<70) return fields;
-    const names=unique((result.senders || []).filter(s=>s.source.startsWith('보내는 분')).map(s=>s.value));
-    if (Number(result.confidence)>=80 && names.length===1) fields.customer=names[0];
+    if (!result) return fields;
+    const names=unique((result.senders || []).filter(s=>String(s.source || '').startsWith('보내는 분')).map(s=>s.value));
+    if (Number(result.confidence)>=70 && names.length===1) fields.customer=names[0];
     const text=String(result.text || '').normalize('NFKC');
     const models=unique(Array.from(text.matchAll(/\bG\s*(\d{3,4})\b/gi),m=>'G'+m[1]));
     if (models.length===1) fields.model=models[0];
@@ -33,5 +33,13 @@ window.smAutofill = (() => {
     }
     return updates;
   }
-  return {suggest,plan};
+  function reasons(result,current,edited=[]) {
+    const fields=suggest(result),dirty=new Set(edited),items=[];
+    for (const [key,label,id] of [['customer','입고처','customer'],['receivedDate','입고일','received-date'],['quantity','마우스 수량','received-quantity'],['model','모델','model']]) {
+      if (dirty.has(id) || (key==='model' && dirty.has('other-model')) || (key==='customer' && current.customer.trim())) items.push(label+': 직접 입력값 유지');
+      else if (!fields[key]) items.push(label+': '+({customer:'보내는 분을 확실하게 읽지 못함',receivedDate:'입고일·도착일 표기 없음 또는 판독 불가',quantity:'마우스 수량 표기 없음 또는 판독 불가',model:'모델 표기 없음 또는 판독 불가'}[key]));
+    }
+    return items;
+  }
+  return {suggest,plan,reasons};
 })();

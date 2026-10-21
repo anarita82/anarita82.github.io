@@ -251,7 +251,7 @@ $('#model').addEventListener('change', () => {
 
 $('#take-photo').addEventListener('click',()=>$('#camera-photo').click());
 $('#camera-photo').addEventListener('change',()=>selectReceiptPhoto($('#camera-photo').files[0],true));
-$('#photo').addEventListener('change',()=>selectReceiptPhoto($('#photo').files[0],false));
+$('#photo').addEventListener('change',()=>selectReceiptPhoto($('#photo').files[0],true));
 async function selectReceiptPhoto(file, autoRead) {
   if (!file || !$('#receipt-dialog').open || $('#workspace').hidden) return;
   clearReceiptAutoFields();
@@ -311,7 +311,9 @@ function clearReceiptAutoFields() {
   syncReceiptModel();
 }
 function applyReceiptOcr(result) {
-  const updates=window.smAutofill.plan(result,{customer:$('#customer').value},Array.from(receiptEdits));
+  const current={customer:$('#customer').value},edited=Array.from(receiptEdits);
+  const updates=window.smAutofill.plan(result,current,edited);
+  const missing=window.smAutofill.reasons(result,current,edited);
   const labels={customer:'입고처','received-date':'입고일','received-quantity':'마우스 수량',model:'모델'};
   const applied=[];
   for (const [id,value] of Object.entries(updates)) {
@@ -323,7 +325,7 @@ function applyReceiptOcr(result) {
   }
   syncReceiptModel();
   $('#receipt-confirmed').checked=false;
-  $('#autofill-status').textContent=applied.length ? `자동 입력: ${applied.join(' · ')}. 나머지 항목과 수량을 직접 확인해 주세요. 발송일·박스 수량은 입고일·마우스 수량으로 넣지 않습니다.` : '확실하게 읽힌 자동 입력 항목이 없습니다. 직접 작성한 내용은 유지했습니다. 입고처·날짜·수량을 확인해 주세요.';
+  $('#autofill-status').textContent=(applied.length ? `자동 입력 완료: ${applied.join(' · ')}.` : '자동 입력 가능한 항목을 찾지 못했습니다.')+' '+missing.join(' / ')+'. 내용을 확인한 뒤 저장해 주세요.';
 }
 $('#receipt-dialog').addEventListener('close',()=>{
   receiptEdits.clear(); receiptAutoFields.clear(); $('#autofill-status').textContent = '';
