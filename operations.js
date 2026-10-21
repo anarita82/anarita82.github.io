@@ -11,6 +11,7 @@ let photoGeneration = 0;
 let photoPreviewUrl = null;
 let shipmentKey = '';
 let ocrGeneration = 0;
+let backupGeneration = 0;
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
 const shareController = window.smShare.createController({
   load:id=>api(`/api/shipments/${id}/invoice`),
@@ -73,6 +74,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  backupGeneration++;
   shareController.reset();
   resetReceiptOcr();
   receipts = []; selected = null; render();
@@ -205,6 +207,20 @@ document.querySelectorAll('[data-filter]').forEach((button) => button.addEventLi
   render();
 }));
 $('#refresh').addEventListener('click', () => refresh().catch((error) => notice(error.message)));
+$('#backup').addEventListener('click', async () => {
+  if (!confirm('입고·출고 전체 내역을 이 기기에 저장할까요? 상호·메모 등 고객 정보가 포함된 암호화되지 않은 파일입니다. 공용 기기에는 저장하지 마세요. 송장 사진 원본은 포함되지 않으며 자동 복원은 지원하지 않습니다. 다른 관리자의 등록이 없는 시간에 진행해 주세요.')) return;
+  const generation = ++backupGeneration;
+  const active = () => generation === backupGeneration && !$('#workspace').hidden;
+  $('#backup').disabled = true;
+  notice('전체 입고·출고 내역을 확인하고 있습니다.');
+  try {
+    const data = await window.smBackup.collect({load:()=>api('/api/backup'),authorize:async()=>(await api('/api/session')).authenticated,isActive:active});
+    if (!active()) return;
+    window.smBackup.download(data);
+    notice(`백업 다운로드를 요청했습니다. 입고 ${data.counts.receipts}건 · 출고 ${data.counts.shipments}건. 송장 사진 원본은 제외됩니다. 파일을 안전한 개인 저장 공간에 보관해 주세요.`);
+  } catch (error) { if (active()) notice(error.message || '백업에 실패했습니다. 다시 시도해 주세요.'); }
+  finally { $('#backup').disabled = false; }
+});
 document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => $('#' + button.dataset.close).close()));
 
 $('#new-receipt').addEventListener('click', () => {

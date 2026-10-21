@@ -50,6 +50,18 @@ async function cloudApi(path, data) {
     smPhotoUrls.clear();
     return {};
   }
+  if (path === '/api/backup' && !data) {
+    const result = {};
+    for (const [key,table] of [['receipts','sm_receipts'],['shipments','sm_shipments']]) {
+      result[key] = [];
+      for (let offset = 0; ; offset += 500) {
+        const rows = smResult(await smClient.from(table).select('*').order('id').range(offset,offset+499));
+        result[key].push(...rows);
+        if (rows.length < 500) break;
+      }
+    }
+    return result;
+  }
   if (path === '/api/receipts' && !data) {
     const all = [];
     // Explicit pagination avoids silently dropping old intake records at the API row limit.
