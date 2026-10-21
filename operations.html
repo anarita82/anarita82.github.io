@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>입출고 관리 | 서울마우스</title>
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: https://gtauxwbyuzmpbudsnozn.supabase.co; connect-src 'self' https://gtauxwbyuzmpbudsnozn.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <link rel="icon" href="seoulmouse-192.png">
+  <link rel="stylesheet" href="operations.css">
+  <script src="supabase-2.57.4.js" defer></script>
+  <script src="operations-cloud.js" defer></script>
+  <script src="operations.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="admin.html" class="brand"><img src="seoulmouse-192.png" width="40" height="40" alt="SM"><span>서울마우스 <small>입출고 관리</small></span></a>
+    <div class="top-actions"><span class="local-badge">비공개 관리</span><button id="logout" class="secondary" hidden>로그아웃</button></div>
+  </header>
+  <p id="notice" role="status" aria-live="polite" hidden></p>
+  <section id="auth" hidden>
+    <form id="auth-form" class="auth-form">
+      <img src="seoulmouse-192.png" alt="서울마우스" width="64" height="64">
+      <h1 id="auth-title">관리자 로그인</h1>
+      <label>이메일<input id="username" type="email" autocomplete="username" required maxlength="254"></label>
+      <label>비밀번호<input id="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+      <label id="password-confirm-label" hidden>비밀번호 확인<input id="password-confirm" type="password" autocomplete="new-password" maxlength="128"></label>
+      <p id="auth-error" class="error" role="alert"></p>
+      <button id="auth-submit" class="primary">로그인</button>
+      <p id="setup-hint" class="muted" hidden>새 비밀번호는 12자 이상입니다. 비밀번호를 분실하면 관리자 복구가 필요합니다.</p>
+    </form>
+  </section>
+  <main id="workspace" hidden>
+    <div class="page-heading"><div><p class="eyebrow">SEOUL MOUSE OPERATIONS</p><h1>입고 · 출고</h1></div><button id="new-receipt" class="primary">+ 입고 등록</button></div>
+    <section class="metrics" aria-label="업무 현황">
+      <div><span>입고 건수</span><strong id="metric-orders">0</strong></div>
+      <div><span>미출고 수량</span><strong id="metric-pending">0개</strong></div>
+      <div><span>출고 수량</span><strong id="metric-shipped">0개</strong></div>
+      <div><span>입금 요청 합계</span><strong id="metric-total">0원</strong></div>
+    </section>
+    <div class="work-grid">
+      <section class="receipt-list" aria-labelledby="list-title">
+        <div class="list-heading"><h2 id="list-title">입고 목록</h2><button id="refresh" class="text-button">새로고침</button></div>
+        <label class="search-label">입고처 검색<input id="search" type="search" placeholder="입고처 또는 접수번호"></label>
+        <div class="segments" aria-label="입고 상태"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="pending" aria-pressed="false">미출고</button><button data-filter="complete" aria-pressed="false">출고 완료</button></div>
+        <div id="receipt-items"></div>
+      </section>
+      <section class="detail" aria-label="선택한 입고 내역">
+        <div id="empty-detail" class="empty"><img src="seoulmouse-192.png" width="64" height="64" alt=""><h2>입고 내역 없음</h2><p>등록한 입고 내역이 여기에 표시됩니다.</p></div>
+        <div id="detail-body" hidden>
+          <div class="detail-heading"><div><p id="detail-code" class="eyebrow"></p><h2 id="detail-customer"></h2></div><span id="detail-state" class="status"></span></div>
+          <dl class="detail-meta"><div><dt>입고일</dt><dd id="detail-date"></dd></div><div><dt>모델</dt><dd id="detail-model"></dd></div><div><dt>입고 / 출고 / 남음</dt><dd id="detail-quantity"></dd></div></dl>
+          <p id="detail-note" class="muted"></p>
+          <a id="detail-photo" class="photo-link" hidden><img id="detail-photo-image" alt="입고 송장 사진"><span>송장 사진 보기</span></a>
+          <div class="section-heading"><h3>출고 및 입금 요청서</h3><button id="new-shipment" class="primary">+ 출고 등록</button></div>
+          <div id="shipment-list"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <dialog id="photo-dialog">
+    <div class="dialog-heading"><h2>입고 송장 사진</h2><button type="button" class="close" data-close="photo-dialog" aria-label="송장 사진 닫기">×</button></div>
+    <img id="full-photo" class="full-photo" alt="선택한 입고 송장">
+  </dialog>
+  <dialog id="receipt-dialog">
+    <form id="receipt-form">
+      <div class="dialog-heading"><h2>입고 등록</h2><button type="button" class="close" data-close="receipt-dialog" aria-label="입고 등록 닫기">×</button></div>
+      <div class="receipt-form-grid">
+        <div class="photo-column">
+          <label class="upload-label">택배 송장 사진<input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+          <div class="photo-preview"><img id="photo-preview" alt="선택한 송장" hidden><span id="photo-placeholder">송장 사진</span></div>
+          <p id="ocr-status" role="status" class="muted">사진 미등록 · JPG / PNG / WebP · 최대 12MB</p>
+          <details><summary>송장 인식 내용</summary><pre id="ocr-text">인식 내용 없음</pre></details>
+        </div>
+        <div class="fields">
+          <label>입고처 / 상호<input id="customer" required maxlength="80"></label>
+          <label>실제 입고일<input id="received-date" type="date" required></label>
+          <p id="detected-dates" class="muted">송장 날짜(참고): 없음</p>
+          <div class="field-row"><label>입고 수량<input id="received-quantity" type="number" min="1" max="10000" step="1" value="1" required></label><label>모델<select id="model"><option value="G102">G102</option><option value="other">다른 모델</option></select></label></div>
+          <label id="other-model-label" hidden>모델명<input id="other-model" maxlength="50"></label>
+          <label>메모<textarea id="receipt-note" rows="2" maxlength="1000"></textarea></label>
+          <label class="check-label"><input id="receipt-confirmed" type="checkbox" required> 입고처·실제 입고일·수량을 확인했습니다.</label>
+        </div>
+      </div>
+      <p id="receipt-error" class="error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="secondary" data-close="receipt-dialog">취소</button><button id="save-receipt" class="primary">입고 저장</button></div>
+    </form>
+  </dialog>
+  <dialog id="shipment-dialog">
+    <form id="shipment-form">
+      <div class="dialog-heading"><div><h2>출고 · 입금 요청서</h2><p id="shipment-customer" class="muted"></p></div><button type="button" class="close" data-close="shipment-dialog" aria-label="출고 등록 닫기">×</button></div>
+      <label>출고일<input id="shipped-date" type="date" required></label>
+      <div class="field-row"><label>이번 출고 수량<input id="shipped-quantity" type="number" min="1" max="10000" required></label><label>기본 수리 수량<input id="repaired" type="number" min="0" max="10000" required></label></div>
+      <div class="cost-grid">
+        <span>수리 항목</span><span>수량</span><span>단가(원)</span>
+        <strong>기본 수리</strong><span id="base-count"></span><input id="base-price" aria-label="기본 수리 단가" type="number" min="0" max="1000000" step="1" required>
+        <strong>케이블 교체</strong><input id="cables" aria-label="케이블 교체 수량" type="number" min="0" max="10000" step="1" value="0" required><input id="cable-price" aria-label="케이블 교체 단가" type="number" min="0" max="1000000" step="1" value="2000" required>
+        <strong>휠 롤러 교체</strong><input id="rollers" aria-label="휠 롤러 교체 수량" type="number" min="0" max="10000" step="1" value="0" required><input id="roller-price" aria-label="휠 롤러 교체 단가" type="number" min="0" max="1000000" step="1" value="4000" required>
+      </div>
+      <p class="muted">G102 기준 기본 7,000원 · 케이블 2,000원 · 휠 롤러 4,000원 / 다른 모델은 확인한 단가로 입력</p>
+      <div class="total-row"><span>입금 요청 금액</span><output id="shipment-total" aria-live="polite">0원</output></div>
+      <p class="muted">왕복 택배비: 매장 부담. 부가세를 별도로 자동 가산하지 않습니다.</p>
+      <label class="check-label"><input id="shipment-confirmed" type="checkbox" required> 수량과 단가, 입금 요청 금액을 확인했습니다.</label>
+      <p id="shipment-error" class="error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="secondary" data-close="shipment-dialog">취소</button><button id="save-shipment" class="primary">출고 저장 · 요청서 만들기</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
