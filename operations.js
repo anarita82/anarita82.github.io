@@ -319,12 +319,12 @@ $('#read-photo').addEventListener('click',async()=>{
     const result=await window.smOcr.recognize(file,(status,progress)=>{
       if (!current()) return;
       const reading=status==='recognizing text';
-      $('#ocr-read-status').textContent = reading ? `송장 글자 읽는 중 ${Math.round(progress*100)}%` : '한글 인식 도구 준비 중';
+      $('#ocr-read-status').textContent = reading ? `송장 방향 비교·글자 읽는 중 ${Math.round(progress*100)}%` : status.startsWith('방향') ? status : '한글 인식 도구 준비 중';
       $('#ocr-progress').value = progress;
     });
     if (!current()) return;
     $('#ocr-text').textContent = result.text || '읽어낸 글자가 없습니다.';
-    $('#ocr-read-status').textContent = result.text.trim() ? `인식 점수 ${Math.round(result.confidence)}/100 · 입고처와 날짜를 직접 확인해 주세요.` : '글자를 찾지 못했습니다. 송장 부분을 정면으로 다시 찍거나 직접 입력해 주세요.';
+    $('#ocr-read-status').textContent = result.text.trim() ? `${result.rotation ?? 0}도 방향 보정 · 인식 점수 ${Math.round(result.confidence)}/100 (정확도 보장 아님) · 가려진 글자와 입고처를 직접 확인해 주세요.` : '글자를 찾지 못했습니다. 송장 부분을 정면으로 다시 찍거나 직접 입력해 주세요.';
     for (const item of result.senders) {
       const option=element('option',item.value+' ('+item.source+')'); option.value=item.value;
       $('#ocr-customer').append(option);

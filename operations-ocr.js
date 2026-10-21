@@ -44,6 +44,21 @@ window.smOcr = (() => {
   }
   let active=null;
   let preparing=false;
+  function candidate(data,rotation,enhanced=false) {
+    const text=String(data.text || '').slice(0,12000);
+    const confidence=Math.max(0,Math.min(100,Number(data.confidence)||0));
+    const parsed=parse(text);
+    // A short English fragment beside a broken sender label is not a reliable name.
+    parsed.senders=parsed.senders.filter(item=>confidence>=50 && ((/[가-힣]/.test(item.value) && confidence>=70) || /PC(?:방|카페)?$/i.test(item.value) || confidence>=80));
+    const letters=(text.match(/[가-힣a-z]/gi)||[]).length;
+    const korean=(text.match(/[가-힣]/g)||[]).length;
+    const labels=(senderLabel.test(text)?1:0)+(receiverLabel.test(text)?1:0);
+    const score=confidence + Math.min(25,korean/3) + labels*12 + Math.min(8,letters/20);
+    return {text,confidence,...parsed,rotation,enhanced,score};
+  }
+  function bestCandidate(results) {
+    return results.reduce((best,item)=>!best || item.score>best.score ? item : best,null);
+  }
   function cancel() {
     if (!active) return;
     active.cancelled=true;
@@ -59,12 +74,13 @@ window.smOcr = (() => {
     let reject;
     const stopped=new Promise((_,fail)=>{reject=fail;});
     const job={cancelled:false,worker:null,reject}; active=job;
-    let canvas;
+    let canvas,rotated;
+    let pass=0;
     const timer=setTimeout(()=>{
       job.cancelled=true;
       job.reject(new Error('인식 시간이 초과되었습니다. 사진을 작게 자르거나 직접 입력해 주세요.'));
       if (job.worker) { job.worker.terminate(); job.worker=null; }
-    },90000);
+    },180000);
     const work=(async()=>{
       const bitmap=await createImageBitmap(file);
       try {
@@ -85,7 +101,10 @@ window.smOcr = (() => {
           workerPath:new URL('tesseract-worker-7.0.0.min.js',base).href,
           corePath:base, langPath:base.replace(/\/$/,''), gzip:false, cacheMethod:'none', workerBlobURL:false,
           logger:event=>{
-            if (!job.cancelled) onProgress(event.status,Math.max(0,Math.min(1,Number(event.progress)||0)));
+            if (!job.cancelled) {
+              const progress=Math.max(0,Math.min(1,Number(event.progress)||0));
+              onProgress(event.status,event.status==='recognizing text' ? .15+(pass+progress)/5*.85 : progress*.15);
+            }
           },
           errorHandler:()=>{},
         });
@@ -93,10 +112,30 @@ window.smOcr = (() => {
       if (job.cancelled) { await worker.terminate(); throw new Error('문자 인식을 중지했습니다.'); }
       job.worker=worker;
       await worker.setParameters({tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});
-      const {data}=await worker.recognize(canvas);
-      if (job.cancelled) throw new Error('문자 인식을 중지했습니다.');
-      const text=String(data.text || '').slice(0,12000);
-      return {text,confidence:Math.max(0,Math.min(100,Number(data.confidence)||0)),...parse(text)};
+      const results=[];
+      const read=async(rotation,enhanced)=>{
+        if (job.cancelled) throw new Error('문자 인식을 중지했습니다.');
+        rotated=document.createElement('canvas');
+        const sideways=rotation===90 || rotation===270;
+        rotated.width=sideways?canvas.height:canvas.width;
+        rotated.height=sideways?canvas.width:canvas.height;
+        const context=rotated.getContext('2d');
+        context.fillStyle='#fff';context.fillRect(0,0,rotated.width,rotated.height);
+        context.translate(rotated.width/2,rotated.height/2);context.rotate(rotation*Math.PI/180);
+        if (enhanced) context.filter='grayscale(1) contrast(1.5)';
+        context.drawImage(canvas,-canvas.width/2,-canvas.height/2);
+        onProgress(`방향 비교 ${Math.min(pass+1,4)}/4${enhanced?' · 대비 보정':''}`, .15+pass/5*.85);
+        try {
+          const {data}=await worker.recognize(rotated,{rotateAuto:enhanced});
+          if (job.cancelled) throw new Error('문자 인식을 중지했습니다.');
+          results.push(candidate(data,rotation,enhanced));
+        } finally { rotated.width=0;rotated.height=0;rotated=null; }
+        pass++;
+      };
+      for (const rotation of [0,90,180,270]) await read(rotation,false);
+      await read(bestCandidate(results).rotation,true);
+      onProgress('방향 비교 완료',1);
+      return {...bestCandidate(results),attempts:results.length};
     })();
     try { return await Promise.race([work,stopped]); }
     catch(error) {
@@ -106,8 +145,9 @@ window.smOcr = (() => {
       clearTimeout(timer);
       if (job.worker) { await job.worker.terminate(); job.worker=null; }
       if (canvas) { canvas.width=0; canvas.height=0; }
+      if (rotated) { rotated.width=0; rotated.height=0; }
       if (active===job) active=null;
     }
   }
-  return {parse,recognize,cancel};
+  return {parse,recognize,cancel,candidate,bestCandidate};
 })();
