@@ -10,6 +10,7 @@ let photoBusy = false;
 let photoGeneration = 0;
 let photoPreviewUrl = null;
 let shipmentKey = '';
+let ocrGeneration = 0;
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
 
 async function api(path, data) {
@@ -67,6 +68,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  resetReceiptOcr();
   receipts = []; selected = null; render();
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
   document.querySelectorAll('form').forEach(form => form.reset());
@@ -199,13 +201,14 @@ document.querySelectorAll('[data-close]').forEach((button) => button.addEventLis
 
 $('#new-receipt').addEventListener('click', () => {
   $('#receipt-form').reset();
+  resetReceiptOcr();
   photoGeneration++; photoId = null; photoBusy = false;
   $('#save-receipt').disabled = false;
   $('#received-date').value = serverToday;
   $('#receipt-error').textContent = '';
   $('#photo-preview').hidden = true; $('#photo-preview').removeAttribute('src'); $('#photo-placeholder').hidden = false;
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
-  $('#ocr-text').textContent = '자동 문자 인식은 준비 중입니다. 입고처·날짜·수량을 직접 확인해 주세요.';
+  $('#ocr-text').textContent = '인식 내용 없음';
   $('#ocr-status').textContent = '사진 미등록 · JPG / PNG / WebP · 최대 12MB';
   $('#detected-dates').textContent = '송장 날짜(참고): 없음';
   $('#other-model-label').hidden = true; $('#other-model').required = false;
@@ -218,12 +221,21 @@ $('#model').addEventListener('change', () => {
 });
 
 $('#photo').addEventListener('change', async () => {
+  resetReceiptOcr();
   const generation = ++photoGeneration;
   const file = $('#photo').files[0];
   photoId = null;
+  photoBusy = false; $('#save-receipt').disabled = false;
+  $('#photo-preview').hidden = true; $('#photo-preview').removeAttribute('src'); $('#photo-placeholder').hidden = false;
+  if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+  photoPreviewUrl = null;
+  $('#receipt-error').textContent = '';
+  $('#ocr-status').textContent = '사진 미등록 · JPG / PNG / WebP · 최대 12MB';
   $('#receipt-confirmed').checked = false;
   if (!file) return;
   if (file.size > 12_000_000) { $('#receipt-error').textContent = '사진은 12MB 이하로 올려 주세요.'; return; }
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { $('#receipt-error').textContent = 'JPG·PNG·WebP 사진을 선택해 주세요.'; return; }
+  $('#read-photo').disabled = false;
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
   photoPreviewUrl = URL.createObjectURL(file);
   $('#photo-preview').src = photoPreviewUrl; $('#photo-preview').hidden = false; $('#photo-placeholder').hidden = true;
@@ -240,6 +252,68 @@ $('#photo').addEventListener('change', async () => {
   } finally {
     if (generation === photoGeneration) { photoBusy = false; $('#save-receipt').disabled = false; }
   }
+});
+
+function resetReceiptOcr() {
+  ocrGeneration++;
+  window.smOcr?.cancel();
+  $('#ocr-progress').hidden = true; $('#ocr-progress').value = 0;
+  $('#cancel-ocr').hidden = true; $('#read-photo').disabled = true;
+  $('#ocr-read-status').textContent = ''; $('#ocr-text').textContent = '인식 내용 없음';
+  $('#ocr-suggestions').hidden = true; $('#ocr-customer').replaceChildren();
+  $('#detected-dates').textContent = '송장 날짜(참고): 없음';
+}
+$('#receipt-dialog').addEventListener('close',()=>{
+  resetReceiptOcr(); photoGeneration++; photoBusy = false; photoId = null;
+  $('#photo').value = ''; $('#photo-preview').removeAttribute('src'); $('#photo-preview').hidden = true;
+  if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+  photoPreviewUrl = null;
+});
+$('#cancel-ocr').addEventListener('click',()=>{
+  resetReceiptOcr();
+  $('#read-photo').disabled = !$('#photo').files.length;
+  $('#ocr-read-status').textContent = '문자 인식을 중지했습니다. 직접 입력할 수 있습니다.';
+});
+$('#read-photo').addEventListener('click',async()=>{
+  const file=$('#photo').files[0];
+  if (!file) return;
+  const generation=++ocrGeneration;
+  $('#read-photo').disabled = true; $('#cancel-ocr').hidden = false;
+  $('#ocr-progress').hidden = false; $('#ocr-progress').value = 0;
+  $('#ocr-suggestions').hidden = true; $('#ocr-customer').replaceChildren();
+  $('#ocr-text').textContent = '인식 중';
+  $('#detected-dates').textContent = '송장 날짜(참고): 확인 중';
+  const current=()=>generation===ocrGeneration && $('#receipt-dialog').open && !$('#workspace').hidden;
+  try {
+    const result=await window.smOcr.recognize(file,(status,progress)=>{
+      if (!current()) return;
+      const reading=status==='recognizing text';
+      $('#ocr-read-status').textContent = reading ? `송장 글자 읽는 중 ${Math.round(progress*100)}%` : '한글 인식 도구 준비 중';
+      $('#ocr-progress').value = progress;
+    });
+    if (!current()) return;
+    $('#ocr-text').textContent = result.text || '읽어낸 글자가 없습니다.';
+    $('#ocr-read-status').textContent = result.text.trim() ? `인식 점수 ${Math.round(result.confidence)}/100 · 입고처와 날짜를 직접 확인해 주세요.` : '글자를 찾지 못했습니다. 송장 부분을 정면으로 다시 찍거나 직접 입력해 주세요.';
+    for (const item of result.senders) {
+      const option=element('option',item.value+' ('+item.source+')'); option.value=item.value;
+      $('#ocr-customer').append(option);
+    }
+    $('#ocr-suggestions').hidden = !result.senders.length;
+    $('#detected-dates').textContent = '송장 날짜 후보: '+(result.dates.join(', ') || '없음')+' · 발송일일 수 있으므로 실제 입고일을 확인해 주세요.';
+  } catch(error) {
+    if (current()) { $('#ocr-read-status').textContent = error.message || '문자 인식에 실패했습니다. 직접 입력해 주세요.'; $('#ocr-text').textContent = '인식 내용 없음'; }
+  } finally {
+    if (current()) { $('#read-photo').disabled = false; $('#cancel-ocr').hidden = true; $('#ocr-progress').hidden = true; }
+  }
+});
+$('#apply-ocr-customer').addEventListener('click',()=>{
+  const candidate=$('#ocr-customer').value;
+  if (!candidate) return;
+  $('#customer').value = candidate; $('#receipt-confirmed').checked = false;
+  $('#customer').focus();
+});
+$('#receipt-form').addEventListener('input',event=>{
+  if (event.target.id!=='receipt-confirmed') $('#receipt-confirmed').checked = false;
 });
 
 $('#receipt-form').addEventListener('submit', async (event) => {
