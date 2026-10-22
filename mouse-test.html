@@ -11,7 +11,7 @@
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="mouse-test.css?v=20261023-large-text">
+  <link rel="stylesheet" href="mouse-test.css?v=20261023-pad-counters">
   <script type="module" src="mouse-test.js?v=20261023-merged-drag"></script>
   <script src="pwa.js" defer></script>
   <link rel="stylesheet" href="analytics.css">
@@ -35,6 +35,7 @@
       <p class="app-muted">아래 영역에서 왼쪽·가운데·오른쪽·사이드 버튼을 각각 천천히 한 번씩 눌러 주세요. 80ms 이내 연속 입력을 버튼별로 집계합니다.</p>
       <div id="click-pad" class="test-pad" aria-label="마우스 클릭·휠·드래그 통합 측정 영역">
         <canvas id="drag-pad" width="1000" height="400" aria-hidden="true"></canvas>
+        <div class="test-summary test-click-summary"><output id="click-total" aria-live="polite">전체 클릭 0회</output><output id="double-total" aria-live="polite">더블클릭 감지 0회</output></div>
         <img src="seoulmouse-192.png" alt="" width="56" height="56">
         <strong>클릭·휠·드래그 측정 영역</strong><span id="click-status" role="status">마우스 입력 대기</span>
         <span id="drag-status" class="test-state" role="status">드래그 입력 대기</span>
@@ -46,7 +47,6 @@
       </div>
       <dl class="test-metrics"><div><dt>유지 시간</dt><dd id="hold-time">0.0초</dd></div><div><dt>버튼 해제 감지</dt><dd id="release-count">0</dd></div><div><dt>측정 중단</dt><dd id="cancel-count">0</dd></div></dl>
       <p class="test-note">왼쪽 또는 오른쪽 버튼을 누른 채 움직이면 같은 영역에 이동 궤적이 표시됩니다. 정상적으로 손을 뗀 경우도 버튼 해제에 포함되며, 탭 전환·포커스 이탈은 측정 중단으로 구분합니다. 휠 횟수는 브라우저 스크롤 이벤트 기준으로 실제 눈금 수와 다를 수 있습니다. 이 결과만으로 고장을 확정할 수 없습니다.</p>
-      <div class="test-summary test-click-summary"><output id="click-total" aria-live="polite">전체 클릭 0회</output><output id="double-total" aria-live="polite">더블클릭 감지 0회</output></div>
       <div class="test-table-wrap"><table><caption>버튼별 클릭 기록</caption><thead><tr><th scope="col">버튼</th><th scope="col">입력</th><th scope="col">80ms 이하</th><th scope="col">최근 간격</th></tr></thead><tbody>
         <tr><th scope="row">왼쪽</th><td id="count-0">0</td><td id="fast-0">0</td><td id="interval-0">—</td></tr>
         <tr><th scope="row">가운데</th><td id="count-1">0</td><td id="fast-1">0</td><td id="interval-1">—</td></tr>

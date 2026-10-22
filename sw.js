@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'oxpc-app-';
-const CACHE_NAME = CACHE_PREFIX + '20261023-large-text';
+const CACHE_NAME = CACHE_PREFIX + '20261023-pad-counters';
 const ASSETS = ['app.html', 'app.css', 'app.js', 'pwa.js', 'offline.html', 'index.html',
   'styles.css', 'script.js', 'spec-details.css', 'fps-seats.html', 'benq-540hz.html',
   'rtx5080-pc.html', 'privacy.html', 'manifest.webmanifest', 'hero-pcroom.png',
