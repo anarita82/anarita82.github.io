@@ -61,7 +61,7 @@ function updateClickButtons(event) {
   const multiple = (next & (next - 1)) !== 0;
   simultaneousDetected ||= multiple;
   clickPad.classList.toggle('fast', doubleDetected || simultaneousDetected);
-  $('#click-pad strong').textContent = alertTitle() || '클릭·휠 측정 영역';
+  $('#click-pad strong').textContent = alertTitle() || '클릭·휠·드래그 측정 영역';
   if (multiple) {
     const heldNames = names.filter((_, index) => next & buttonMasks[index]);
     $('#click-status').textContent = (doubleDetected ? '더블 · ' : '') + heldNames.join(' + ') + ' · 동시 입력 감지';
@@ -73,6 +73,7 @@ function updateClickButtons(event) {
 }
 clickPad.addEventListener('pointerdown', (event) => {
   if (event.pointerType !== 'mouse') {
+    $('#drag-status').textContent = '실제 마우스를 연결해 주세요.';
     if (!doubleDetected && !simultaneousDetected) $('#click-status').textContent = '실제 마우스를 연결해 주세요.';
     return;
   }
@@ -80,16 +81,18 @@ clickPad.addEventListener('pointerdown', (event) => {
   clickPointer = event.pointerId;
   clickPad.setPointerCapture(event.pointerId);
   updateClickButtons(event);
+  beginDrag(event);
 });
 // Browser double-click timing is unrelated to the per-button chatter threshold.
 clickPad.addEventListener('dblclick', (event) => event.preventDefault());
 // Additional mouse-button presses arrive as pointermove, not another pointerdown.
 clickPad.addEventListener('pointermove', (event) => {
-  if (event.pointerType === 'mouse' && event.pointerId === clickPointer) updateClickButtons(event);
+  if (event.pointerType === 'mouse' && event.pointerId === clickPointer) { updateClickButtons(event); moveDrag(event); }
 });
 clickPad.addEventListener('pointerup', (event) => {
   event.preventDefault();
   if (event.pointerId === clickPointer) updateClickButtons(event);
+  if (active?.id === event.pointerId && !(event.buttons & active.mask)) finish(active.label + ' 버튼 해제');
 });
 function stopClickTracking() {
   const id = clickPointer;
@@ -106,8 +109,9 @@ for (const type of ['mousedown', 'mouseup', 'contextmenu', 'auxclick']) {
 }
 $('#reset-click').addEventListener('click', () => {
   doubleDetected = false; simultaneousDetected = false; stopClickTracking(); clicks = newClicks(); renderClicks();
-  $('#click-pad strong').textContent = '클릭·휠 측정 영역';
+  $('#click-pad strong').textContent = '클릭·휠·드래그 측정 영역';
   resetWheel();
+  resetDrag();
 });
 const canvas = $('#drag-pad');
 const ctx = canvas.getContext('2d');
@@ -139,39 +143,35 @@ function finish(reason, cancelled = false) {
   logs.unshift(duration + '초 · ' + reason);
   logs = logs.slice(0, 12);
   $('#drag-log').replaceChildren(...logs.map((text) => { const li = document.createElement('li'); li.textContent = text; return li; }));
-  if (canvas.hasPointerCapture(previous.id)) canvas.releasePointerCapture(previous.id);
+  // Pointer capture belongs to the shared pad until all mouse buttons are released.
 }
-canvas.addEventListener('pointerdown', (event) => {
+function beginDrag(event) {
   if (event.pointerType !== 'mouse') { $('#drag-status').textContent = '실제 마우스를 연결해 주세요.'; return; }
   if (![0, 2].includes(event.button) || active) return;
   event.preventDefault();
   active = { id: event.pointerId, start: performance.now(), last: point(event),
     mask: event.button === 0 ? 1 : 2, label: names[event.button] };
-  canvas.setPointerCapture(event.pointerId);
   $('#drag-status').textContent = active.label + ' 버튼 유지 중';
   tick();
-});
-canvas.addEventListener('pointermove', (event) => {
+}
+function moveDrag(event) {
   if (!active || active.id !== event.pointerId) return;
   if (!(event.buttons & active.mask)) { finish(active.label + ' 버튼 해제 상태 감지'); return; }
   const next = point(event);
   ctx.strokeStyle = '#72e4c2'; ctx.lineWidth = 3; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(active.last.x, active.last.y); ctx.lineTo(next.x, next.y); ctx.stroke(); active.last = next;
-});
-canvas.addEventListener('pointerup', (event) => {
-  if (active?.id === event.pointerId && !(event.buttons & active.mask)) finish(active.label + ' 버튼 해제');
-});
-canvas.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
-canvas.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
+}
+clickPad.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
+clickPad.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
 window.addEventListener('blur', () => {
   finish('창 포커스 이탈 · 다시 측정', true); stopClickTracking();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { finish('탭 전환 · 다시 측정', true); stopClickTracking(); }
 });
-for (const type of ['contextmenu', 'auxclick']) canvas.addEventListener(type, (event) => event.preventDefault());
-$('#reset-drag').addEventListener('click', () => {
+function resetDrag() {
   finish('초기화', true); releases = 0; cancels = 0; logs = []; ctx.clearRect(0, 0, canvas.width, canvas.height);
   $('#hold-time').textContent = '0.0초'; $('#release-count').textContent = '0'; $('#cancel-count').textContent = '0';
   $('#drag-status').textContent = '마우스 입력 대기'; const li = document.createElement('li'); li.textContent = '아직 기록이 없습니다.'; $('#drag-log').replaceChildren(li);
-});
+}
+$('#reset-drag').addEventListener('click', resetDrag);
