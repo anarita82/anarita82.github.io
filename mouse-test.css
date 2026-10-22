@@ -47,11 +47,6 @@
 .test-pad.up .wheel-direction, .test-pad.down .wheel-direction { text-shadow: none; }
 .test-pad .test-state { min-height: 28px; margin: 0; }
 .test-state { margin-top: 12px; min-height: 28px; color: #72e4c2; font-weight: 700; }
-.test-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
-.test-metrics dt { font-size: 13px; color: #bcbcc8; }
-.test-metrics dd { margin: 6px 0 0; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.test-log { margin: 8px 0 0; padding-left: 22px; font-size: 14px; color: #d0d0da; max-height: 180px; overflow: auto; }
-.test-log li { padding: 4px 0; }
 .test-advice p { margin: 16px 0; }
 .test-advice .button { width: auto; }
-@media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } .test-pad { min-height: 390px; } .test-metrics { gap: 8px; } .test-metrics dd { font-size: 21px; } }
+@media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } .test-pad { min-height: 390px; } }

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'oxpc-app-';
-const CACHE_NAME = CACHE_PREFIX + '20261023-line-colors';
+const CACHE_NAME = CACHE_PREFIX + '20261023-no-hold-records';
 const ASSETS = ['app.html', 'app.css', 'app.js', 'pwa.js', 'offline.html', 'index.html',
   'styles.css', 'script.js', 'spec-details.css', 'fps-seats.html', 'benq-540hz.html',
   'rtx5080-pc.html', 'privacy.html', 'manifest.webmanifest', 'hero-pcroom.png',

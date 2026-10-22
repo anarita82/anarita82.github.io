@@ -116,33 +116,14 @@ $('#reset-click').addEventListener('click', () => {
 const canvas = $('#drag-pad');
 const ctx = canvas.getContext('2d');
 let active = null;
-let releases = 0;
-let cancels = 0;
-let logs = [];
-let frame = 0;
 function point(event) {
   const rect = canvas.getBoundingClientRect();
   return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height };
 }
-function tick() {
+function finish(reason) {
   if (!active) return;
-  $('#hold-time').textContent = ((performance.now() - active.start) / 1000).toFixed(1) + '초';
-  frame = requestAnimationFrame(tick);
-}
-function finish(reason, cancelled = false) {
-  if (!active) return;
-  const previous = active;
   active = null;
-  cancelAnimationFrame(frame);
-  const duration = ((performance.now() - previous.start) / 1000).toFixed(1);
-  $('#hold-time').textContent = duration + '초';
-  if (cancelled) cancels++; else releases++;
-  $('#release-count').textContent = releases;
-  $('#cancel-count').textContent = cancels;
   $('#drag-status').textContent = reason;
-  logs.unshift(duration + '초 · ' + reason);
-  logs = logs.slice(0, 12);
-  $('#drag-log').replaceChildren(...logs.map((text) => { const li = document.createElement('li'); li.textContent = text; return li; }));
   // Pointer capture belongs to the shared pad until all mouse buttons are released.
 }
 function beginDrag(event) {
@@ -150,10 +131,9 @@ function beginDrag(event) {
   if (![0, 2].includes(event.button) || active) return;
   event.preventDefault();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  active = { id: event.pointerId, start: performance.now(), last: point(event),
+  active = { id: event.pointerId, last: point(event),
     mask: event.button === 0 ? 1 : 2, label: names[event.button] };
   $('#drag-status').textContent = active.label + ' 버튼 유지 중';
-  tick();
 }
 function moveDrag(event) {
   if (!active || active.id !== event.pointerId) return;
@@ -163,17 +143,16 @@ function moveDrag(event) {
   ctx.lineWidth = 3; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(active.last.x, active.last.y); ctx.lineTo(next.x, next.y); ctx.stroke(); active.last = next;
 }
-clickPad.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
-clickPad.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
+clickPad.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정'));
+clickPad.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정'));
 window.addEventListener('blur', () => {
-  finish('창 포커스 이탈 · 다시 측정', true); stopClickTracking();
+  finish('창 포커스 이탈 · 다시 측정'); stopClickTracking();
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { finish('탭 전환 · 다시 측정', true); stopClickTracking(); }
+  if (document.hidden) { finish('탭 전환 · 다시 측정'); stopClickTracking(); }
 });
 function resetDrag() {
-  finish('초기화', true); releases = 0; cancels = 0; logs = []; ctx.clearRect(0, 0, canvas.width, canvas.height);
-  $('#hold-time').textContent = '0.0초'; $('#release-count').textContent = '0'; $('#cancel-count').textContent = '0';
-  $('#drag-status').textContent = '마우스 입력 대기'; const li = document.createElement('li'); li.textContent = '아직 기록이 없습니다.'; $('#drag-log').replaceChildren(li);
+  active = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  $('#drag-status').textContent = '드래그 입력 대기';
 }
-$('#reset-drag').addEventListener('click', resetDrag);
