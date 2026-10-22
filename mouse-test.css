@@ -18,28 +18,28 @@
 #click-total { display: block; color: #72e4c2; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .test-pad { min-width: 0; min-height: 268px; margin: 20px 0; padding: 16px; background: #17171d; border: 1px solid #575760; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; user-select: none; touch-action: none; overscroll-behavior: contain; text-align: center; overflow-wrap: anywhere; }
 .wheel-feedback { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 12px; width: 100%; max-width: 360px; margin-top: 8px; }
-.wheel-direction { display: grid; place-items: center; min-width: 64px; min-height: 30px; font-weight: 800; }
+.wheel-direction { display: grid; place-items: center; min-width: 80px; min-height: 36px; font-weight: 900; }
 .test-pad.up .wheel-direction { background: #72e4c2; color: #071510; }
 .test-pad.down .wheel-direction { background: #f4c76b; color: #211700; }
 .wheel-counts { width: 100%; margin: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
-.wheel-counts div { display: flex; justify-content: space-between; gap: 4px; padding: 0 4px; }
-.wheel-counts dt { color: #d0d0da; font-size: 12px; }
-.wheel-counts dd { margin: 0; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
-.test-pad strong { font-size: 20px; }
+.wheel-counts div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px; min-width: 0; }
+.wheel-counts dt { color: #ffffff; font-size: 18px; font-weight: 900; }
+.wheel-counts dd { margin: 0; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+.test-pad strong { font-size: 28px; line-height: 1.35; max-width: 100%; }
 .test-pad.fast { border-color: #ff526a; background: #bd1230; color: #ffffff; }
 .test-pad.fast span { color: #ffffff; }
-.test-pad span { color: #dadadf; font-size: 14px; }
+.test-pad span { color: #ffffff; font-size: 20px; line-height: 1.4; font-weight: 900; max-width: 100%; }
 .test-table-wrap { overflow-x: auto; }
 .test-main table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 15px; }
 .test-main caption { text-align: left; margin-bottom: 10px; font-weight: 800; }
 .test-main th, .test-main td { border-bottom: 1px solid #34343b; padding: 12px 6px; text-align: center; font-variant-numeric: tabular-nums; }
 .test-main thead { color: #bcbcc8; }
 .test-note { color: #bcbcc8; font-size: 13px; margin-top: 16px; }
-.test-pad { position: relative; min-height: 360px; cursor: crosshair; isolation: isolate; }
+.test-pad { position: relative; min-height: 420px; cursor: crosshair; isolation: isolate; }
 .test-pad > :not(canvas) { position: relative; z-index: 1; pointer-events: none; text-shadow: -1px -1px 0 #17171d, 1px -1px 0 #17171d, -1px 1px 0 #17171d, 1px 1px 0 #17171d, 0 0 5px #17171d; }
 .test-pad > :not(canvas) * { pointer-events: none; }
 #drag-pad { position: absolute; z-index: 0; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; border-radius: 6px; }
-.test-pad strong, .test-pad #click-status, .test-pad #drag-status { color: #ffffff; font-weight: 800; }
+.test-pad strong, .test-pad #click-status, .test-pad #drag-status { color: #ffffff; font-weight: 900; }
 .test-pad.up .wheel-direction, .test-pad.down .wheel-direction { text-shadow: none; }
 .test-pad .test-state { min-height: 28px; margin: 0; }
 .test-state { margin-top: 12px; min-height: 28px; color: #72e4c2; font-weight: 700; }
@@ -50,4 +50,4 @@
 .test-log li { padding: 4px 0; }
 .test-advice p { margin: 16px 0; }
 .test-advice .button { width: auto; }
-@media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } .test-pad { min-height: 360px; } .test-metrics { gap: 8px; } .test-metrics dd { font-size: 21px; } }
+@media(max-width:640px) { .test-intro,.test-section { padding: 24px 16px; } .test-intro h1 { font-size: 28px; } .test-section h2 { font-size: 21px; } .test-main table { font-size: 13px; } .test-pad { min-height: 420px; } .test-metrics { gap: 8px; } .test-metrics dd { font-size: 21px; } }
