@@ -113,14 +113,16 @@ $('#reset-click').addEventListener('click', () => {
   resetWheel();
   resetDrag();
 });
+const canvas = $('#drag-pad');
+const ctx = canvas.getContext('2d');
 let active = null;
 let releases = 0;
 let cancels = 0;
 let logs = [];
 let frame = 0;
-function renderHoldColor() {
-  clickPad.classList.toggle('hold-left', active?.mask === 1);
-  clickPad.classList.toggle('hold-right', active?.mask === 2);
+function point(event) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height };
 }
 function tick() {
   if (!active) return;
@@ -131,7 +133,6 @@ function finish(reason, cancelled = false) {
   if (!active) return;
   const previous = active;
   active = null;
-  renderHoldColor();
   cancelAnimationFrame(frame);
   const duration = ((performance.now() - previous.start) / 1000).toFixed(1);
   $('#hold-time').textContent = duration + '초';
@@ -148,15 +149,19 @@ function beginDrag(event) {
   if (event.pointerType !== 'mouse') { $('#drag-status').textContent = '실제 마우스를 연결해 주세요.'; return; }
   if (![0, 2].includes(event.button) || active) return;
   event.preventDefault();
-  active = { id: event.pointerId, start: performance.now(),
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  active = { id: event.pointerId, start: performance.now(), last: point(event),
     mask: event.button === 0 ? 1 : 2, label: names[event.button] };
-  renderHoldColor();
   $('#drag-status').textContent = active.label + ' 버튼 유지 중';
   tick();
 }
 function moveDrag(event) {
   if (!active || active.id !== event.pointerId) return;
   if (!(event.buttons & active.mask)) { finish(active.label + ' 버튼 해제 상태 감지'); return; }
+  const next = point(event);
+  ctx.strokeStyle = active.mask === 1 ? '#72e4c2' : '#f4c76b';
+  ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(active.last.x, active.last.y); ctx.lineTo(next.x, next.y); ctx.stroke(); active.last = next;
 }
 clickPad.addEventListener('pointercancel', () => finish('브라우저 입력 취소 · 다시 측정', true));
 clickPad.addEventListener('lostpointercapture', () => finish('입력 추적 중단 · 다시 측정', true));
@@ -167,7 +172,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { finish('탭 전환 · 다시 측정', true); stopClickTracking(); }
 });
 function resetDrag() {
-  finish('초기화', true); releases = 0; cancels = 0; logs = []; renderHoldColor();
+  finish('초기화', true); releases = 0; cancels = 0; logs = []; ctx.clearRect(0, 0, canvas.width, canvas.height);
   $('#hold-time').textContent = '0.0초'; $('#release-count').textContent = '0'; $('#cancel-count').textContent = '0';
   $('#drag-status').textContent = '마우스 입력 대기'; const li = document.createElement('li'); li.textContent = '아직 기록이 없습니다.'; $('#drag-log').replaceChildren(li);
 }
