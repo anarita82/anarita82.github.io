@@ -356,7 +356,8 @@ $('#receipt-form').addEventListener('submit', async (event) => {
     const receipt = await api('/api/receipts', {
       customer: $('#customer').value, received_date: $('#received-date').value,
       quantity: Number($('#received-quantity').value), model: $('#model').value === 'other' ? $('#other-model').value : 'G102',
-      photo_id: photoId, confirmed: $('#receipt-confirmed').checked, note: $('#receipt-note').value,
+      photo_id: photoId, confirmed: $('#receipt-confirmed').checked,
+      note: window.smReceiptVoice ? window.smReceiptVoice.composeNote($('#receipt-address').value, $('#receipt-note').value) : $('#receipt-note').value,
     });
     selected = receipt.id;
     $('#receipt-dialog').close(); await refresh(); notice('입고 내역을 저장했습니다.');
@@ -402,3 +403,4 @@ $('#shipment-form').addEventListener('submit', async (event) => {
 });
 
 start();
+
