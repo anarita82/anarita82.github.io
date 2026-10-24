@@ -49,7 +49,7 @@
   const resultLabel = node('label','인식 결과 · 적용 전 수정 가능');
   const result = node('textarea','',{id:'voice-result',rows:'3',maxlength:'300'});
   resultLabel.append(result);
-  const status = node('p','시작 버튼을 누르면 마이크 권한을 요청합니다.',{id:'voice-status',role:'status','aria-live':'polite',class:'muted'});
+  const status = node('p','입력칸을 누르면 음성 인식이 시작됩니다.',{id:'voice-status',role:'status','aria-live':'polite',class:'muted'});
   const actions = node('div','',{class:'dialog-actions voice-actions'});
   const start = node('button','음성 인식 시작',{type:'button',class:'primary'});
   const stop = node('button','인식 중지',{type:'button',class:'secondary'});
@@ -71,24 +71,32 @@
     start.disabled = false; stop.disabled = true;
   }
   function close() { abort(); if (dialog.open) dialog.close(); result.value = ''; target = null; }
+  const manualLabel = node('label','',{class:'check-label voice-manual'});
+  const manual = node('input','',{type:'checkbox',id:'voice-manual'});
+  manualLabel.append(manual, node('span','키보드로 직접 입력'));
+  tip.after(manualLabel);
+  tip.textContent += ' 입고일·입고처·주소 입력칸을 누르면 음성 인식을 시작합니다. 음성과 말한 정보는 브라우저 음성 인식 제공자에게 전송될 수 있습니다. 서울마우스는 음성 파일을 저장하지 않습니다.';
+  const fields = [];
   for (const [id,label] of [['received-date','입고일'],['customer','입고처'],['receipt-address','주소']]) {
     const input = $('#'+id);
-    const row = node('span','',{class:'voice-field'});
-    input.before(row); row.append(input);
-    const button = node('button','음성 입력',{type:'button',class:'secondary voice-button','aria-label':label+' 음성 입력',title:label+' 음성 입력'});
-    row.append(button);
-    button.disabled = !supported;
-    if (!supported) button.title = '음성 인식 미지원 · 직접 입력 또는 휴대폰 키보드 마이크 이용';
-    button.addEventListener('click', () => {
-      if (!$('#receipt-dialog').open || $('#workspace').hidden) return;
+    fields.push(input);
+    input.readOnly = supported;
+    input.setAttribute('aria-describedby','voice-field-help');
+    const open = () => {
+      if (!supported || manual.checked || !$('#receipt-dialog').open || $('#workspace').hidden || dialog.open) return;
       abort(); target = input; result.value = ''; apply.disabled = true;
       heading.textContent = label + ' 음성 입력';
-      status.textContent = id === 'received-date' ? '예: 오늘 / 2026년 10월 24일. 시작 버튼을 눌러 주세요.' : '음성 전송 안내를 확인하고 시작 버튼을 눌러 주세요.';
       dialog.showModal();
-    });
+      beginRecognition();
+    };
+    input.addEventListener('click',open);
+    input.addEventListener('keydown',event=>{ if (!manual.checked && supported && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); open(); } });
   }
-  if (!supported) tip.textContent += ' 이 브라우저는 음성 인식을 지원하지 않습니다. 직접 입력하거나 휴대폰 키보드 마이크를 이용해 주세요.';
-  start.addEventListener('click', () => {
+  tip.setAttribute('id','voice-field-help');
+  if (!supported) { manual.checked = true; manual.disabled = true; tip.textContent = '사진 없이도 입력·저장할 수 있습니다. 주소는 비공개 메모에 구분 저장됩니다. 이 브라우저는 음성 인식을 지원하지 않습니다. 직접 입력하거나 휴대폰 키보드 마이크를 이용해 주세요.'; }
+  manual.addEventListener('change',()=>{ close(); for (const input of fields) input.readOnly = supported && !manual.checked; });
+  form.addEventListener('reset',()=>{ for (const input of fields) input.readOnly = supported; if (!supported) manual.checked = true; });
+  function beginRecognition() {
     if (!current() || !target || !supported) return;
     abort(); const version = generation;
     result.value = ''; apply.disabled = true;
@@ -114,7 +122,8 @@
     };
     try { session.start(); timer = setTimeout(()=>{ if (version === generation) { abort(); status.textContent = '인식 시간이 종료되었습니다. 결과를 확인하거나 다시 시작해 주세요.'; } },30000); }
     catch { abort(); status.textContent = '음성 인식을 시작하지 못했습니다. 직접 입력해 주세요.'; }
-  });
+  }
+  start.addEventListener('click',beginRecognition);
   stop.addEventListener('click', () => { if (recognition) { try { recognition.stop(); } catch { abort(); } stop.disabled = true; } });
   result.addEventListener('input', () => { apply.disabled = !result.value.trim(); });
   apply.addEventListener('click', () => {
