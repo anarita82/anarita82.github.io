@@ -43,11 +43,12 @@
   $('#customer').closest('label').after(addressLabel);
   const tip = node('p','사진 없이도 입력·저장할 수 있습니다. 주소는 비공개 메모에 구분 저장됩니다.',{class:'muted'});
   addressLabel.after(tip);
-  const dialog = node('dialog','',{id:'voice-dialog','aria-labelledby':'voice-title'});
+  const dialog = node('section','',{id:'voice-dialog','aria-labelledby':'voice-title',role:'region'});
+  dialog.hidden = true;
   const heading = node('h2','',{id:'voice-title'});
-  const disclosure = node('p','이 항목을 말하는 음성은 브라우저의 음성 인식 제공자에게 전송될 수 있습니다(Chrome은 Google 서비스 이용 가능). 입고처·주소를 말하면 해당 정보도 포함됩니다. 서울마우스는 음성 파일을 저장하지 않습니다.',{class:'muted'});
+  const disclosure = node('p','음성과 말한 정보는 브라우저 음성 인식 제공자에게 전송될 수 있습니다. 결과 확인 후 적용해 주세요.',{class:'muted'});
   const resultLabel = node('label','인식 결과 · 적용 전 수정 가능');
-  const result = node('textarea','',{id:'voice-result',rows:'3',maxlength:'300'});
+  const result = node('textarea','',{id:'voice-result',rows:'2',maxlength:'300'});
   resultLabel.append(result);
   const status = node('p','입력칸을 누르면 음성 인식이 시작됩니다.',{id:'voice-status',role:'status','aria-live':'polite',class:'muted'});
   const actions = node('div','',{class:'dialog-actions voice-actions'});
@@ -56,13 +57,12 @@
   const apply = node('button','항목에 적용',{type:'button',class:'primary'});
   const cancel = node('button','취소',{type:'button',class:'secondary'});
   stop.disabled = true; apply.disabled = true;
-  actions.append(start,stop,apply,cancel);
+  actions.append(apply,cancel,start,stop);
   dialog.append(heading,disclosure,resultLabel,status,actions);
-  document.body.append(dialog);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const supported = Boolean(Recognition && window.isSecureContext);
   let target = null, recognition = null, generation = 0, timer = null;
-  const current = () => dialog.open && $('#receipt-dialog').open && !$('#workspace').hidden;
+  const current = () => !dialog.hidden && $('#receipt-dialog').open && !$('#workspace').hidden;
   function abort() {
     generation++;
     const old = recognition; recognition = null;
@@ -70,7 +70,7 @@
     if (old) { try { old.abort(); } catch {} }
     start.disabled = false; stop.disabled = true;
   }
-  function close() { abort(); if (dialog.open) dialog.close(); result.value = ''; target = null; }
+  function close() { abort(); dialog.hidden = true; result.value = ''; target = null; }
   const manualLabel = node('label','',{class:'check-label voice-manual'});
   const manual = node('input','',{type:'checkbox',id:'voice-manual'});
   manualLabel.append(manual, node('span','키보드로 직접 입력'));
@@ -83,11 +83,13 @@
     input.readOnly = supported;
     input.setAttribute('aria-describedby','voice-field-help');
     const open = () => {
-      if (!supported || manual.checked || !$('#receipt-dialog').open || $('#workspace').hidden || dialog.open) return;
+      if (!supported || manual.checked || !$('#receipt-dialog').open || $('#workspace').hidden || (current() && target === input)) return;
       abort(); target = input; result.value = ''; apply.disabled = true;
       heading.textContent = label + ' 음성 입력';
-      dialog.showModal();
+      input.closest('label').before(dialog);
+      dialog.hidden = false;
       beginRecognition();
+      dialog.scrollIntoView?.({block:'start',behavior:'auto'});
     };
     input.addEventListener('click',open);
     input.addEventListener('keydown',event=>{ if (!manual.checked && supported && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); open(); } });
