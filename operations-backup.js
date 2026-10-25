@@ -1,6 +1,6 @@
 'use strict';
 window.smBackup = (() => {
-  const receiptFields = ['id','code','customer','received_date','quantity','model','photo_path','note','created_at'];
+  const receiptFields = ['id','code','customer','received_date','quantity','model','photo_path','note','created_at','deleted_at'];
   const shipmentFields = ['id','receipt_id','sequence','shipped_date','quantity','repaired','cables','rollers','base_price','cable_price','roller_price','total','sent_at','created_at'];
   const pick = (row, fields) => Object.fromEntries(fields.map(key => [key,row[key] ?? null]));
   function build(data, now = new Date()) {

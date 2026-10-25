@@ -13,6 +13,10 @@ let selectedPhotoFile = null;
 let shipmentKey = '';
 let ocrGeneration = 0;
 let backupGeneration = 0;
+let receiptTrash = false;
+let receiptLoadGeneration = 0;
+let receiptDeleteBusy = false;
+let receiptDeleteTarget = null;
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
 const shareController = window.smShare.createController({
   load:id=>api(`/api/shipments/${id}/invoice`),
@@ -75,6 +79,8 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  receiptLoadGeneration++;
+  receiptTrash = false;
   backupGeneration++;
   shareController.reset();
   resetReceiptOcr();
@@ -99,12 +105,57 @@ $('#logout').addEventListener('click', async () => {
 });
 
 async function refresh() {
-  receipts = await api('/api/receipts');
+  const version = ++receiptLoadGeneration;
+  const rows = await api(receiptTrash ? '/api/receipts/trash' : '/api/receipts');
+  if (version !== receiptLoadGeneration || $('#workspace').hidden) return;
+  receipts = rows;
   if (!receipts.some((record) => record.id === selected)) selected = receipts[0]?.id || null;
   render();
 }
 
+$('#receipt-trash').addEventListener('click', async () => {
+  if ($('#workspace').hidden || receiptDeleteBusy) return;
+  receiptTrash = !receiptTrash;
+  selected = null; receipts = []; shareController.reset(); render();
+  try { await refresh(); notice(receiptTrash ? '삭제 내역입니다. 필요한 입고를 선택해 복구할 수 있습니다.' : ''); }
+  catch (error) { notice(error.message); }
+});
+$('#delete-receipt').addEventListener('click', async () => {
+  const record = receipts.find(item => item.id === selected);
+  if (!record || receiptDeleteBusy || $('#workspace').hidden) return;
+  const restore = receiptTrash;
+  receiptDeleteTarget = {id:record.id,restore};
+  $('#receipt-delete-form').reset();
+  $('#receipt-delete-title').textContent = restore ? '입고 복구 확인' : '입고 삭제 확인';
+  $('#receipt-delete-description').textContent = record.customer + ' · ' + record.code + '\n입고 ' + record.quantity + '개 · 출고 기록 ' + record.shipments.length + '건\n' + (restore ? '입고와 연결된 출고 기록을 원래 목록으로 복구합니다.' : '목록과 업무 합계에서 제외합니다. 송장 사진과 출고 기록은 보관되며 삭제 내역에서 복구할 수 있습니다.');
+  $('#receipt-delete-submit').textContent = restore ? '입고 복구' : '삭제 내역으로 이동';
+  $('#receipt-delete-error').textContent = '';
+  $('#receipt-delete-dialog').showModal();
+});
+$('#receipt-delete-dialog').addEventListener('close',()=>{receiptDeleteTarget=null;});
+$('#receipt-delete-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!receiptDeleteTarget || receiptDeleteBusy || $('#workspace').hidden || !$('#receipt-delete-confirmed').checked) return;
+  const {id,restore} = receiptDeleteTarget;
+  receiptDeleteBusy = true; $('#delete-receipt').disabled = true;
+  $('#receipt-delete-submit').disabled = true;
+  try {
+    await api('/api/receipts/' + id + '/deleted', {deleted:!restore,confirmed:true});
+    shareController.reset();
+    $('#receipt-delete-dialog').close();
+    await refresh();
+    if (!$('#workspace').hidden) notice(restore ? '입고를 복구했습니다.' : '입고를 삭제 내역으로 이동했습니다. 필요하면 복구할 수 있습니다.');
+  } catch (error) { $('#receipt-delete-error').textContent = error.message; }
+  finally { receiptDeleteBusy = false; $('#delete-receipt').disabled = false; $('#receipt-delete-submit').disabled = false; }
+});
+
 function render() {
+  $('#receipt-trash').textContent = receiptTrash ? '입고 목록으로' : '삭제 내역 보기';
+  $('#receipt-trash').setAttribute('aria-pressed', String(receiptTrash));
+  $('#list-title').textContent = receiptTrash ? '삭제 내역 · 복구 가능' : '입고 목록';
+  $('#new-receipt').disabled = receiptTrash;
+  const metrics = document.querySelector('.metrics');
+  if (metrics) metrics.hidden = receiptTrash;
   $('#metric-orders').textContent = receipts.length;
   $('#metric-pending').textContent = receipts.reduce((sum, record) => sum + record.remaining, 0) + '개';
   $('#metric-shipped').textContent = receipts.reduce((sum, record) => sum + record.shipped, 0) + '개';
@@ -133,7 +184,10 @@ function render() {
   $('#detail-date').textContent = record.received_date;
   $('#detail-model').textContent = record.model;
   $('#detail-quantity').textContent = `${record.quantity}개 / ${record.shipped}개 / ${record.remaining}개`;
-  $('#detail-state').textContent = record.remaining === 0 ? '출고 완료' : record.shipped ? '일부 출고' : '입고';
+  $('#detail-state').textContent = receiptTrash ? '삭제됨' : record.remaining === 0 ? '출고 완료' : record.shipped ? '일부 출고' : '입고';
+  $('#delete-receipt').textContent = receiptTrash ? '입고 복구' : '입고 삭제';
+  $('#delete-receipt').disabled = receiptDeleteBusy;
+  $('#trash-hint').textContent = receiptTrash ? '출고 기록과 송장 사진은 보관되어 있습니다. 복구 후 다시 사용할 수 있습니다.' : '삭제 후 삭제 내역에서 복구할 수 있습니다.';
   $('#detail-state').className = 'status' + (record.remaining === 0 ? ' complete' : '');
   $('#detail-note').textContent = record.note;
   $('#detail-photo').hidden = !record.photo_id;
@@ -144,7 +198,7 @@ function render() {
       $('#detail-photo').href = url; $('#detail-photo-image').src = url;
     }).catch(error => notice(error.message));
   } else { $('#detail-photo-image').removeAttribute('src'); $('#detail-photo').removeAttribute('href'); }
-  $('#new-shipment').disabled = record.remaining === 0;
+  $('#new-shipment').disabled = receiptTrash || record.remaining === 0;
   $('#shipment-list').replaceChildren();
   if (!record.shipments.length) $('#shipment-list').append(element('p', '출고 내역 없음', 'muted'));
   record.shipments.forEach((shipment) => renderShipment(record, shipment));
@@ -155,6 +209,7 @@ function renderShipment(record, shipment) {
   const heading = element('div', undefined, 'ship-row-head');
   heading.append(element('span', `${shipment.sequence}차 출고 · ${shipment.shipped_date}`), element('strong', won(shipment.total)));
   row.append(heading, element('p', `출고 ${shipment.quantity}개 · 기본 수리 ${shipment.repaired}개 · 케이블 ${shipment.cables}개 · 휠 롤러 ${shipment.rollers}개`, 'muted'));
+  if (receiptTrash) { $('#shipment-list').append(row); return; }
   const actions = element('div', undefined, 'ship-actions');
   const pdf = element('button', '입금 요청서 PDF 받기');
   pdf.addEventListener('click', async () => {

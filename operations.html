@@ -10,17 +10,17 @@
   <link rel="icon" href="seoulmouse-192.png">
   <link rel="stylesheet" href="operations.css?v=20261021-share">
   <link rel="stylesheet" href="operations-mobile.css?v=20261022-camera">
-  <link rel="stylesheet" href="operations-voice.css?v=20261024-voice-inline">
-  <script src="operations-voice.js?v=20261024-voice-inline" defer></script>
+  <link rel="stylesheet" href="operations-voice.css?v=20261025-management">
+  <script src="operations-voice.js?v=20261025-management" defer></script>
   <script src="supabase-2.57.4.js" defer></script>
   <script src="jspdf-4.2.1.js" defer></script>
   <script src="operations-invoice.js?v=20261021-pdf" defer></script>
   <script src="operations-share.js?v=20261021-share" defer></script>
-  <script src="operations-backup.js?v=20261022-backup" defer></script>
-  <script src="operations-cloud.js?v=20261022-backup" defer></script>
+  <script src="operations-backup.js?v=20261025-management" defer></script>
+  <script src="operations-cloud.js?v=20261025-management" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261022-orientation-final" defer></script>
-  <script src="operations.js?v=20261024-voice-inline" defer></script>
+  <script src="operations.js?v=20261025-management" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -48,7 +48,7 @@
       <div><span>출고 수량</span><strong id="metric-shipped">0개</strong></div>
       <div><span>입금 요청 합계</span><strong id="metric-total">0원</strong></div>
     </section>
-    <div class="list-heading"><h2>업무 내역 보관</h2><button id="backup" class="secondary">내역 백업 받기</button></div>
+    <div class="list-heading"><h2>업무 내역 보관</h2><div><button id="receipt-trash" class="secondary" aria-pressed="false">삭제 내역 보기</button> <button id="backup" class="secondary">내역 백업 받기</button></div></div>
     <div class="work-grid">
       <section class="receipt-list" aria-labelledby="list-title">
         <div class="list-heading"><h2 id="list-title">입고 목록</h2><button id="refresh" class="text-button">새로고침</button></div>
@@ -62,6 +62,7 @@
           <div class="detail-heading"><div><p id="detail-code" class="eyebrow"></p><h2 id="detail-customer"></h2></div><span id="detail-state" class="status"></span></div>
           <dl class="detail-meta"><div><dt>입고일</dt><dd id="detail-date"></dd></div><div><dt>모델</dt><dd id="detail-model"></dd></div><div><dt>입고 / 출고 / 남음</dt><dd id="detail-quantity"></dd></div></dl>
           <p id="detail-note" class="muted"></p>
+          <div class="ship-actions"><button id="delete-receipt" type="button" class="secondary">입고 삭제</button><span id="trash-hint" class="muted"></span></div>
           <a id="detail-photo" class="photo-link" hidden><img id="detail-photo-image" alt="입고 송장 사진"><span>송장 사진 보기</span></a>
           <div class="section-heading"><h3>출고 및 입금 요청서</h3><button id="new-shipment" class="primary">+ 출고 등록</button></div>
           <div id="shipment-list"></div>
@@ -69,6 +70,15 @@
       </section>
     </div>
   </main>
+  <dialog id="receipt-delete-dialog" aria-labelledby="receipt-delete-title">
+    <form id="receipt-delete-form">
+      <h2 id="receipt-delete-title">입고 삭제 확인</h2>
+      <p id="receipt-delete-description" class="share-message"></p>
+      <label class="check-label"><input id="receipt-delete-confirmed" type="checkbox" required> 대상 입고와 연결된 출고 내역을 확인했습니다.</label>
+      <p id="receipt-delete-error" class="error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="secondary" data-close="receipt-delete-dialog">취소</button><button id="receipt-delete-submit" class="primary">삭제 내역으로 이동</button></div>
+    </form>
+  </dialog>
   <dialog id="share-dialog">
     <div class="dialog-heading"><h2>입금 요청서 발송 준비</h2><button type="button" class="close" data-close="share-dialog" aria-label="발송 준비 닫기">×</button></div>
     <div id="share-preview" hidden>

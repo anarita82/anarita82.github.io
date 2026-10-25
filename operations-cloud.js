@@ -62,11 +62,15 @@ async function cloudApi(path, data) {
     }
     return result;
   }
-  if (path === '/api/receipts' && !data) {
+  const deleted = path.match(/^\/api\/receipts\/([a-f0-9-]{36})\/deleted$/);
+  if (deleted && data) return smRpc('sm_set_receipt_deleted', {p_receipt_id:deleted[1],p_deleted:data.deleted,p_confirmed:data.confirmed});
+  if ((path === '/api/receipts' || path === '/api/receipts/trash') && !data) {
     const all = [];
     // Explicit pagination avoids silently dropping old intake records at the API row limit.
     for (let offset = 0; ; offset += 500) {
-      const rows = smResult(await smClient.from('sm_receipts').select('*,sm_shipments(*)').order('received_date', { ascending: false }).order('id').range(offset, offset + 499));
+      let query = smClient.from('sm_receipts').select('*,sm_shipments(*)');
+      query = path === '/api/receipts/trash' ? query.not('deleted_at','is',null) : query.is('deleted_at',null);
+      const rows = smResult(await query.order('received_date', { ascending: false }).order('id').range(offset, offset + 499));
       all.push(...rows);
       if (rows.length < 500) break;
     }
@@ -84,6 +88,7 @@ async function cloudApi(path, data) {
   const invoice = path.match(/^\/api\/shipments\/([a-f0-9-]{36})\/invoice$/);
   if (invoice && !data) {
     const shipment = smResult(await smClient.from('sm_shipments').select('*,sm_receipts(*)').eq('id',invoice[1]).single());
+    if (shipment.sm_receipts?.deleted_at) throw new Error('삭제된 입고 내역입니다. 먼저 복구해 주세요.');
     return { record:shipment.sm_receipts, shipment };
   }
   const sent = path.match(/^\/api\/shipments\/([a-f0-9-]{36})\/sent$/);

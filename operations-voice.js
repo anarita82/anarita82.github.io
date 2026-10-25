@@ -75,9 +75,9 @@
   const manual = node('input','',{type:'checkbox',id:'voice-manual'});
   manualLabel.append(manual, node('span','키보드로 직접 입력'));
   tip.after(manualLabel);
-  tip.textContent += ' 입고일·입고처·주소 입력칸을 누르면 음성 인식을 시작합니다. 음성과 말한 정보는 브라우저 음성 인식 제공자에게 전송될 수 있습니다. 서울마우스는 음성 파일을 저장하지 않습니다.';
+  tip.textContent += ' 입고일·입고처·주소·메모 입력칸을 누르면 음성 인식을 시작합니다. 음성과 말한 정보는 브라우저 음성 인식 제공자에게 전송될 수 있습니다. 서울마우스는 음성 파일을 저장하지 않습니다.';
   const fields = [];
-  for (const [id,label] of [['received-date','입고일'],['customer','입고처'],['receipt-address','주소']]) {
+  for (const [id,label] of [['received-date','입고일'],['customer','입고처'],['receipt-address','주소'],['receipt-note','메모']]) {
     const input = $('#'+id);
     fields.push(input);
     input.readOnly = supported;
@@ -85,6 +85,8 @@
     const open = () => {
       if (!supported || manual.checked || !$('#receipt-dialog').open || $('#workspace').hidden || (current() && target === input)) return;
       abort(); target = input; result.value = ''; apply.disabled = true;
+      result.maxLength = id === 'receipt-note' ? 1000 : 300;
+      result.value = id === 'receipt-note' ? input.value : '';
       heading.textContent = label + ' 음성 입력';
       input.closest('label').before(dialog);
       dialog.hidden = false;
@@ -101,14 +103,16 @@
   function beginRecognition() {
     if (!current() || !target || !supported) return;
     abort(); const version = generation;
-    result.value = ''; apply.disabled = true;
+    const previous = target.id === 'receipt-note' ? target.value.trim() : '';
+    result.value = previous; apply.disabled = !previous;
     const session = new Recognition(); recognition = session;
     session.lang = 'ko-KR'; session.continuous = false; session.interimResults = false;
     start.disabled = true; stop.disabled = false;
     status.textContent = '듣는 중입니다. 해당 항목만 말씀해 주세요.';
     session.onresult = event => {
       if (version !== generation || !current()) return;
-      result.value = Array.from(event.results).filter(r=>r.isFinal).map(r=>r[0].transcript).join(' ').slice(0,300);
+      const spoken = Array.from(event.results).filter(r=>r.isFinal).map(r=>r[0].transcript).join(' ');
+      result.value = [previous,spoken].filter(Boolean).join('\n');
       apply.disabled = !result.value.trim();
       status.textContent = '내용을 확인·수정하고 항목에 적용해 주세요. 아직 저장되지 않았습니다.';
     };
