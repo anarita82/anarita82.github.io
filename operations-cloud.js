@@ -50,25 +50,20 @@ async function cloudApi(path, data) {
     smPhotoUrls.clear();
     return {};
   }
-  if (path === '/api/backup' && !data) {
-    const result = {};
-    for (const [key,table] of [['receipts','sm_receipts'],['shipments','sm_shipments']]) {
-      result[key] = [];
-      for (let offset = 0; ; offset += 500) {
-        const rows = smResult(await smClient.from(table).select('*').order('id').range(offset,offset+499));
-        result[key].push(...rows);
-        if (rows.length < 500) break;
-      }
-    }
-    return result;
-  }
+  if (path === '/api/backup' && !data) return smResult(await smClient.rpc('sm_export_ledger'));
+  if (path === '/api/payments' && data) return smRpc('sm_create_payment', {
+    p_receipt_id:data.receipt_id,p_paid_date:data.paid_date,p_amount:data.amount,
+    p_note:data.note,p_request_key:data.request_key,p_confirmed:data.confirmed,
+  });
+  const paymentVoid = path.match(/^\/api\/payments\/([a-f0-9-]{36})\/void$/);
+  if (paymentVoid && data) return smRpc('sm_void_payment', {p_payment_id:paymentVoid[1],p_reason:data.reason,p_confirmed:data.confirmed});
   const deleted = path.match(/^\/api\/receipts\/([a-f0-9-]{36})\/deleted$/);
   if (deleted && data) return smRpc('sm_set_receipt_deleted', {p_receipt_id:deleted[1],p_deleted:data.deleted,p_confirmed:data.confirmed});
   if ((path === '/api/receipts' || path === '/api/receipts/trash') && !data) {
     const all = [];
     // Explicit pagination avoids silently dropping old intake records at the API row limit.
     for (let offset = 0; ; offset += 500) {
-      let query = smClient.from('sm_receipts').select('*,sm_shipments(*)');
+      let query = smClient.from('sm_receipts').select('*,sm_shipments(*),sm_payments(*)');
       query = path === '/api/receipts/trash' ? query.not('deleted_at','is',null) : query.is('deleted_at',null);
       const rows = smResult(await query.order('received_date', { ascending: false }).order('id').range(offset, offset + 499));
       all.push(...rows);
@@ -77,7 +72,9 @@ async function cloudApi(path, data) {
     return all.map(row => {
       const shipments = (row.sm_shipments || []).map(s => ({ ...s, sent: Boolean(s.sent_at) })).sort((a,b) => a.sequence-b.sequence);
       const shipped = shipments.reduce((n,s) => n+s.quantity,0);
-      return { ...row, shipments, shipped, remaining: row.quantity-shipped, total: shipments.reduce((n,s) => n+Number(s.total),0), photo_id: row.photo_path };
+      const payments = (row.sm_payments || []).sort((a,b)=>a.paid_date.localeCompare(b.paid_date)||a.id.localeCompare(b.id));
+      const paid = payments.filter(p=>!p.voided_at).reduce((n,p)=>n+Number(p.amount),0);
+      return { ...row, payments, paid, balance:shipments.reduce((n,s)=>n+Number(s.total),0)-paid, shipments, shipped, remaining: row.quantity-shipped, total: shipments.reduce((n,s) => n+Number(s.total),0), photo_id: row.photo_path };
     });
   }
   if (path === '/api/receipts') return smRpc('sm_create_receipt', {
@@ -109,3 +106,4 @@ async function privatePhotoUrl(path) {
   smPhotoUrls.set(path, { url:result.signedUrl, until:Date.now()+45000 });
   return result.signedUrl;
 }
+

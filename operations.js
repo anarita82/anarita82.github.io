@@ -17,6 +17,7 @@ let receiptTrash = false;
 let receiptLoadGeneration = 0;
 let receiptDeleteBusy = false;
 let receiptDeleteTarget = null;
+let paymentTarget=null,paymentKey='',paymentGeneration=0,paymentVoidTarget=null,paymentBusy=false;
 const won = (value) => Number(value).toLocaleString('ko-KR') + '원';
 const shareController = window.smShare.createController({
   load:id=>api(`/api/shipments/${id}/invoice`),
@@ -79,6 +80,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  paymentGeneration++; paymentTarget=null;paymentVoidTarget=null;paymentKey="";
   receiptLoadGeneration++;
   receiptTrash = false;
   backupGeneration++;
@@ -87,7 +89,7 @@ function clearPrivateView() {
   receipts = []; selected = null; render();
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
   document.querySelectorAll('form').forEach(form => form.reset());
-  for (const id of ['detail-code','detail-customer','detail-date','detail-model','detail-quantity','detail-state','detail-note','shipment-list','shipment-customer','ocr-text']) $('#'+id).textContent = '';
+  for (const id of ['detail-code','detail-customer','detail-date','detail-model','detail-quantity','detail-state','detail-note','shipment-list','payment-list','payment-summary','payment-customer','payment-current','payment-void-description','shipment-customer','ocr-text']) $('#'+id).textContent = '';
   for (const id of ['detail-photo-image','full-photo','photo-preview']) $('#'+id).removeAttribute('src');
   $('#detail-photo').removeAttribute('href');
   if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
@@ -160,6 +162,9 @@ function render() {
   $('#metric-pending').textContent = receipts.reduce((sum, record) => sum + record.remaining, 0) + '개';
   $('#metric-shipped').textContent = receipts.reduce((sum, record) => sum + record.shipped, 0) + '개';
   $('#metric-total').textContent = won(receipts.reduce((sum, record) => sum + record.total, 0));
+  $('#metric-paid').textContent=won(receipts.reduce((n,r)=>n+Number(r.paid||0),0));
+  $('#metric-outstanding').textContent=won(receipts.reduce((n,r)=>n+Math.max(0,Number(r.balance||0)),0));
+  $('#metric-credit').textContent=won(receipts.reduce((n,r)=>n+Math.max(0,-Number(r.balance||0)),0));
   const query = $('#search').value.trim().toLowerCase();
   const visible = receipts.filter((record) => (record.customer + record.code).toLowerCase().includes(query)
     && (filter === 'all' || (filter === 'pending' ? record.remaining > 0 : record.remaining === 0)));
@@ -179,6 +184,7 @@ function render() {
   $('#empty-detail').hidden = Boolean(record);
   $('#detail-body').hidden = !record;
   if (!record) return;
+  renderPayments(record);
   $('#detail-code').textContent = record.code;
   $('#detail-customer').textContent = record.customer;
   $('#detail-date').textContent = record.received_date;
@@ -264,19 +270,77 @@ document.querySelectorAll('[data-filter]').forEach((button) => button.addEventLi
 }));
 $('#refresh').addEventListener('click', () => refresh().catch((error) => notice(error.message)));
 $('#backup').addEventListener('click', async () => {
-  if (!confirm('입고·출고 전체 내역을 이 기기에 저장할까요? 상호·메모 등 고객 정보가 포함된 암호화되지 않은 파일입니다. 공용 기기에는 저장하지 마세요. 송장 사진 원본은 포함되지 않으며 자동 복원은 지원하지 않습니다. 다른 관리자의 등록이 없는 시간에 진행해 주세요.')) return;
+  if (!confirm('입고·출고·입금 전체 내역을 이 기기에 저장할까요? 상호·메모 등 고객 정보가 포함된 암호화되지 않은 파일입니다. 공용 기기에는 저장하지 마세요. 송장 사진 원본은 포함되지 않으며 자동 복원은 지원하지 않습니다. 다른 관리자의 등록이 없는 시간에 진행해 주세요.')) return;
   const generation = ++backupGeneration;
   const active = () => generation === backupGeneration && !$('#workspace').hidden;
   $('#backup').disabled = true;
-  notice('전체 입고·출고 내역을 확인하고 있습니다.');
+  notice('전체 입고·출고·입금 내역을 확인하고 있습니다.');
   try {
     const data = await window.smBackup.collect({load:()=>api('/api/backup'),authorize:async()=>(await api('/api/session')).authenticated,isActive:active});
     if (!active()) return;
     window.smBackup.download(data);
-    notice(`백업 다운로드를 요청했습니다. 입고 ${data.counts.receipts}건 · 출고 ${data.counts.shipments}건. 송장 사진 원본은 제외됩니다. 파일을 안전한 개인 저장 공간에 보관해 주세요.`);
+    notice(`백업 다운로드를 요청했습니다. 입고 ${data.counts.receipts}건 · 출고 ${data.counts.shipments}건 · 입금 ${data.counts.payments}건. 송장 사진 원본은 제외됩니다. 파일을 안전한 개인 저장 공간에 보관해 주세요.`);
   } catch (error) { if (active()) notice(error.message || '백업에 실패했습니다. 다시 시도해 주세요.'); }
   finally { $('#backup').disabled = false; }
 });
+function renderPayments(record) {
+  const paid=Number(record.paid||0),balance=Number(record.balance??record.total);
+  $('#new-payment').disabled=receiptTrash||paymentBusy;
+  $('#payment-summary').textContent=`청구 ${won(record.total)} · 입금 ${won(paid)} · `+(balance<0?`선입금·초과입금 ${won(-balance)}`:`미수금 ${won(balance)}`);
+  $('#payment-list').replaceChildren();
+  const rows=record.payments||[];
+  if(!rows.length)$('#payment-list').append(element('p','입금 기록 없음','muted'));
+  for(const p of rows){
+    const article=element('article',undefined,'ship-row');
+    const head=element('div',undefined,'ship-row-head');head.append(element('span',p.paid_date+(p.voided_at?' · 취소됨':'')),element('strong',won(p.amount)));article.append(head);
+    if(p.note)article.append(element('p',p.note,'muted'));
+    if(p.voided_at)article.append(element('p','취소 사유: '+p.void_reason,'muted'));
+    else if(!receiptTrash){const cancel=element('button','입금 기록 취소','secondary');cancel.disabled=paymentBusy;cancel.addEventListener('click',()=>{
+      paymentVoidTarget={id:p.id,receiptId:record.id};$('#payment-void-form').reset();$('#payment-void-description').textContent=record.customer+' · '+p.paid_date+' · '+won(p.amount);$('#payment-void-error').textContent='';$('#payment-void-dialog').showModal();
+    });article.append(cancel);}
+    $('#payment-list').append(article);
+  }
+}
+$('#new-payment').addEventListener('click',()=>{
+  const r=receipts.find(r=>r.id===selected);if(!r||receiptTrash||paymentBusy||$('#workspace').hidden)return;
+  paymentTarget=r.id;paymentKey=crypto.randomUUID();$('#payment-form').reset();$('#paid-date').value=serverToday;$('#paid-date').max=serverToday;
+  $('#payment-customer').textContent=r.customer+' · '+r.code;$('#payment-current').textContent=$('#payment-summary').textContent;$('#payment-error').textContent='';$('#payment-dialog').showModal();
+});
+$('#payment-dialog').addEventListener('close',()=>{paymentTarget=null;paymentKey='';});
+$('#payment-void-dialog').addEventListener('close',()=>{paymentVoidTarget=null;});
+$('#payment-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(paymentBusy||!paymentTarget||$('#workspace').hidden||!$('#payment-confirmed').checked)return;
+  const amount=Number($('#paid-amount').value);if(!Number.isSafeInteger(amount)||amount<1||amount>1000000000){$('#payment-error').textContent='입금액을 확인해 주세요.';return;}
+  const generation=paymentGeneration;paymentBusy=true;$('#save-payment').disabled=true;
+  try{
+    await api('/api/payments',{receipt_id:paymentTarget,paid_date:$('#paid-date').value,amount,note:$('#payment-note').value,request_key:paymentKey,confirmed:true});
+    if(generation!==paymentGeneration||$('#workspace').hidden)return;
+    $('#payment-dialog').close();await refresh();notice('입금 기록을 저장했습니다. 미수금과 선입금·초과입금을 확인해 주세요.');
+  }catch(e){if(generation===paymentGeneration)$('#payment-error').textContent=e.message;}
+  finally{paymentBusy=false;$('#save-payment').disabled=false;if(!$('#workspace').hidden)render();}
+});
+$('#payment-void-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(paymentBusy||!paymentVoidTarget||$('#workspace').hidden||!$('#payment-void-confirmed').checked)return;
+  const reason=$('#payment-void-reason').value.trim();if(!reason)return;
+  const generation=paymentGeneration;paymentBusy=true;$('#void-payment').disabled=true;
+  try{await api('/api/payments/'+paymentVoidTarget.id+'/void',{reason,confirmed:true});if(generation!==paymentGeneration||$('#workspace').hidden)return;$('#payment-void-dialog').close();await refresh();notice('입금 기록을 취소하고 사유를 보관했습니다.');}
+  catch(e){if(generation===paymentGeneration)$('#payment-void-error').textContent=e.message;}
+  finally{paymentBusy=false;$('#void-payment').disabled=false;if(!$('#workspace').hidden)render();}
+});
+$('#export-excel').addEventListener('click',async()=>{
+  if($('#workspace').hidden)return;
+  const generation=++backupGeneration;const active=()=>generation===backupGeneration&&!$('#workspace').hidden;
+  $('#export-excel').disabled=true;notice('서버의 전체 입고·출고·입금을 조회하여 엑셀을 만들고 있습니다.');
+  try{
+    if(!(await api('/api/session')).authenticated)throw Error('관리자 로그인이 필요합니다.');
+    const data=await api('/api/backup');if(!active())return;
+    if(!(await api('/api/session')).authenticated||!active())return;
+    await window.smExcel.download(data,active);
+    if(active())notice(`엑셀 다운로드를 요청했습니다. 입고 ${data.receipts.length}건 · 출고 ${data.shipments.length}건 · 입금 ${data.payments.length}건. 엑셀 수정은 서버에 반영되지 않으며 사진 원본은 제외됩니다.`);
+  }catch(e){if(active())notice(e.message||'엑셀 생성에 실패했습니다.');}
+  finally{$('#export-excel').disabled=false;}
+});
+
 document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => $('#' + button.dataset.close).close()));
 
 $('#new-receipt').addEventListener('click', () => {
@@ -458,4 +522,5 @@ $('#shipment-form').addEventListener('submit', async (event) => {
 });
 
 start();
+
 

@@ -16,11 +16,15 @@
   <script src="jspdf-4.2.1.js" defer></script>
   <script src="operations-invoice.js?v=20261021-pdf" defer></script>
   <script src="operations-share.js?v=20261021-share" defer></script>
-  <script src="operations-backup.js?v=20261025-management" defer></script>
-  <script src="operations-cloud.js?v=20261025-management" defer></script>
+  <link rel="stylesheet" href="operations-payments.css?v=20261026-ledger">
+  <script src="jszip-3.10.1.min.js" defer></script>
+  <script src="operations-ledger-model.js?v=20261026-ledger" defer></script>
+  <script src="operations-excel.js?v=20261026-ledger" defer></script>
+  <script src="operations-backup.js?v=20261026-ledger" defer></script>
+  <script src="operations-cloud.js?v=20261026-ledger" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261022-orientation-final" defer></script>
-  <script src="operations.js?v=20261025-management" defer></script>
+  <script src="operations.js?v=20261026-ledger" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -41,14 +45,17 @@
     </form>
   </section>
   <main id="workspace" hidden>
-    <div class="page-heading"><div><p class="eyebrow">SEOUL MOUSE OPERATIONS</p><h1>입고 · 출고</h1></div><button id="new-receipt" class="primary">+ 입고 등록</button></div>
+    <div class="page-heading"><div><p class="eyebrow">SEOUL MOUSE OPERATIONS</p><h1>입고 · 출고 · 정산</h1></div><button id="new-receipt" class="primary">+ 입고 등록</button></div>
     <section class="metrics" aria-label="업무 현황">
       <div><span>입고 건수</span><strong id="metric-orders">0</strong></div>
       <div><span>미출고 수량</span><strong id="metric-pending">0개</strong></div>
       <div><span>출고 수량</span><strong id="metric-shipped">0개</strong></div>
       <div><span>입금 요청 합계</span><strong id="metric-total">0원</strong></div>
+      <div><span>실제 입금 합계</span><strong id="metric-paid">0원</strong></div>
+      <div><span>미수금</span><strong id="metric-outstanding">0원</strong></div>
+      <div><span>선입금·초과입금</span><strong id="metric-credit">0원</strong></div>
     </section>
-    <div class="list-heading"><h2>업무 내역 보관</h2><div><button id="receipt-trash" class="secondary" aria-pressed="false">삭제 내역 보기</button> <button id="backup" class="secondary">내역 백업 받기</button></div></div>
+    <div class="list-heading"><h2>업무 내역 보관</h2><div><button id="receipt-trash" class="secondary" aria-pressed="false">삭제 내역 보기</button> <button id="export-excel" class="primary">엑셀 정산표 받기</button> <button id="backup" class="secondary">내역 백업 받기</button></div></div>
     <div class="work-grid">
       <section class="receipt-list" aria-labelledby="list-title">
         <div class="list-heading"><h2 id="list-title">입고 목록</h2><button id="refresh" class="text-button">새로고침</button></div>
@@ -66,10 +73,27 @@
           <a id="detail-photo" class="photo-link" hidden><img id="detail-photo-image" alt="입고 송장 사진"><span>송장 사진 보기</span></a>
           <div class="section-heading"><h3>출고 및 입금 요청서</h3><button id="new-shipment" class="primary">+ 출고 등록</button></div>
           <div id="shipment-list"></div>
+          <section aria-labelledby="payment-title"><div class="section-heading"><h3 id="payment-title">입금 및 미수금</h3><button id="new-payment" type="button" class="primary">+ 입금 등록</button></div>
+          <p id="payment-summary" class="payment-summary"></p><div id="payment-list"></div></section>
         </div>
       </section>
     </div>
   </main>
+  <dialog id="payment-dialog" aria-labelledby="payment-dialog-title"><form id="payment-form">
+    <div class="dialog-heading"><h2 id="payment-dialog-title">실제 입금 등록</h2><button type="button" class="close" data-close="payment-dialog" aria-label="입금 등록 닫기">×</button></div>
+    <p id="payment-customer" class="muted"></p><p id="payment-current" class="payment-summary"></p>
+    <div class="field-row"><label>입금일<input id="paid-date" type="date" required></label><label>입금액(원)<input id="paid-amount" type="number" min="1" max="1000000000" step="1" inputmode="numeric" required></label></div>
+    <label>입금자 / 메모<textarea id="payment-note" maxlength="500" rows="2"></textarea></label>
+    <p class="muted">입금 한 번마다 등록합니다. 여러 접수 건을 한 번에 입금받으면 접수별 금액으로 나누어 기록해 주세요. 은행 내역을 자동으로 조회하지 않습니다.</p>
+    <label class="check-label"><input id="payment-confirmed" type="checkbox" required> 실제 받은 입금일·금액·대상 접수를 확인했습니다.</label>
+    <p id="payment-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="secondary" data-close="payment-dialog">취소</button><button id="save-payment" class="primary">입금 저장</button></div>
+  </form></dialog>
+  <dialog id="payment-void-dialog" aria-labelledby="payment-void-title"><form id="payment-void-form">
+    <h2 id="payment-void-title">입금 기록 취소</h2><p id="payment-void-description" class="payment-summary"></p>
+    <label>취소 사유<input id="payment-void-reason" maxlength="200" required></label><p class="muted">잘못 기록한 입금을 정산에서 제외하고 원본과 사유를 보관합니다. 실제 환불을 수행하는 기능은 아닙니다.</p>
+    <label class="check-label"><input id="payment-void-confirmed" type="checkbox" required> 취소할 기록을 확인했습니다.</label>
+    <p id="payment-void-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="secondary" data-close="payment-void-dialog">닫기</button><button id="void-payment" class="primary">기록 취소 저장</button></div>
+  </form></dialog>
   <dialog id="receipt-delete-dialog" aria-labelledby="receipt-delete-title">
     <form id="receipt-delete-form">
       <h2 id="receipt-delete-title">입고 삭제 확인</h2>
@@ -149,4 +173,5 @@
   </dialog>
 </body>
 </html>
+
 
