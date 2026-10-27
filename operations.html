@@ -24,7 +24,7 @@
   <script src="operations-cloud.js?v=20261026-ledger" defer></script>
   <script src="tesseract-7.0.0.min.js" defer></script>
   <script src="operations-ocr.js?v=20261022-orientation-final" defer></script>
-  <script src="operations.js?v=20261026-ledger" defer></script>
+  <link rel="stylesheet" href="operations-monthly.css?v=20261027-monthly"><script src="operations-monthly-model.js?v=20261027-monthly" defer></script><script src="operations-monthly.js?v=20261027-monthly" defer></script><script src="operations.js?v=20261027-monthly" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -46,6 +46,16 @@
   </section>
   <main id="workspace" hidden>
     <div class="page-heading"><div><p class="eyebrow">SEOUL MOUSE OPERATIONS</p><h1>입고 · 출고 · 정산</h1></div><button id="new-receipt" class="primary">+ 입고 등록</button></div>
+    <nav class="operations-views" aria-label="관리 화면"><button id="view-records" type="button" class="secondary" aria-pressed="true">입고·출고·입금 관리</button><button id="view-monthly" type="button" class="secondary" aria-pressed="false">월정산</button></nav>
+    <section id="monthly-panel" aria-labelledby="monthly-title" hidden>
+      <h2 id="monthly-title">월정산</h2>
+      <div class="monthly-tools"><label>조회 월<input id="monthly-month" type="month" required></label><label class="monthly-search-label">입고처·접수번호 검색<input id="monthly-search" type="search" placeholder="입고처 또는 접수번호"></label><label class="check-label"><input id="monthly-unpaid" type="checkbox"> 미수금만 보기</label><button id="monthly-refresh" type="button" class="secondary">월정산 새로고침</button></div>
+      <div id="monthly-metrics" class="metrics monthly-metrics" aria-label="선택한 월 전체 정산 합계"></div>
+      <p class="muted monthly-explanation">월 청구액은 출고일, 월 입금액은 실제 입금일 기준입니다. 미수금·선입금은 선택 월 말일까지의 누적 청구액과 입금액을 접수별로 계산합니다. 현재 월은 조회 시점까지입니다. 이월 순잔액은 양수면 미수, 음수면 선입금입니다. 삭제한 접수와 취소한 입금은 제외하며, 이후 삭제·취소도 과거 월에 반영됩니다. 비용을 차감한 순이익은 아닙니다.</p>
+      <p id="monthly-status" class="muted monthly-status" role="status" aria-live="polite"></p>
+      <div class="monthly-table-wrap" role="region" aria-label="접수별 월정산 내역" tabindex="0"><table class="monthly-table"><thead><tr><th scope="col">입고처 · 접수번호</th><th scope="col">이월 순잔액</th><th scope="col">월 청구액</th><th scope="col">월 입금액</th><th scope="col">월말 미수금</th><th scope="col">월말 선입금</th><th scope="col">관리</th></tr></thead><tbody id="monthly-rows"></tbody></table></div>
+    </section>
+    <div id="operations-records">
     <section class="metrics" aria-label="업무 현황">
       <div><span>입고 건수</span><strong id="metric-orders">0</strong></div>
       <div><span>미출고 수량</span><strong id="metric-pending">0개</strong></div>
@@ -77,6 +87,7 @@
           <p id="payment-summary" class="payment-summary"></p><div id="payment-list"></div></section>
         </div>
       </section>
+    </div>
     </div>
   </main>
   <dialog id="payment-dialog" aria-labelledby="payment-dialog-title"><form id="payment-form">
@@ -173,5 +184,6 @@
   </dialog>
 </body>
 </html>
+
 
 

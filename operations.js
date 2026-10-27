@@ -80,6 +80,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  window.smMonthly?.clear();
   paymentGeneration++; paymentTarget=null;paymentVoidTarget=null;paymentKey="";
   receiptLoadGeneration++;
   receiptTrash = false;
@@ -113,6 +114,7 @@ async function refresh() {
   receipts = rows;
   if (!receipts.some((record) => record.id === selected)) selected = receipts[0]?.id || null;
   render();
+  window.smMonthly?.refresh();
 }
 
 $('#receipt-trash').addEventListener('click', async () => {
@@ -521,6 +523,14 @@ $('#shipment-form').addEventListener('submit', async (event) => {
   finally { $('#save-shipment').disabled = false; }
 });
 
+window.smMonthly = window.smMonthlyUI.create({
+  load:()=>api('/api/backup'),
+  isActive:()=>!$('#workspace').hidden,
+  openReceipt:async id=>{
+    receiptTrash=false;await refresh();
+    if($('#workspace').hidden)throw Error('관리자 로그인이 필요합니다.');
+    if(!receipts.some(r=>r.id===id))throw Error('접수를 찾을 수 없습니다. 월정산을 새로고침해 주세요.');
+    selected=id;render();
+  },
+});
 start();
-
-
