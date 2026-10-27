@@ -1,0 +1,6 @@
+#postal-dialog{width:min(680px,calc(100% - 24px));max-height:90dvh;overflow:auto}
+#postal-dialog .postal-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#postal-dialog label,#postal-dialog input,#postal-dialog select{min-width:0}
+#postal-dialog select{display:block;width:100%;padding:12px;background:#17171d;color:#f5f5f7;border:1px solid #64646e;border-radius:8px;font:inherit}
+#postal-dialog .error{white-space:pre-line}
+@media(max-width:540px){#postal-dialog .postal-fields{grid-template-columns:1fr}#postal-dialog .dialog-actions{flex-wrap:wrap}#postal-dialog button{min-height:44px}}

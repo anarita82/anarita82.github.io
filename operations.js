@@ -80,6 +80,7 @@ $('#auth-form').addEventListener('submit', async (event) => {
 });
 
 function clearPrivateView() {
+  window.smPostal?.clear();
   window.smMonthly?.clear();
   paymentGeneration++; paymentTarget=null;paymentVoidTarget=null;paymentKey="";
   receiptLoadGeneration++;
@@ -239,7 +240,14 @@ function renderShipment(record, shipment) {
   });
   const share = element('button', 'PDF 발송 준비');
   share.addEventListener('click',()=>shareController.open(shipment.id));
-  actions.append(pdf, share, copy);
+  const postal = element('button', '우체국 등록파일 (.xls)');
+  postal.addEventListener('click', async () => {
+    postal.disabled=true;
+    try { const fresh=await api(`/api/shipments/${shipment.id}/invoice`);window.smPostal.open(fresh.record,fresh.shipment,()=>!$('#workspace').hidden); }
+    catch(error){notice(error.message);}
+    finally{postal.disabled=false;}
+  });
+  actions.append(pdf, share, copy, postal);
   if (shipment.sent) actions.append(element('span', '발송 확인됨', 'sent-label'));
   else {
     const sent = element('button', '발송 완료 표시');
@@ -510,16 +518,21 @@ function updateTotal() {
 $('#shipment-form').addEventListener('input', updateTotal);
 $('#shipment-form').addEventListener('submit', async (event) => {
   event.preventDefault(); $('#save-shipment').disabled = true;
+  let savedShipment=null;
+  const sourceRecord=receipts.find(item=>item.id===selected);
   try {
-    await api('/api/shipments', {
+    savedShipment=await api('/api/shipments', {
       receipt_id: selected, request_key: shipmentKey, shipped_date: $('#shipped-date').value,
       quantity: Number($('#shipped-quantity').value), repaired: Number($('#repaired').value),
       cables: Number($('#cables').value), rollers: Number($('#rollers').value),
       base_price: Number($('#base-price').value), cable_price: Number($('#cable-price').value), roller_price: Number($('#roller-price').value),
       confirmed: $('#shipment-confirmed').checked,
     });
-    $('#shipment-dialog').close(); await refresh(); notice('출고를 저장했습니다. 입금 요청서 PDF를 받거나 요청 문구를 복사할 수 있습니다.');
-  } catch (error) { $('#shipment-error').textContent = error.message; }
+    $('#shipment-dialog').close();
+    notice('출고를 저장했습니다. 받는 분을 확인해 우체국 .xls 파일을 받을 수 있습니다.');
+    try{await refresh();}catch(error){notice('출고는 저장됐습니다. 목록 갱신에 실패했습니다. 다시 출고 등록하지 말고 새로고침해 주세요.');}
+    if(sourceRecord&&savedShipment&&!$('#workspace').hidden)window.smPostal.open(sourceRecord,savedShipment,()=>!$('#workspace').hidden);
+  } catch (error) { if(savedShipment)notice('출고는 저장됐습니다. 파일은 출고 내역의 우체국 등록파일 버튼에서 다시 받을 수 있습니다.');else $('#shipment-error').textContent = error.message; }
   finally { $('#save-shipment').disabled = false; }
 });
 
