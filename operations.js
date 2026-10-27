@@ -158,7 +158,7 @@ function render() {
   $('#receipt-trash').setAttribute('aria-pressed', String(receiptTrash));
   $('#list-title').textContent = receiptTrash ? '삭제 내역 · 복구 가능' : '입고 목록';
   $('#new-receipt').disabled = receiptTrash;
-  const metrics = document.querySelector('.metrics');
+  const metrics = document.querySelector('#operations-records .metrics');
   if (metrics) metrics.hidden = receiptTrash;
   $('#metric-orders').textContent = receipts.length;
   $('#metric-pending').textContent = receipts.reduce((sum, record) => sum + record.remaining, 0) + '개';
@@ -534,3 +534,4 @@ window.smMonthly = window.smMonthlyUI.create({
   },
 });
 start();
+
