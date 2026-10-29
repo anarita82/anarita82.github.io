@@ -1,11 +1,11 @@
 const CACHE_PREFIX = 'oxpc-app-';
-const CACHE_NAME = CACHE_PREFIX + '20261023-no-hold-records';
+const CACHE_NAME = CACHE_PREFIX + '20261029-keyboard';
 const ASSETS = ['app.html', 'app.css', 'app.js', 'pwa.js', 'offline.html', 'index.html',
   'styles.css', 'script.js', 'spec-details.css', 'fps-seats.html', 'benq-540hz.html',
   'rtx5080-pc.html', 'privacy.html', 'manifest.webmanifest', 'hero-pcroom.png',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
   'seoulmouse-192.png', 'seoulmouse-512.png', 'seoulmouse-apple-touch-icon.png',
-  'mouse-test.html', 'mouse-test.css', 'mouse-test.js', 'mouse-test-core.mjs', 'ghub.html', 'ghub.css', 'analytics.js', 'analytics.css'];
+  'keyboard-test.html', 'keyboard-test.css', 'keyboard-test.js', 'keyboard-core.mjs', 'mouse-test.html', 'mouse-test.css', 'mouse-test.js', 'mouse-test-core.mjs', 'ghub.html', 'ghub.css', 'analytics.js', 'analytics.css'];
 const allowedPaths = new Set(ASSETS.map((path) => new URL(path, self.registration.scope).pathname));
 const cacheKey = (url) => new URL(url.pathname, self.registration.scope).href;
 
@@ -37,3 +37,4 @@ self.addEventListener('fetch', (event) => {
     }
   })());
 });
+
