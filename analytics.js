@@ -28,6 +28,25 @@
     const tag = document.createElement('script');
     tag.async = true; tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
     document.head.append(tag);
+    bindConversionTracking(gtag);
+  }
+  function bindConversionTracking(gtag) {
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('a, button');
+      if (!el) return;
+      const href = el.getAttribute('href') || '';
+      if (href.startsWith('tel:')) {
+        gtag('event', 'click_to_call', { phone_number: href.replace('tel:', '') });
+      } else if (href.includes('mouse-test.html')) {
+        gtag('event', 'click_mouse_test');
+      } else if (href.includes('keyboard-test.html')) {
+        gtag('event', 'click_keyboard_test');
+      } else if (href === '#seoulmouse-delivery') {
+        gtag('event', 'click_reception_guide');
+      } else if (href.includes('app.html')) {
+        gtag('event', 'click_webapp');
+      }
+    }, { passive: true });
   }
   function choose(value) {
     try { localStorage.setItem(key, value); } catch { /* Choice applies to this page only. */ }
