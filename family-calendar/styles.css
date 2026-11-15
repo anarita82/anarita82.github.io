@@ -188,7 +188,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 3px;
   border-radius: 11px;
   cursor: pointer;
   font-family: inherit;
@@ -238,7 +238,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: -.4px;
   padding: 0 1px;
 }
-.dots { display: flex; gap: 2.5px; align-items: center; height: 6px; }
+.dots { display: flex; gap: 2.5px; align-items: center; height: 7px; }
 .dot { width: 5px; height: 5px; border-radius: 50%; }
 .dots__more { font-size: 8px; color: var(--ink-faint); }
 .day--selected .dots__more { color: rgba(255, 255, 255, .9); }
