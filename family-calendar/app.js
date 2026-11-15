@@ -241,7 +241,17 @@
     if (d.getFullYear() < NAV_MIN_YEAR || d.getFullYear() > NAV_MAX_YEAR) return;
     state.year = d.getFullYear();
     state.month = d.getMonth();
-    renderCalendar();
+    /* 보던 날짜가 화면 밖으로 나가면 그 달의 1일(이번 달이면 오늘)로 선택을 옮깁니다 */
+    var sel = parseISO(state.selected);
+    if (sel.getFullYear() !== state.year || sel.getMonth() !== state.month) {
+      var now = new Date();
+      if (now.getFullYear() === state.year && now.getMonth() === state.month) {
+        state.selected = todayISO();
+      } else {
+        state.selected = iso(state.year, state.month + 1, 1);
+      }
+    }
+    renderAll();
   }
 
   function goToday() {
