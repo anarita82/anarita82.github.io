@@ -122,15 +122,29 @@
   }
 
   /* ---------------- 반복 일정 계산 ---------------- */
+  function lunarOccurrence(year, lunar) {
+    if (!lunar) return null;
+    var tries = [];
+    if (lunar.leap) {
+      tries.push([lunar.month, lunar.day, true]);
+      if (lunar.day === 30) tries.push([lunar.month, 29, true]);
+    }
+    tries.push([lunar.month, lunar.day, false]);
+    if (lunar.day === 30) tries.push([lunar.month, 29, false]);
+    for (var i = 0; i < tries.length; i++) {
+      var sol = L.toSolar(year, tries[i][0], tries[i][1], tries[i][2]);
+      if (sol) return iso(sol.y, sol.m, sol.d);
+    }
+    return null;
+  }
+
   function occurrenceForYear(ev, year) {
     var base = parseISO(ev.date);
     if (ev.repeat === 'none') {
       return base.getFullYear() === year ? ev.date : null;
     }
     if (ev.repeat === 'yearly-lunar' && ev.lunar) {
-      var sol = L.toSolar(year, ev.lunar.month, ev.lunar.day, !!ev.lunar.leap);
-      if (!sol && ev.lunar.day === 30) sol = L.toSolar(year, ev.lunar.month, 29, !!ev.lunar.leap);
-      return sol ? iso(sol.y, sol.m, sol.d) : null;
+      return lunarOccurrence(year, ev.lunar);
     }
     var d = new Date(year, base.getMonth(), base.getDate());
     if (d.getDate() !== base.getDate()) d = new Date(year, base.getMonth() + 1, 0); // 2/29 → 말일
@@ -494,10 +508,9 @@
     if (lunarText) {
       var lEl = document.createElement('span');
       lEl.className = 'event__lunar';
-      lEl.textContent = lunarText + (ev.lunar.leap ? ' (윤달)' : '');
+      lEl.textContent = lunarText;
       meta.appendChild(lEl);
-    }
-    if (ev.repeat === 'yearly-solar') {
+    }    if (ev.repeat === 'yearly-solar') {
       var rEl = document.createElement('span');
       rEl.className = 'event__repeat';
       rEl.textContent = '매년';
@@ -540,6 +553,7 @@
     var items = [];
 
     events.forEach(function (ev) {
+      if (!passesMemberFilter(ev)) return;
       [today.getFullYear(), today.getFullYear() + 1].forEach(function (y) {
         var d = occurrenceForYear(ev, y);
         if (!d) return;
@@ -747,7 +761,7 @@
       var lunar = p ? L.toLunar(p[0], p[1], p[2]) : null;
       if (lunar) {
         var sol = L.toSolar(p[0], lunar.month, lunar.day, false);
-        el.repeatHint.textContent = '음력 ' + (lunar.leap ? '윤' : '') + lunar.month + '월 ' + lunar.day + '일로 저장돼요. 해마다 그 해의 양력 날짜로 자동 계산해요 (예: ' + p[0] + '년 → ' + (sol ? sol.m + '월 ' + sol.d + '일' : '계산 불가') + ').';
+        el.repeatHint.textContent = '음력 ' + (lunar.leap ? '윤' : '') + lunar.month + '월 ' + lunar.day + '일로 저장돼요. 해마다 그 해의 양력 날짜로 자동 계산해요 (예: ' + p[0] + '년 → ' + (sol ? sol.m + '월 ' + sol.d + '일' : '계산 불가') + ').' + (lunar.leap ? ' 윤달이 없는 해에는 같은 달의 같은 날로 계산해요.' : '');
       } else {
         el.repeatHint.textContent = '선택한 날짜의 음력을 계산할 수 없어요. 2022~2040년 사이 날짜를 골라 주세요.';
       }
@@ -788,7 +802,7 @@
         showFormError('이 날짜의 음력을 계산할 수 없어요. 2022~2040년 사이 날짜를 골라 주세요.');
         return;
       }
-      lunar = { month: l.month, day: l.day, leap: false };
+      lunar = { month: l.month, day: l.day, leap: !!l.leap };
     }
 
     var time = el.fAllDay.checked ? null : (el.fTime.value || null);

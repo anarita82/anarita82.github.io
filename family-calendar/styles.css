@@ -117,7 +117,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .calendar { padding: 12px 10px 8px; }
 
 .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.cal-title { text-align: center; display: flex; flex-direction: column; line-height: 1.15; }
+.cal-head__side { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.cal-title { text-align: center; display: flex; flex-direction: column; line-height: 1.15; flex: 1 1 auto; }
 .cal-title strong { font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
 .cal-sub { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 
@@ -131,16 +132,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .cal-nav:active { background: #e6e8f0; }
 
-.cal-tools {
-  display: flex; align-items: center; justify-content: flex-end;
-  margin: 8px 4px 2px;
-}
 .btn-today {
   border: 1px solid #dfe1ea;
   background: #fff;
   color: #4b5160;
   font-size: 12px; font-weight: 700;
-  padding: 4px 12px;
+  padding: 5px 11px;
   border-radius: 999px;
   cursor: pointer;
 }
