@@ -667,7 +667,7 @@
     if (who) {
       var mine = myJoinRequest();
       if (mine) {
-        who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · 📱 ' + telOf(mine) : ' · 연락처 미입력');
+        who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · 📞 ' + telOf(mine) : ' · 연락처 미입력');
         who.hidden = false;
       } else {
         who.hidden = true;
@@ -1088,7 +1088,7 @@
     if (isOwner() && st && telOf(st)) {
       var tel = document.createElement('span');
       tel.className = 'shift__tel';
-      tel.textContent = '📱 ' + telOf(st);
+      tel.textContent = '📞 ' + telOf(st);
       meta.appendChild(tel);
     }
     body.appendChild(meta);
@@ -1536,7 +1536,7 @@
     html += '<div class="pay-doc__head"><div class="pay-doc__title">급 여 명 세 서</div>';
     html += '<div class="pay-doc__sub">' + esc(calc.storeName) + ' · ' + calc.y + '년 ' + (calc.m + 1) + '월</div></div>';
     html += '<div class="pay-doc__who"><div>' + esc(calc.staffName) + '</div><span>' + calc.y + '-' + pad2(calc.m + 1) + '-01 ~ ' + calc.y + '-' + pad2(calc.m + 1) + '-' + pad2(daysInMonth(calc.y, calc.m)) + '</span></div>';
-    if (calc.staffTel) html += '<p class="pay-doc__tel">📱 ' + esc(calc.staffTel) + '</p>';
+    if (calc.staffTel) html += '<p class="pay-doc__tel">📞 ' + esc(calc.staffTel) + '</p>';
     html += '<table class="pay-doc__table"><tbody>';
     rows.forEach(function (r) {
       html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
@@ -1699,7 +1699,7 @@
       telRow.className = 'staff-row__telrow';
       var telIcon = document.createElement('span');
       telIcon.className = 'staff-row__telicon';
-      telIcon.textContent = '📱';
+      telIcon.textContent = '📞';
       telRow.appendChild(telIcon);
       var telInput = document.createElement('input');
       telInput.type = 'tel';
@@ -1921,7 +1921,7 @@
       card.innerHTML =
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
-        '<div class="req-card__tel">' + (tel ? '📱 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📱 연락처 미입력') + '</div>' +
+        '<div class="req-card__tel">' + (tel ? '📞 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📞 연락처 미입력') + '</div>' +
         '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
       var wageInput = card.querySelector('.approve-wage');

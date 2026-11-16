@@ -2066,7 +2066,7 @@
       telRow.className = 'admin-member__tel';
       var telIcon = document.createElement('span');
       telIcon.className = 'admin-member__tel-icon';
-      telIcon.textContent = '📱';
+      telIcon.textContent = '📞';
       telRow.appendChild(telIcon);
       var tel = document.createElement('input');
       tel.type = 'tel';
