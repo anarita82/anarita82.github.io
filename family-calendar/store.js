@@ -345,6 +345,12 @@
       S.shifts.forEach(function (s) { if (s.id === S.shiftEditingId) target = s; });
       if (target) openShiftReq(target);
     });
+    var reqQuick = $('reqQuick');
+    if (reqQuick) reqQuick.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-quick]');
+      if (!b) return;
+      applyQuickTime(b.getAttribute('data-quick'));
+    });
 
     /* 달력 */
     var prev = $('storePrevMonth'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
@@ -1433,6 +1439,31 @@
   function showReqError(msg) {
     var err = $('reqError');
     if (err) { err.textContent = msg; err.hidden = false; }
+  }
+
+  /* 희망 시간 빠른 조정 — 지금 근무에서 ±1·2시간 옮긴 시간을 채웁니다. */
+  function applyQuickTime(kind) {
+    var sh = S.reqShift;
+    if (!sh) return;
+    if (kind === 'clear') {
+      setVal('reqStart', '');
+      setVal('reqEnd', '');
+      return;
+    }
+    var delta = kind === 'late2' ? 120 : kind === 'late1' ? 60 : kind === 'early1' ? -60 : 0;
+    if (!delta) return;
+    function shiftHM(hm) {
+      var m = toMin(hm) + delta;
+      while (m < 0) m += 1440;
+      m = m % 1440;
+      return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+    }
+    var s = sh.start || '18:00';
+    var e = sh.end || '22:00';
+    setVal('reqStart', shiftHM(s));
+    setVal('reqEnd', shiftHM(e));
+    var err = $('reqError');
+    if (err) err.hidden = true;
   }
 
   function submitShiftReq() {

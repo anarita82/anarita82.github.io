@@ -415,3 +415,10 @@ body.store-mode .btn-primary:active { background: #0f766e; }
   background: #fffaf3; border: 1px solid #fde3c7;
   font-size: 11.5px; font-weight: 700; color: #92400e; line-height: 1.45;
 }
+.time-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.time-quick button {
+  border: 1px solid #cfe9e4; background: #f2fbf9; color: #0f766e;
+  border-radius: 999px; padding: 5px 10px;
+  font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;
+}
+.time-quick button:active { background: #e0f7f2; }

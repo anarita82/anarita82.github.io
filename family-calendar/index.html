@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117b" />
-<link rel="stylesheet" href="store.css?v=20261117b" />
+<link rel="stylesheet" href="styles.css?v=20261117c" />
+<link rel="stylesheet" href="store.css?v=20261117c" />
 </head>
 <body>
 <div class="app">
@@ -499,6 +499,12 @@
         <input id="reqEnd" type="time" />
       </div>
       <p class="field-hint">비워 두면 지금 근무 시간 그대로 둬요.</p>
+      <div class="time-quick" id="reqQuick">
+        <button type="button" data-quick="late1">1시간 늦게</button>
+        <button type="button" data-quick="late2">2시간 늦게</button>
+        <button type="button" data-quick="early1">1시간 일찍</button>
+        <button type="button" data-quick="clear">지움</button>
+      </div>
     </div>
     <div class="field">
       <label>희망 대타 직원 <span class="field-hint--inline">선택</span></label>
@@ -805,15 +811,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117b"></script>
-<script src="firebase-auth-compat.js?v=20261117b"></script>
-<script src="firebase-firestore-compat.js?v=20261117b"></script>
-<script src="lunar.js?v=20261117b"></script>
-<script src="cloud.js?v=20261117b"></script>
-<script src="app.js?v=20261117b"></script>
-<script src="voice.js?v=20261117b"></script>
-<script src="media.js?v=20261117b"></script>
-<script src="store-cloud.js?v=20261117b"></script>
-<script src="store.js?v=20261117b"></script>
+<script src="firebase-app-compat.js?v=20261117c"></script>
+<script src="firebase-auth-compat.js?v=20261117c"></script>
+<script src="firebase-firestore-compat.js?v=20261117c"></script>
+<script src="lunar.js?v=20261117c"></script>
+<script src="cloud.js?v=20261117c"></script>
+<script src="app.js?v=20261117c"></script>
+<script src="voice.js?v=20261117c"></script>
+<script src="media.js?v=20261117c"></script>
+<script src="store-cloud.js?v=20261117c"></script>
+<script src="store.js?v=20261117c"></script>
 </body>
 </html>
