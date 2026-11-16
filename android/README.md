@@ -8,9 +8,9 @@
 | --- | --- |
 | 앱 이름 | 우리 가족 달력 |
 | 패키지 | `com.anarita82.familycalendar` |
-| 버전 | 1.2 (versionCode 3) |
+| 버전 | 1.4 (versionCode 5) |
 | minSdk / targetSdk | 24 (Android 7.0) / 34 |
-| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, 사진 읽기 |
+| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, 사진 읽기 |
 | 진입 화면 | `MainActivity` → `https://anarita82.github.io/family-calendar/` |
 
 ## 동작
@@ -29,6 +29,16 @@
   웹앱에 돌려줍니다. 웹앱(`voice.js`)은 이 콜백의 문장을 기존 한국어 자연어 해석기에 넣어 칸을 채웁니다.
 - 마이크 권한이 없으면 먼저 권한을 요청하고, 거부하면 웹앱에 `permission`을 보내 안내 문구를 띄웁니다.
 - 인식 액티비티를 찾지 못하는 기기(음성인식 앱 없음)는 `no-recognizer`로 안내합니다.
+
+## 🔔 예약 알림 (1.4에서 추가)
+
+- 웹앱이 동기화할 때마다 **다가오는 미리 알림(기본 45일, 최대 100건)** 을 `AndroidApp.scheduleNotifications(json)`으로 넘기고,
+  앱은 `AlarmManager`(`setExactAndAllowWhileIdle`, 권한이 없으면 `setAndAllowWhileIdle`)로 예약합니다.
+  → **앱을 닫아 둬도** 담당 일정 미리 알림이 울립니다.
+- 알림은 `ReminderReceiver`가 띄우고, 누르면 `MainActivity`(가족 달력)가 열립니다.
+- 폰을 다시 켜면 `BootReceiver`(`BOOT_COMPLETED`/`MY_PACKAGE_REPLACED`)가 저장된 예약(`SharedPreferences`)을 다시 겁니다.
+- 웹앱 쪽 필터: 내 프로필이 **담당**으로 들어간 일정만(또는 설정에서 '전체 일정') 알림. 문구에 `[담당: 첫째·아빠]` 표시.
+- 웹 브라우저(크롬·사파리)는 푸시 서버 없이 탭을 닫으면 예약 알림을 걸 수 없어, **달력 화면이 열려 있을 때만** 알림이 울립니다.
 
 ## 빌드
 

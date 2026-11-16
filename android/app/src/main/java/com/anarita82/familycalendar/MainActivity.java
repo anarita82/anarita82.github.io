@@ -331,6 +331,29 @@ public class MainActivity extends Activity {
             showNotification(title == null ? "일정 알림" : title, body == null ? "" : body);
         }
 
+        /* 🔔 예약 알림 — 웹앱이 다가오는 미리 알림 목록(JSON)을 넘기면 AlarmManager에 예약합니다.
+           앱을 닫아 둬도 울리므로, 가족 달력의 '담당 일정' 미리 알림이 폰에서 제대로 동작합니다. */
+        @JavascriptInterface
+        public int scheduleNotifications(String json) {
+            try {
+                return AlarmScheduler.apply(getApplicationContext(), json == null ? "[]" : json);
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        @JavascriptInterface
+        public void cancelNotifications() {
+            try {
+                AlarmScheduler.cancelStored(getApplicationContext());
+            } catch (Exception e) {
+                /* 무시 */
+            }
+        }
+
+        @JavascriptInterface
+        public boolean hasScheduledNotifications() { return true; }
+
         /* 🎤 음성 입력 — WebView에는 Web Speech API가 없어 네이티브 음성인식 창을 띄웁니다.
            결과는 window.onAndroidVoiceResult(text), 취소·오류는 window.onAndroidVoiceError(reason). */
         @JavascriptInterface
@@ -406,32 +429,7 @@ public class MainActivity extends Activity {
     }
 
     private void showNotification(String title, String body) {
-        try {
-            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm == null) return;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
-                channel.setDescription("가족 달력 일정 미리 알림");
-                nm.createNotificationChannel(channel);
-            }
-            Intent open = new Intent(this, MainActivity.class);
-            open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
-            PendingIntent pi = PendingIntent.getActivity(this, 0, open, flags);
-
-            Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    ? new Notification.Builder(this, CHANNEL_ID)
-                    : new Notification.Builder(this);
-            builder.setContentTitle(title)
-                    .setContentText(body)
-                    .setStyle(new Notification.BigTextStyle().bigText(body))
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setAutoCancel(true)
-                    .setContentIntent(pi);
-            nm.notify((int) (System.currentTimeMillis() % 100000), builder.build());
-        } catch (Exception e) {
-            /* 알림 실패는 앱 동작에 영향 없음 */
-        }
+        ReminderReceiver.show(this, title, body, "");
     }
 
     private void requestNotificationPermissionIfNeeded() {

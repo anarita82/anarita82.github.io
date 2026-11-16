@@ -350,6 +350,8 @@
     el.fAllDay = document.getElementById('fAllDay');
     el.fTime = document.getElementById('fTime');
     el.fMembers = document.getElementById('fMembers');
+    el.fMembersAll = document.getElementById('fMembersAll');
+    el.fMembersCount = document.getElementById('fMembersCount');
     el.fCategories = document.getElementById('fCategories');
     el.fMemo = document.getElementById('fMemo');
     el.fRepeat = document.getElementById('fRepeat');
@@ -406,6 +408,12 @@
     el.myTelHint = document.getElementById('myTelHint');
     el.myInfoNote = document.getElementById('myInfoNote');
     el.myInfoSaveBtn = document.getElementById('myInfoSaveBtn');
+    el.notifyBox = document.getElementById('notifyBox');
+    el.notifyWho = document.getElementById('notifyWho');
+    el.notifyState = document.getElementById('notifyState');
+    el.notifyScope = document.getElementById('notifyScope');
+    el.notifyNewEvent = document.getElementById('notifyNewEvent');
+    el.notifyNote = document.getElementById('notifyNote');
     el.newMemberTel = document.getElementById('newMemberTel');
     el.adminBtn = document.getElementById('adminBtn');
     el.pinModal = document.getElementById('pinModal');
@@ -455,6 +463,10 @@
     updateNotifyBtn();
     setInterval(checkReminders, 30000);
     setTimeout(checkReminders, 4000);
+    setTimeout(syncAndroidAlarms, 4000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { checkReminders(); syncAndroidAlarms(); }
+    });
   }
 
   /* ---------------- 공유 연결 ---------------- */
@@ -543,7 +555,7 @@
         confirmCreate: function (clean) {
           return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
         },
-        onData: function (list) { events = list; cloudReady = true; clearTimeout(connectTimer); renderAll(); },
+        onData: function (list) { applyEventData(list); },
         onPhotos: function (list) { photos = list; renderAlbum(); },
         onRoom: function (info) { applyRoomMeta(info); },
         onRoomError: function (err) {
@@ -625,6 +637,7 @@
     if (!code) { showRoomError('가족 코드를 입력해 주세요.'); return; }
     FamilyCloud.stop();
     events = [];
+    resetEventWatch();
     state.selected = todayISO();
     renderAll();
     connectToRoom(code);
@@ -681,6 +694,15 @@
     if (el.kakaoTodayBtn) el.kakaoTodayBtn.addEventListener('click', function () { copyKakaoSummary('today'); });
     if (el.kakaoWeekBtn) el.kakaoWeekBtn.addEventListener('click', function () { copyKakaoSummary('week'); });
     if (el.notifyBtn) el.notifyBtn.addEventListener('click', askNotify);
+    if (el.fMembersAll) el.fMembersAll.addEventListener('click', toggleAllMembers);
+    if (el.notifyScope) {
+      Array.prototype.forEach.call(el.notifyScope.children, function (b) {
+        b.addEventListener('click', function () { setMyNotifyPrefs({ scope: b.getAttribute('data-scope') }); });
+      });
+    }
+    if (el.notifyNewEvent) {
+      el.notifyNewEvent.addEventListener('change', function () { setMyNotifyPrefs({ newEvent: el.notifyNewEvent.checked }); });
+    }
     if (el.daySheetClose) el.daySheetClose.addEventListener('click', closeDaySheet);
     if (el.daySheetModal) {
       var daySheetBackdrop = el.daySheetModal.querySelector('[data-close]');
@@ -1338,12 +1360,69 @@
 
   /* ---------------- 🔔 일정 미리 알림 ---------------- */
   var firedReminders = {};
+  var NOTIFY_KEY = 'family-calendar.notify.v1';
+  var notifyPrefs = loadNotifyPrefs();
+
+  function loadNotifyPrefs() {
+    try {
+      var raw = localStorage.getItem(NOTIFY_KEY);
+      var obj = raw ? JSON.parse(raw) : null;
+      return obj && typeof obj === 'object' ? obj : {};
+    } catch (e) { return {}; }
+  }
+
+  function saveNotifyPrefs() {
+    try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(notifyPrefs)); } catch (e) { /* 무시 */ }
+  }
+
+  /* 이 폰(프로필)의 알림 설정 — 기본은 '내 담당 일정만' + 새 일정 알림 켜짐 */
+  function myNotifyPrefs() {
+    var p = state.profile ? notifyPrefs[state.profile] : null;
+    if (!p || typeof p !== 'object') return { scope: 'mine', newEvent: true };
+    return { scope: p.scope === 'all' ? 'all' : 'mine', newEvent: p.newEvent !== false };
+  }
+
+  function setMyNotifyPrefs(patch) {
+    if (!state.profile) { toast('먼저 이 폰을 쓰는 사람을 골라 주세요'); return; }
+    var next = myNotifyPrefs();
+    if (patch && patch.scope) next.scope = patch.scope === 'all' ? 'all' : 'mine';
+    if (patch && Object.prototype.hasOwnProperty.call(patch, 'newEvent')) next.newEvent = !!patch.newEvent;
+    notifyPrefs[state.profile] = next;
+    saveNotifyPrefs();
+    renderNotifyBox();
+    syncAndroidAlarms();
+  }
+
+  /* 내가 알림 받을 일정인가 — '전체 일정'이면 모두, 아니면 내가 담당으로 들어간 일정만 */
+  function notifyCovers(ev) {
+    if (!state.profile) return true;
+    if (myNotifyPrefs().scope === 'all') return true;
+    return (ev.members || []).indexOf(state.profile) !== -1;
+  }
+
+  function memberNamesOf(ids) {
+    return (ids || []).map(function (id) {
+      var m = memberById(id);
+      return m ? m.name : '';
+    }).filter(Boolean).join('·');
+  }
 
   function reminderAt(ev, occurrenceStart) {
     var t = ev.time ? ev.time.split(':').map(Number) : [9, 0];
     var start = parseISO(occurrenceStart);
     var when = new Date(start.getFullYear(), start.getMonth(), start.getDate(), t[0] || 0, t[1] || 0, 0, 0);
     return { when: when, fire: new Date(when.getTime() - (Number(ev.remind) || 0) * 60000) };
+  }
+
+  /* 알림 문구 — 담당이 누구인지 [담당: 첫째·아빠]처럼 붙입니다. */
+  function reminderMessage(ev, when) {
+    var hh = ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
+    var who = memberNamesOf(ev.members);
+    var lead = Number(ev.remind) > 0 ? ' (' + remindLabel(ev.remind) + ')' : '';
+    var body = (who ? '[담당: ' + who + '] ' : '') +
+      (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + hh + (ev.time ? '' : ' (종일)') + lead +
+      (ev.memo ? '\n' + ev.memo : '');
+    return { title: '🔔 ' + (ev.title || '일정'), body: body, who: who };
   }
 
   function checkReminders() {
@@ -1353,6 +1432,7 @@
     var to = addDaysISO(todayISO(), 2);
     events.forEach(function (ev) {
       if (ev.remind === null || ev.remind === undefined || isNaN(Number(ev.remind))) return;
+      if (!notifyCovers(ev)) return;
       occurrenceStarts(ev, from, to).forEach(function (r) {
         var t = reminderAt(ev, r.start);
         var key = ev.id + '|' + r.start;
@@ -1367,8 +1447,8 @@
   }
 
   function showReminder(ev, when) {
-    var hh = ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
-    var text = '🔔 ' + (ev.title || '일정') + ' · ' + (when.getMonth() + 1) + '/' + when.getDate() + ' ' + hh + (ev.time ? '' : ' (종일)');
+    var msg = reminderMessage(ev, when);
+    var text = msg.title + ' · ' + msg.body.split('\n')[0];
     var banner = el.remindBanner;
     if (banner) {
       banner.innerHTML = '';
@@ -1385,14 +1465,108 @@
       clearTimeout(banner._timer);
       banner._timer = setTimeout(function () { banner.hidden = true; }, 25000);
     }
+    systemNotify(msg.title, msg.body, 'family-calendar-' + ev.id);
+  }
+
+  /* 휴대폰 알림 — 안드로이드 앱은 네이티브 알림, 브라우저는 웹 알림 */
+  function systemNotify(title, body, tag) {
     try {
       if (window.AndroidApp && typeof window.AndroidApp.notify === 'function') {
-        window.AndroidApp.notify('🔔 ' + (ev.title || '일정'), (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + hh + (ev.memo ? '\n' + ev.memo : ''));
+        window.AndroidApp.notify(title, body);
       } else if (window.Notification && Notification.permission === 'granted') {
-        var n = new Notification('🔔 ' + (ev.title || '일정'), { body: (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + hh + (ev.memo ? '\n' + ev.memo : ''), tag: 'family-calendar-' + ev.id });
+        var n = new Notification(title, { body: body, tag: tag || undefined });
         n.onclick = function () { window.focus(); };
       }
-    } catch (e) { /* 알림 못 띄워도 배너는 보임 */ }
+    } catch (e) { /* 알림 못 띄워도 배너·토스트는 보임 */ }
+  }
+
+  /* 🔔 APK 예약 알람 — 앱을 닫아 둬도 울리도록 다가오는 미리 알림을 네이티브에 넘깁니다.
+     (웹 브라우저에는 이 기능이 없어 화면이 열려 있을 때만 동작합니다) */
+  function buildAlarmPlan(days) {
+    var out = [];
+    var now = Date.now();
+    var from = addDaysISO(todayISO(), -1);
+    var to = addDaysISO(todayISO(), days || 45);
+    events.forEach(function (ev) {
+      if (ev.remind === null || ev.remind === undefined || isNaN(Number(ev.remind))) return;
+      if (!notifyCovers(ev)) return;
+      occurrenceStarts(ev, from, to).forEach(function (r) {
+        var t = reminderAt(ev, r.start);
+        var at = t.fire.getTime();
+        if (at <= now + 15000) return;
+        var msg = reminderMessage(ev, t.when);
+        out.push({ id: ev.id + '@' + r.start, title: msg.title, body: msg.body, at: at });
+      });
+    });
+    out.sort(function (a, b) { return a.at - b.at; });
+    return out.slice(0, 100);
+  }
+
+  function syncAndroidAlarms() {
+    var bridge = window.AndroidApp;
+    if (!bridge || typeof bridge.scheduleNotifications !== 'function') return;
+    try {
+      bridge.scheduleNotifications(JSON.stringify(buildAlarmPlan(45)));
+    } catch (e) { /* 예약 실패해도 앱 동작에는 영향 없음 */ }
+  }
+
+  /* 새 일정 감지 — 동기화로 새로 들어온 일정 중 내 담당(또는 전체)인 것을 알립니다. */
+  var knownEventIds = {};
+  var knownReady = false;
+  var selfCreated = {};
+
+  function resetEventWatch() {
+    knownEventIds = {};
+    knownReady = false;
+    selfCreated = {};
+  }
+
+  function markSelfCreated(id) {
+    if (!id) return;
+    selfCreated[id] = Date.now();
+    knownEventIds[id] = true;
+  }
+
+  function detectNewEvents(list) {
+    var fresh = [];
+    list.forEach(function (ev) {
+      if (knownEventIds[ev.id]) return;
+      if (selfCreated[ev.id]) return;
+      /* 앱을 새로 열거나 다시 연결했을 때 이미 있던 일정이 무더기로 울리지 않도록 */
+      if (ev.createdAt && Date.now() - ev.createdAt > 30 * 60000) return;
+      if (!myNotifyPrefs().newEvent) return;
+      if (!notifyCovers(ev)) return;
+      fresh.push(ev);
+    });
+    return fresh;
+  }
+
+  function announceNewEvents(fresh) {
+    if (!fresh.length) return;
+    fresh.slice(0, 3).forEach(function (ev) {
+      var d = parseISO(ev.date);
+      var when = (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEKDAYS[d.getDay()] + ')' + (ev.time ? ' ' + ev.time : '');
+      var who = memberNamesOf(ev.members);
+      var title = myNotifyPrefs().scope === 'all' ? '🔔 새 일정이 등록됐어요' : '🔔 내 담당 새 일정이 등록됐어요';
+      systemNotify(title, ev.title + ' · ' + when + (who ? '\n[담당: ' + who + ']' : ''), 'family-calendar-new-' + ev.id);
+    });
+    var first = fresh[0];
+    toast((myNotifyPrefs().scope === 'all' ? '새 일정이 등록됐어요 · ' : '내 담당 새 일정이 등록됐어요 · ') + first.title +
+      (fresh.length > 1 ? ' 외 ' + (fresh.length - 1) + '건' : ''));
+  }
+
+  function applyEventData(list) {
+    var first = !knownReady;
+    var fresh = first ? [] : detectNewEvents(list);
+    events = list;
+    cloudReady = true;
+    clearTimeout(connectTimer);
+    knownEventIds = {};
+    list.forEach(function (ev) { knownEventIds[ev.id] = true; });
+    knownReady = true;
+    renderAll();
+    if (!first) announceNewEvents(fresh);
+    syncAndroidAlarms();
   }
 
   function updateNotifyBtn() {
@@ -1408,6 +1582,34 @@
     btn.textContent = ok ? '🔔 알림 켜짐' : '🔔 알림 켜기';
     btn.classList.toggle('is-on', !!ok);
     btn.hidden = !window.Notification;
+  }
+
+  /* 🔔 내 알림 설정 — 프로필을 고른 사람마다 '담당만/전체'를 따로 기억합니다. */
+  function renderNotifyBox() {
+    if (!el.notifyBox) return;
+    var me = myMember();
+    el.notifyBox.hidden = !me;
+    if (!me) return;
+    var p = myNotifyPrefs();
+    if (el.notifyWho) el.notifyWho.textContent = me.name;
+    if (el.notifyState) el.notifyState.textContent = p.scope === 'all' ? '전체 일정' : '담당 일정만';
+    if (el.notifyScope) {
+      Array.prototype.forEach.call(el.notifyScope.children, function (b) {
+        var on = b.getAttribute('data-scope') === p.scope;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+    }
+    if (el.notifyNewEvent) el.notifyNewEvent.checked = p.newEvent;
+    if (el.notifyNote) {
+      var scopeText = p.scope === 'all'
+        ? '가족 모두의 일정을 알려드려요.'
+        : '내 이름이 담당에 들어간 일정만 알려드려요.';
+      var where = (window.AndroidApp && typeof window.AndroidApp.scheduleNotifications === 'function')
+        ? '앱을 닫아 둬도 예약 알림이 울려요.'
+        : '브라우저에서는 달력 화면이 열려 있을 때만 알림이 울려요(푸시 서버 없이 예약 불가).';
+      el.notifyNote.textContent = scopeText + ' ' + where;
+    }
   }
 
   function askNotify() {
@@ -1853,9 +2055,13 @@
       var i = document.createElement('i');
       b.appendChild(i);
       b.appendChild(document.createTextNode(mb.name));
-      b.addEventListener('click', function () { b.classList.toggle('is-on'); });
+      b.addEventListener('click', function () {
+        b.classList.toggle('is-on');
+        paintMembersCount();
+      });
       el.fMembers.appendChild(b);
     });
+    paintMembersCount();
 
     var catId = ev ? ev.category : 'etc';
     el.fCategories.innerHTML = '';
@@ -2016,6 +2222,29 @@
     });
   }
 
+  /* 담당 가족 — [전체 선택] 버튼과 'n/m명' 표시를 지금 선택 상태에 맞춥니다. */
+  function paintMembersCount() {
+    var picked = currentMembers();
+    var total = MEMBERS.length;
+    if (el.fMembersCount) el.fMembersCount.textContent = picked.length + '/' + total + '명';
+    var all = el.fMembersAll;
+    if (!all) return;
+    var isAll = total > 0 && picked.length === total;
+    all.classList.toggle('is-on', isAll);
+    all.textContent = isAll ? '전체 해제' : '전체 선택';
+    all.setAttribute('aria-pressed', String(isAll));
+    all.disabled = total === 0;
+  }
+
+  /* 한 번 누르면 전원 선택, 다 선택돼 있으면 전원 해제(다시 누르면 원상 복귀 가능). */
+  function toggleAllMembers() {
+    var btns = Array.prototype.slice.call(el.fMembers.querySelectorAll('.pick'));
+    if (!btns.length) return;
+    var allOn = btns.every(function (b) { return b.classList.contains('is-on'); });
+    btns.forEach(function (b) { b.classList.toggle('is-on', !allOn); });
+    paintMembersCount();
+  }
+
   function updateDateHint() {
     var val = el.fDate.value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
@@ -2107,6 +2336,7 @@
       Array.prototype.forEach.call(el.fMembers.children, function (b) {
         b.classList.toggle('is-on', parsed.members.indexOf(b.getAttribute('data-id')) !== -1);
       });
+      paintMembersCount();
     }
     if (parsed.category) {
       Array.prototype.forEach.call(el.fCategories.children, function (b) {
@@ -2229,7 +2459,9 @@
       return;
     }
 
-    FamilyCloud.saveEvent(state.editingId, payload).then(function () {
+    FamilyCloud.saveEvent(state.editingId, payload).then(function (newId) {
+      /* 내가 방금 만든 일정은 '새 일정 알림'에서 빼기 */
+      markSelfCreated(state.editingId || newId);
       goToDate(date);
       closeModal();
       renderAll();
@@ -2810,6 +3042,7 @@
     });
     el.profileAdminActions.hidden = !canManage();
     renderMyInfo();
+    renderNotifyBox();
   }
 
   /* 내 정보 — 지금 고른 구성원이 자기 이름·휴대폰 번호를 직접 고칩니다.
@@ -2916,6 +3149,8 @@
     }
     renderAll();
     toast(m.name + ' 님으로 시작해요');
+    syncAndroidAlarms();
+    renderNotifyBox();
   }
 
   /* ---------------- 관리자 PIN ---------------- */
@@ -3442,6 +3677,12 @@
     buildKakaoText: buildKakaoText,
     seedSamples: seedSamples,
     inviteLink: inviteLink,
+    /* 알림 점검용 */
+    notifyPrefs: function () { return myNotifyPrefs(); },
+    notifyCovers: function (ev) { return notifyCovers(ev); },
+    alarmPlan: function (days) { return buildAlarmPlan(days || 45); },
+    syncAlarms: syncAndroidAlarms,
+    checkReminders: checkReminders,
     isReady: function () { return cloudReady; },
     role: function () { return myRole(); },
     profile: function () { return state.profile; },

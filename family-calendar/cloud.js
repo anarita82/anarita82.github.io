@@ -585,7 +585,8 @@
           repeat: data.repeat || 'none',
           weekday: (data.weekday === 0 || data.weekday > 0) ? Number(data.weekday) : null,
           checklist: cleanChecklist(data.checklist),
-          lunar: data.lunar || null
+          lunar: data.lunar || null,
+          createdAt: data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0
         });
       });
       if (snap.metadata.fromCache) {

@@ -574,6 +574,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pick.is-on::after { content: "✓"; font-size: 10px; margin-left: 1px; }
 .pick--cat i { display: none; }
 
+/* 담당 가족 전체 선택/해제 */
+.pick-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pick--all {
+  --c: #4f46e5; --bgc: #eef0ff; --fgc: #3730a3;
+  border-color: #c7cbf7;
+  background: #f5f6ff;
+  color: #3730a3;
+}
+.pick--all.is-on { border-color: #4f46e5; background: #4f46e5; color: #fff; }
+.pick-all-row .field-hint--inline { font-variant-numeric: tabular-nums; }
+
+/* 🔔 내 알림 설정 */
+#notifyBox { margin-top: 12px; border-top: 1px solid #eef0f5; padding-top: 10px; }
+#notifyBox .switch { margin: 4px 0 2px; }
+#notifyBox .segmented { margin-top: 2px; }
+#notifyBox .segmented button { font-size: 12px; }
+
 .segmented {
   display: flex;
   background: #f3f4f8;
