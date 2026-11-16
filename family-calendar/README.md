@@ -110,8 +110,43 @@ service cloud.firestore {
 }
 ```
 
-- 앱은 **익명 로그인**으로 접속하므로, 로그인하지 않은 요청은 거부되고 방 목록도 조회할 수 없습니다.
+- 앱은 원래 **익명 로그인**으로 접속하므로, 로그인하지 않은 요청은 거부되고 방 목록도 조회할 수 없습니다.
   같은 달력을 보려면 가족 코드를 알아야 해당 `roomId`에 접근할 수 있습니다.
+- 2026-11-17부터 **이메일·구글 계정 로그인**도 같은 `request.auth != null` 조건을 그대로 만족합니다
+  (익명·이메일·구글 모두 같은 방을 읽고 씁니다). 따라서 **보안 규칙은 바꾸지 않았습니다.**
+
+## 🔐 이메일 · 구글 로그인 (2026-11-17 추가)
+
+로그인은 **선택**입니다. 로그인하지 않아도 지금처럼 가족 코드로 쓸 수 있고, 로그인한 사람만 계정이 붙습니다.
+
+| 화면 | 하는 일 |
+| --- | --- |
+| 상단 **🔐 로그인** 배지 (가족·매장 공통) | 계정 창을 엽니다. 로그인하면 `🔐 이메일` / `🔐 구글`로 표시됩니다 |
+| 계정 창 — **이메일 로그인 / 회원가입** | 이메일·비밀번호(+이름)로 로그인·가입. 이름은 `.updateProfile`로 표시명에 저장 |
+| 계정 창 — **구글로 로그인** | 팝업 → 막히면 리디렉션. 돌아온 결과는 `getRedirectResult`로 마무리 |
+| 계정 창 — **비밀번호 재설정 메일** | `sendPasswordResetEmail` |
+| 계정 창 — **로그아웃** | `signOut` 뒤 익명 세션으로 돌아가고, 그 다음 화면을 새로 고칩니다 |
+| `?auth=google` 로 들어오면 | 로그인 안 된 상태에서 **한 번만** 구글 리디렉션 로그인을 시작합니다(주소에서 파라미터 제거) |
+
+- 구성원 이름과 **같은 표시명**으로 로그인하면 "이름이 가족 구성원 '아빠'와 같아요" 안내와 [내 프로필로 지정] 단추가 뜹니다(아빠·엄마는 PIN 확인).
+- 로그인·로그아웃처럼 **계정이 바뀌면 화면을 한 번 새로 고칩니다.** 가족 코드·매장 코드는 `localStorage`에 남아 그대로 이어집니다.
+- 토큰 교체 순간에 Firestore가 `permission-denied`를 낼 수 있어, 연결 전에 `getIdToken()`으로 토큰을 받아 두고,
+  오류가 나면 **2.5초 뒤 한 번만** 자동으로 다시 연결합니다(`scheduleAutoRecover`).
+- APK(WebView)에서는 구글 OAuth가 `403 disallowed_useragent`로 막히므로 웹앱이 WebView를 감지해
+  **"크롬에서 구글로 로그인"**으로 안내하고, 앱 1.3의 `AndroidApp.openExternal(url)`로 기본 브라우저를 엽니다.
+  앱 안에서는 **이메일 로그인**을 씁니다.
+
+```js
+// cloud.js — 계정 API
+FamilyCloud.onAuth(cb)                 // 로그인 상태 변화 구독
+FamilyCloud.accountInfo()              // { signedIn, anonymous, uid, email, name, method, methodLabel }
+FamilyCloud.signUpWithEmail(email, pw, name)
+FamilyCloud.signInWithEmail(email, pw)
+FamilyCloud.signInWithGoogle() / signInWithGoogleRedirect() / finishRedirectSignIn()
+FamilyCloud.sendPasswordReset(email)
+FamilyCloud.signOutAccount() / setAccountName(name) / authErrorHint(err)
+FamilyCloud.ensureSignedIn()           // 로그인 상태 복원을 기다린 뒤 익명으로라도 접속
+```
 
 ## 개인정보
 
@@ -233,4 +268,5 @@ rooms/{storeRoomId}
 - `?store=` 매장 초대 링크로 들어오면 **이 폰에 가족 코드가 이미 저장돼 있어도** 가족 화면 대신 매장 입장 화면이 열립니다.
   가족 방이 없는 알바생 폰은 예전처럼 가족 탭·가족 방이 보이지 않습니다(잠금 유지).
   가족 코드가 이미 있는 폰(가족이 매장 알바도 하는 경우)은 승인된 뒤에도 가족·매장 두 탭을 모두 봅니다.
-- 자산 쿼리 버전 `20261117c`, 서비스워커 캐시 `family-calendar-v26` — APK v1.1에서도 재설치 없이 새 버전이 뜹니다.
+- 자산 쿼리 버전 `20261117k`, 서비스워커 캐시 `family-calendar-v34` — APK v1.1~1.2에서도 재설치 없이 새 버전이 뜹니다.
+- APK **v1.3**(versionCode 4): `AndroidApp.openExternal(url)` 브리지 추가(계정 창의 "크롬에서 열기"). 서명은 1.2와 같아 덮어 설치됩니다.
