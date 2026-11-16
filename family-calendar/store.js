@@ -1591,6 +1591,15 @@
       photoBtn.appendChild(storeAvatar(m, 30));
       photoBtn.addEventListener('click', function () { pickStaffPhoto(m); });
       li.appendChild(photoBtn);
+      if (m.photoDataUrl) {
+        var clearPh = document.createElement('button');
+        clearPh.type = 'button';
+        clearPh.className = 'admin-member__photo-clear';
+        clearPh.textContent = '✕';
+        clearPh.title = '사진 지우기';
+        clearPh.addEventListener('click', function () { clearStaffPhoto(m); });
+        li.appendChild(clearPh);
+      }
 
       var name = document.createElement('input');
       name.type = 'text';
@@ -1688,6 +1697,17 @@
       }).catch(function () {
         toast('사진을 읽지 못했어요');
       });
+    });
+  }
+
+  function clearStaffPhoto(m) {
+    if (!isOwner()) return;
+    var next = S.staff.map(staffPlain);
+    next.forEach(function (x) { if (x.id === m.id) delete x.photoDataUrl; });
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      toast(m.name + ' 님 사진을 지웠어요');
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
     });
   }
 

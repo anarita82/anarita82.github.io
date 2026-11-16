@@ -893,3 +893,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-family: inherit;
 }
 .admin-member__name:focus { border-color: #a5a3f5; background: #fff; outline: none; }
+
+.admin-member__photo-clear {
+  border: 0; background: #f1f2f7; color: #8b93a3;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 9px; line-height: 1; cursor: pointer;
+  padding: 0; flex: 0 0 auto;
+}
+.admin-member__photo-clear:active { color: #dc2626; background: #fee2e2; }

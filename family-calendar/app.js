@@ -714,6 +714,7 @@
             state.selected = targetISO;
             renderCalendar();
             renderDayCard();
+            renderAlbum();
           }
         });
       })(dateISO, inMonth);
@@ -1927,6 +1928,14 @@
     el.adminModal.hidden = false;
   }
 
+  /* 구성원 사진 지우기 */
+  function clearMemberPhoto(m) {
+    if (!canManage()) return;
+    var next = MEMBERS.map(plainMember);
+    next.forEach(function (x) { if (x.id === m.id) x.photoDataUrl = ''; });
+    saveMemberList(next, m.name + ' 님 사진을 지웠어요');
+  }
+
   function renderAdminMembers() {
     el.adminMemberList.innerHTML = '';
     MEMBERS.forEach(function (m) {
@@ -1943,6 +1952,16 @@
       photoBtn.appendChild(av);
       photoBtn.addEventListener('click', function () { pickMemberPhoto(m); });
       li.appendChild(photoBtn);
+      if (m.photoDataUrl) {
+        var clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'admin-member__photo-clear';
+        clear.textContent = '✕';
+        clear.title = '사진 지우기';
+        clear.setAttribute('aria-label', m.name + ' 사진 지우기');
+        clear.addEventListener('click', function () { clearMemberPhoto(m); });
+        li.appendChild(clear);
+      }
 
       var name = document.createElement('input');
       name.type = 'text';
