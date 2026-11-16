@@ -854,7 +854,7 @@
     }
 
     var first = new Date(y, m, 1);
-    var total = daysInMonth(y, m + 1);
+    var total = daysInMonth(y, m);
     var weeks = Math.ceil((first.getDay() + total) / 7);
     var start = new Date(y, m, 1 - first.getDay());
     var today = todayISO();
@@ -1478,7 +1478,7 @@
     var html = '<div class="pay-doc">';
     html += '<div class="pay-doc__head"><div class="pay-doc__title">급 여 명 세 서</div>';
     html += '<div class="pay-doc__sub">' + esc(calc.storeName) + ' · ' + calc.y + '년 ' + (calc.m + 1) + '월</div></div>';
-    html += '<div class="pay-doc__who"><div>' + esc(calc.staffName) + '</div><span>' + calc.y + '-' + pad2(calc.m + 1) + '-01 ~ ' + calc.y + '-' + pad2(calc.m + 1) + '-' + pad2(daysInMonth(calc.y, calc.m + 1)) + '</span></div>';
+    html += '<div class="pay-doc__who"><div>' + esc(calc.staffName) + '</div><span>' + calc.y + '-' + pad2(calc.m + 1) + '-01 ~ ' + calc.y + '-' + pad2(calc.m + 1) + '-' + pad2(daysInMonth(calc.y, calc.m)) + '</span></div>';
     html += '<table class="pay-doc__table"><tbody>';
     rows.forEach(function (r) {
       html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
@@ -1954,7 +1954,8 @@
     isStoreActive: function () { return S.active; },
     shouldSkipFamily: function () { return isLocked(); },
     open: function () { activate('api'); },
-    render: function () { renderAll(); }
+    render: function () { renderAll(); },
+    applyVoice: function (text) { applyVoiceShift(text); }
   };
 
   document.addEventListener('DOMContentLoaded', function () {
