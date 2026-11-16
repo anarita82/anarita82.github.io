@@ -605,7 +605,10 @@
     if (mine) {
       if (mine.status === 'approved') {
         lsSet(STAFF_KEY, mine.staffId);
-        lsSet(LOCK_KEY, '1');
+        /* 가족 방이 없는 알바생 폰만 매장 전용(가족 탭 숨김)으로 잠급니다.
+           가족 코드가 있는 폰(가족이 매장에서도 일하는 경우)은 두 탭을 모두 봅니다. */
+        var famCode = (window.FamilyCloud && typeof FamilyCloud.storedCode === 'function') ? FamilyCloud.storedCode() : '';
+        if (!famCode) lsSet(LOCK_KEY, '1');
         if (staffById(mine.staffId)) {
           S.role = 'staff';
           S.filter = mine.staffId;
