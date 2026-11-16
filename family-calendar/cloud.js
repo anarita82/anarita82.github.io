@@ -264,7 +264,14 @@
     return authReady().then(function (u) {
       if (u) return u;
       if (state.auth.currentUser) return state.auth.currentUser;
-      return state.auth.signInAnonymously().then(function (cred) { return cred.user; });
+      return state.auth.signInAnonymously().then(function (cred) {
+        var user = cred && cred.user ? cred.user : state.auth.currentUser;
+        /* Firestore가 토큰을 받기 전에 요청해 권한 오류가 나지 않도록 토큰을 미리 받아 둡니다. */
+        if (user && typeof user.getIdToken === 'function') {
+          return user.getIdToken().then(function () { return user; }, function () { return user; });
+        }
+        return user;
+      });
     });
   }
 

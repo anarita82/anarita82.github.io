@@ -547,7 +547,13 @@
         onRoom: function (info) { applyRoomMeta(info); },
         onRoomError: function (err) {
           var code = (err && err.code) || '';
-          if (code === 'permission-denied') setStatus('error', '가족 방 설정을 읽을 수 없어요 (가족 코드를 확인해 주세요)');
+          /* 일정이 이미 흐르고 있으면 방 문서 읽기는 잠시 뒤 저절로 풀립니다
+             (로그인·로그아웃 직후 토큰 교체 순간). 화면을 오류로 덮지 않습니다. */
+          if (code === 'permission-denied') {
+            if (!cloudReady) setStatus('error', '가족 방 설정을 읽을 수 없어요 (가족 코드를 확인해 주세요)');
+            return;
+          }
+          if (code) setStatus('error', '가족 방 설정을 읽지 못했어요 · ' + code);
         },
         onStatus: function (s) { setStatus(s.kind, s.text); }
       }).then(function (info) {
@@ -2662,6 +2668,10 @@
     if (!window.FamilyCloud) return;
     if (!window.confirm('이 기기에서 로그아웃할까요?\n\n가족 달력은 로그인 없이(익명) 그대로 이어져요.\n다시 들어올 때는 같은 이메일·구글로 로그인하면 돼요.')) return;
     FamilyCloud.signOutAccount().then(function () {
+      /* 로그아웃하면 익명 세션으로 돌아갑니다. 미리 토큰까지 받아 두어야
+         새로 고침 뒤 가족 방을 바로 읽을 수 있어요. */
+      return FamilyCloud.ensureSignedIn();
+    }).then(function () {
       state.account = accountFallback();
       renderAccountPills();
       toast('로그아웃했어요');
