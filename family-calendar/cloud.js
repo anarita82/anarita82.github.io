@@ -162,23 +162,50 @@
     return signIn().then(function () {
       state.roomId = roomIdForCode(clean);
       state.roomRef = state.db.collection('rooms').doc(state.roomId);
-      return state.roomRef.get();
-    }).then(function (snap) {
-      if (snap.exists) return { created: false };
-      if (typeof state.handlers.confirmCreate === 'function' && !state.handlers.confirmCreate(clean)) {
-        return Promise.reject(new Error('cancelled'));
+      // 먼저 구독을 걸어 두면 캐시에 있던 일정이 곧바로 보입니다.
+      listen();
+      return roomLookup();
+    }).then(function (exists) {
+      if (exists === false) {
+        if (typeof state.handlers.confirmCreate === 'function' && !state.handlers.confirmCreate(clean)) {
+          return Promise.reject(new Error('cancelled'));
+        }
+        return state.roomRef.set({
+          schema: 1,
+          name: '우리 가족',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function () {
+          return seedRoom();
+        }).then(function () { return { created: true }; });
       }
-      return state.roomRef.set({
-        schema: 1,
-        name: '우리 가족',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(function () {
-        return seedRoom();
-      }).then(function () { return { created: true }; });
+      return { created: false };
     }).then(function (info) {
       rememberCode(clean);
-      listen();
       return info;
+    });
+  }
+
+  /* 방 문서가 있는지 확인. 네트워크가 느리거나 끊겨 있으면 null(모름)을 돌려
+     새 방을 엉겁결에 만들지 않습니다. */
+  function roomLookup() {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve(null);
+      }, 7000);
+      state.roomRef.get().then(function (snap) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(!!snap.exists);
+      }).catch(function () {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      });
     });
   }
 

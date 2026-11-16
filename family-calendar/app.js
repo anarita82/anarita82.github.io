@@ -29,6 +29,7 @@
   /* ---------------- 저장소 (Firebase 공유) ---------------- */
   var events = [];
   var cloudReady = false;
+  var connectTimer = null;
   var state = {
     year: 0,
     month: 0,
@@ -250,31 +251,53 @@
 
   function connectToRoom(code) {
     setStatus('pending', '가족 방에 연결하는 중…');
-    FamilyCloud.start(code, {
-      seedEvents: seedPayloads,
-      confirmCreate: function (clean) {
-        return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
-      },
-      onData: function (list) { events = list; cloudReady = true; renderAll(); },
-      onStatus: function (s) { setStatus(s.kind, s.text); }
-    }).then(function (info) {
-      cloudReady = true;
-      updateRoomInfo();
-      closeRoomModal();
-      if (info && info.created) {
-        setStatus('online', '새 가족 방을 만들었어요 · 이 코드를 가족에게 알려 주세요');
-      }
-    }).catch(function (err) {
-      if (err && err.message === 'cancelled') {
-        setStatus('pending', '가족 코드를 다시 확인해 주세요');
+    cloudReady = false;
+    var attempt = 0;
+
+    function run() {
+      attempt++;
+      FamilyCloud.start(code, {
+        seedEvents: seedPayloads,
+        confirmCreate: function (clean) {
+          return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
+        },
+        onData: function (list) { events = list; cloudReady = true; clearTimeout(connectTimer); renderAll(); },
+        onStatus: function (s) { setStatus(s.kind, s.text); }
+      }).then(function (info) {
+        if (info && info.created) {
+          cloudReady = true;
+          setStatus('online', '새 가족 방을 만들었어요 · 이 코드를 가족에게 알려 주세요');
+          clearTimeout(connectTimer);
+        }
+        updateRoomInfo();
+        closeRoomModal();
+      }).catch(function (err) {
+        if (err && err.message === 'cancelled') {
+          clearTimeout(connectTimer);
+          setStatus('pending', '가족 코드를 다시 확인해 주세요');
+          openRoomModal(false);
+          showRoomError('새 방을 만들지 않았어요. 가족 코드를 다시 확인해 주세요.');
+          return;
+        }
+        setStatus('error', '연결하지 못했어요 · ' + errorHint(err));
         openRoomModal(false);
-        showRoomError('새 방을 만들지 않았어요. 가족 코드를 다시 확인해 주세요.');
-        return;
-      }
-      setStatus('error', '연결하지 못했어요 · ' + errorHint(err));
-      openRoomModal(false);
-      showRoomError('연결하지 못했어요 · ' + errorHint(err));
-    });
+        showRoomError('연결하지 못했어요 · ' + errorHint(err));
+      });
+    }
+
+    run();
+    scheduleRetry();
+
+    function scheduleRetry() {
+      clearTimeout(connectTimer);
+      connectTimer = setTimeout(function () {
+        if (cloudReady || attempt >= 3) return;
+        setStatus('pending', '연결이 느려요 · 다시 연결하는 중…');
+        FamilyCloud.stop();
+        run();
+        scheduleRetry();
+      }, 15000);
+    }
   }
 
   function updateRoomInfo() {
