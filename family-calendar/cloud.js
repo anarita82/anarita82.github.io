@@ -228,9 +228,12 @@
   }
 
   function eventPayload(data) {
+    var date = String(data.date || '');
+    var endDate = String(data.endDate || '');
     return {
       title: String(data.title || '').slice(0, 80),
-      date: String(data.date || ''),
+      date: date,
+      endDate: /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate > date ? endDate : null,
       time: data.time || null,
       members: Array.isArray(data.members) ? data.members.slice(0, 20) : [],
       category: String(data.category || 'etc'),
@@ -258,6 +261,7 @@
           id: doc.id,
           title: data.title,
           date: data.date,
+          endDate: /^\d{4}-\d{2}-\d{2}$/.test(data.endDate || '') ? data.endDate : null,
           time: data.time || null,
           members: Array.isArray(data.members) ? data.members : [],
           category: data.category || 'etc',
@@ -338,6 +342,7 @@
           requesterName: String(r.requesterName || ''),
           title: r.title,
           date: String(r.date || ''),
+          endDate: /^\d{4}-\d{2}-\d{2}$/.test(r.endDate || '') ? r.endDate : null,
           time: r.time || null,
           members: Array.isArray(r.members) ? r.members : [],
           category: String(r.category || 'etc'),

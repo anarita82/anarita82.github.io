@@ -146,11 +146,48 @@
     return isoOfDate(d);
   }
 
+  /* 기간 일정: 시작일부터 며칠인지 */
+  function rangeSpanDays(ev) {
+    if (!ev || !ev.endDate) return 0;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ev.endDate)) return 0;
+    var n = Math.round((parseISO(ev.endDate) - parseISO(ev.date)) / 86400000);
+    return n > 0 ? n : 0;
+  }
+
+  function occurrenceRange(ev, year) {
+    var start = occurrenceForYear(ev, year);
+    if (!start) return null;
+    var span = rangeSpanDays(ev);
+    if (!span) return { start: start, end: start };
+    var d = parseISO(start);
+    d.setDate(d.getDate() + span);
+    return { start: start, end: isoOfDate(d) };
+  }
+
+  function periodLabel(ev) {
+    if (!ev || !ev.endDate || ev.endDate <= ev.date) return '';
+    var s = parseISO(ev.date), e = parseISO(ev.endDate);
+    return (s.getMonth() + 1) + '.' + s.getDate() + ' ~ ' + (e.getMonth() + 1) + '.' + e.getDate();
+  }
+
+  /* 달력·상세에 쓰는 표시용 기간(반복 일정은 그 해의 날짜로) */
+  function occurrenceLabel(ev, year) {
+    var r = occurrenceRange(ev, year);
+    if (!r || r.start === r.end) return '';
+    var s = parseISO(r.start), e = parseISO(r.end);
+    return (s.getMonth() + 1) + '.' + s.getDate() + ' ~ ' + (e.getMonth() + 1) + '.' + e.getDate();
+  }
+
   function eventsOn(dateISO) {
     var y = Number(dateISO.slice(0, 4));
     return events.filter(function (ev) {
       if (!passesMemberFilter(ev)) return false;
-      return occurrenceForYear(ev, y) === dateISO;
+      var r = occurrenceRange(ev, y);
+      if (r && dateISO >= r.start && dateISO <= r.end) return true;
+      /* 12월 말~1월 초처럼 해를 넘기는 기간 */
+      var prev = occurrenceRange(ev, y - 1);
+      if (prev && dateISO >= prev.start && dateISO <= prev.end) return true;
+      return false;
     }).sort(compareEvents);
   }
 
@@ -186,6 +223,10 @@
     el.form = document.getElementById('eventForm');
     el.fTitle = document.getElementById('fTitle');
     el.fDate = document.getElementById('fDate');
+    el.fEndDate = document.getElementById('fEndDate');
+    el.dateRangeHint = document.getElementById('dateRangeHint');
+    el.voiceBtn = document.getElementById('eventVoiceBtn');
+    el.voiceStatus = document.getElementById('eventVoiceStatus');
     el.fAllDay = document.getElementById('fAllDay');
     el.fTime = document.getElementById('fTime');
     el.fMembers = document.getElementById('fMembers');
@@ -268,8 +309,18 @@
   }
 
   /* ---------------- 공유 연결 ---------------- */
+  var lastStatus = { kind: 'pending', text: '' };
+
   function setStatus(kind, text) {
+    lastStatus = { kind: kind, text: text };
+    paintStatus();
+  }
+
+  /* 매장 캘린더 화면이 떠 있을 때는 가족 상태 문구가 위에 덮이지 않게 합니다. */
+  function paintStatus() {
     if (!el.statusPill) return;
+    if (window.StoreMode && window.StoreMode.isStoreActive()) return;
+    var kind = lastStatus.kind, text = lastStatus.text;
     el.statusPill.textContent = kind === 'online' ? '공유 중' : (kind === 'offline' ? '오프라인' : (kind === 'error' ? '오류' : '연결 중'));
     el.statusPill.className = 'app-bar__status app-bar__status--' + (kind || 'pending');
     if (el.appBarNote) el.appBarNote.textContent = text || '';
@@ -299,6 +350,11 @@
   function startCloud() {
     if (!window.FamilyCloud) {
       setStatus('error', '공유 모듈을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
+      return;
+    }
+    /* 알바생(매장 전용) 기기는 가족 방을 열지 않습니다. */
+    if (window.StoreMode && window.StoreMode.shouldSkipFamily()) {
+      setStatus('pending', '매장 캘린더 전용 모드예요');
       return;
     }
     var code = FamilyCloud.initialCode();
@@ -424,6 +480,14 @@
     el.deleteBtn.addEventListener('click', deleteEvent);
     el.fAllDay.addEventListener('change', syncTimeField);
     el.fDate.addEventListener('change', updateDateHint);
+    if (el.fEndDate) el.fEndDate.addEventListener('change', updateDateHint);
+    if (window.CalendarVoice && el.voiceBtn) {
+      CalendarVoice.attach(el.voiceBtn, {
+        statusEl: el.voiceStatus,
+        idleLabel: '🎤 말로 입력하기',
+        onText: applyVoiceEvent
+      });
+    }
     el.fRepeat.addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-repeat]');
       if (!btn) return;
@@ -713,6 +777,14 @@
     timeEl.textContent = ev.time ? ev.time : '종일';
     meta.appendChild(timeEl);
 
+    var period = occurrenceLabel(ev, year) || periodLabel(ev);
+    if (period) {
+      var pEl = document.createElement('span');
+      pEl.className = 'event__period';
+      pEl.textContent = '📅 ' + period;
+      meta.appendChild(pEl);
+    }
+
     var lunarText = lunarTextFor(ev, year);
     if (lunarText) {
       var lEl = document.createElement('span');
@@ -767,10 +839,13 @@
     events.forEach(function (ev) {
       if (!passesMemberFilter(ev)) return;
       [today.getFullYear(), today.getFullYear() + 1].forEach(function (y) {
-        var d = occurrenceForYear(ev, y);
-        if (!d) return;
-        var diff = dayDiff(today, parseISO(d));
-        if (diff >= 0 && diff <= 365) items.push({ ev: ev, date: d, diff: diff });
+        var r = occurrenceRange(ev, y);
+        if (!r) return;
+        var ds = dayDiff(today, parseISO(r.start));
+        var de = dayDiff(today, parseISO(r.end));
+        if (de < 0 || ds > 365) return;
+        var ongoing = ds < 0 && de >= 0;
+        items.push({ ev: ev, date: r.start, end: r.end, diff: ongoing ? 0 : ds, ongoing: ongoing });
       });
     });
 
@@ -808,8 +883,8 @@
       btn.className = 'dday';
 
       var badge = document.createElement('span');
-      badge.className = 'dday__badge' + (it.diff === 0 ? ' is-today' : it.diff <= 7 ? ' is-soon' : '');
-      badge.textContent = it.diff === 0 ? 'D-DAY' : 'D-' + it.diff;
+      badge.className = 'dday__badge' + (it.ongoing ? ' is-ongoing' : it.diff === 0 ? ' is-today' : it.diff <= 7 ? ' is-soon' : '');
+      badge.textContent = it.ongoing ? '진행 중' : it.diff === 0 ? 'D-DAY' : 'D-' + it.diff;
       btn.appendChild(badge);
 
       var body = document.createElement('div');
@@ -823,7 +898,12 @@
       var meta = document.createElement('div');
       meta.className = 'dday__meta';
       var when = document.createElement('span');
-      when.textContent = (dt.getMonth() + 1) + '.' + dt.getDate() + ' (' + WEEKDAYS[dt.getDay()] + ')';
+      if (it.end && it.end !== it.date) {
+        var se = parseISO(it.end);
+        when.textContent = (dt.getMonth() + 1) + '.' + dt.getDate() + ' ~ ' + (se.getMonth() + 1) + '.' + se.getDate() + ' (' + WEEKDAYS[dt.getDay()] + '~' + WEEKDAYS[se.getDay()] + ')';
+      } else {
+        when.textContent = (dt.getMonth() + 1) + '.' + dt.getDate() + ' (' + WEEKDAYS[dt.getDay()] + ')';
+      }
       meta.appendChild(when);
       if (ev.time) {
         var t = document.createElement('span');
@@ -867,7 +947,9 @@
 
     el.fTitle.value = ev ? ev.title : '';
     el.fDate.value = ev ? ev.date : (presetDate || state.selected);
+    el.fEndDate.value = ev && ev.endDate ? ev.endDate : '';
     el.fMemo.value = ev ? (ev.memo || '') : '';
+    resetVoiceBox();
 
     if (ev && ev.time) {
       el.fAllDay.checked = false;
@@ -926,6 +1008,7 @@
     el.modal.hidden = true;
     document.body.style.overflow = '';
     state.editingId = null;
+    resetVoiceBox();
   }
 
   function syncTimeField() {
@@ -992,6 +1075,64 @@
     el.formError.hidden = false;
   }
 
+  /* ---------------- 말로 입력(음성) ---------------- */
+  function resetVoiceBox() {
+    if (el.voiceStatus) {
+      el.voiceStatus.hidden = true;
+      el.voiceStatus.textContent = '';
+    }
+    if (window.CalendarVoice) CalendarVoice.stop();
+  }
+
+  function applyVoiceEvent(text) {
+    if (!window.CalendarVoice) return;
+    var parsed = CalendarVoice.parse(text, {
+      members: MEMBERS.map(function (m) { return { id: m.id, name: m.name }; }),
+      today: todayISO()
+    });
+
+    if (parsed.date) el.fDate.value = parsed.date;
+    if (el.fEndDate) el.fEndDate.value = (parsed.endDate && parsed.endDate !== parsed.date) ? parsed.endDate : '';
+    if (parsed.hasTime) {
+      el.fAllDay.checked = false;
+      el.fTime.value = parsed.time || '18:00';
+      syncTimeField();
+    }
+    if (parsed.members && parsed.members.length) {
+      Array.prototype.forEach.call(el.fMembers.children, function (b) {
+        b.classList.toggle('is-on', parsed.members.indexOf(b.getAttribute('data-id')) !== -1);
+      });
+    }
+    if (parsed.category) {
+      Array.prototype.forEach.call(el.fCategories.children, function (b) {
+        b.classList.toggle('is-on', b.getAttribute('data-id') === parsed.category);
+      });
+    }
+    if (parsed.title) el.fTitle.value = parsed.title.slice(0, 60);
+    if (parsed.lunar) setRepeat('yearly-lunar');
+    updateDateHint();
+
+    var bits = [];
+    if (parsed.date) bits.push('📅 ' + parsed.date + (parsed.endDate && parsed.endDate !== parsed.date ? ' ~ ' + parsed.endDate : ''));
+    if (parsed.hasTime) bits.push('⏰ ' + parsed.time + (parsed.endTime ? ' ~ ' + parsed.endTime : ''));
+    if (parsed.members && parsed.members.length) {
+      bits.push('👥 ' + parsed.members.map(function (id) {
+        var m = memberById(id);
+        return m ? m.name : '';
+      }).filter(Boolean).join('·'));
+    }
+    if (parsed.category) bits.push('🏷 ' + categoryById(parsed.category).label);
+    if (parsed.title) bits.push('✏️ ' + parsed.title);
+    if (parsed.lunar) bits.push('🌙 매년 음력');
+
+    if (el.voiceStatus) {
+      el.voiceStatus.hidden = false;
+      el.voiceStatus.textContent = '말한 내용: ' + text + '\n' +
+        (bits.length ? '→ ' + bits.join(' · ') + '\n맞는지 확인하고, 틀린 칸은 직접 고쳐 주세요.' :
+          '→ 알아들은 날짜·시간이 없어요. 날짜와 시간을 직접 넣어 주세요.');
+    }
+  }
+
   function saveEvent() {
     var title = el.fTitle.value.trim();
     var date = el.fDate.value;
@@ -1008,6 +1149,12 @@
       showFormError('담당 가족을 한 명 이상 선택해 주세요.');
       return;
     }
+    var endDate = el.fEndDate ? el.fEndDate.value : '';
+    if (endDate && endDate < date) {
+      showFormError('종료일이 시작일보다 빨라요.');
+      return;
+    }
+    if (endDate && endDate === date) endDate = '';
 
     var lunar = null;
     if (state.repeat === 'yearly-lunar') {
@@ -1024,6 +1171,7 @@
     var payload = {
       title: title,
       date: date,
+      endDate: endDate || null,
       time: time,
       members: memberIds,
       category: currentCategory(),
@@ -1259,7 +1407,7 @@
 
     var meta = document.createElement('div');
     meta.className = 'req-card__meta';
-    meta.textContent = '📅 ' + formatReqDate(r.date) + ' · ' + (r.time ? r.time : '종일');
+    meta.textContent = '📅 ' + formatReqDate(r.date) + (r.endDate && r.endDate > r.date ? ' ~ ' + formatReqDate(r.endDate) : '') + ' · ' + (r.time ? r.time : '종일');
     li.appendChild(meta);
 
     var names = (r.members || []).map(function (id) {
@@ -1651,6 +1799,10 @@
     el.detailBody.innerHTML = '';
     var rows = [];
     rows.push(['날짜', dt.getFullYear() + '년 ' + (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 (' + WEEKDAYS[dt.getDay()] + ')']);
+    if (ev.endDate && ev.endDate > ev.date) {
+      var ed = parseISO(ev.endDate);
+      rows.push(['기간', (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 ~ ' + (ed.getMonth() + 1) + '월 ' + ed.getDate() + '일 (' + (dayDiff(dt, ed) + 1) + '일간)']);
+    }
     if (ev.time) rows.push(['시간', ev.time]);
     rows.push(['종류', cat.label]);
     var names = (ev.members || []).map(function (id) {
@@ -1738,11 +1890,15 @@
     get events() { return events; },
     get requests() { return requests; },
     occurrenceForYear: occurrenceForYear,
+    occurrenceRange: occurrenceRange,
     eventsOn: eventsOn,
     seedSamples: seedSamples,
     inviteLink: inviteLink,
     isReady: function () { return cloudReady; },
     role: function () { return myRole(); },
-    profile: function () { return state.profile; }
+    profile: function () { return state.profile; },
+    connect: startCloud,
+    paintStatus: paintStatus,
+    applyVoice: applyVoiceEvent
   };
 })();
