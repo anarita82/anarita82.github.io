@@ -1745,9 +1745,18 @@
   }
 
   function staffPlain(m) {
+    /* joinedAt은 화면에서 밀리초 숫자로 쓰지만, 저장할 때는 원래 타입(Firestore Timestamp)으로
+       돌려놓아야 이름·시급·번호를 고칠 때마다 값이 사라지지 않습니다. */
+    var joined = null;
+    if (m.joinedAt) {
+      joined = m.joinedAt;
+      if (typeof m.joinedAt === 'number' && window.firebase && firebase.firestore && firebase.firestore.Timestamp) {
+        try { joined = firebase.firestore.Timestamp.fromMillis(m.joinedAt); } catch (e) { joined = m.joinedAt; }
+      }
+    }
     var out = {
       id: m.id, name: m.name, color: m.color, bg: m.bg,
-      hourly: m.hourly, joinedAt: m.joinedAt || null, active: m.active !== false
+      hourly: m.hourly, joinedAt: joined, active: m.active !== false
     };
     var tel = normTel(m.tel);
     if (tel) out.tel = tel;
