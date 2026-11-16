@@ -110,6 +110,43 @@
     return sha256Hex(ROOM_SALT + normalizeCode(code)).slice(0, 32);
   }
 
+  /* ---------------- 휴대폰 번호 ----------------
+     숫자만 남기고 한국 번호는 하이픈을 자동으로 넣습니다.
+     010-1234-5678 / 02-1234-5678 / 031-123-4567 / 1588-1234 / +82 10-1234-5678 */
+  function normalizeTel(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return '';
+    var plus = s.charAt(0) === '+';
+    var d = s.replace(/[^0-9]/g, '');
+    if (!d) return '';
+    if (plus) return ('+' + d).slice(0, 20);
+    d = d.slice(0, 11);
+    if (d.length === 8) return d.slice(0, 4) + '-' + d.slice(4);
+    if (d.charAt(0) === '0') {
+      if (d.slice(0, 2) === '02') {
+        if (d.length === 9) return '02-' + d.slice(2, 5) + '-' + d.slice(5);
+        if (d.length === 10) return '02-' + d.slice(2, 6) + '-' + d.slice(6);
+      } else if (d.length === 10) {
+        return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+      } else if (d.length === 11) {
+        return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+      }
+    }
+    return d;
+  }
+
+  /* tel: 링크에 넣을 숫자(국가번호 + 포함) */
+  function telDigits(raw) {
+    var d = String(raw == null ? '' : raw).replace(/[^0-9+]/g, '');
+    return d;
+  }
+
+  /* 번호가 걸려 있는지(9자리 이상) */
+  function telLooksValid(raw) {
+    var d = String(raw == null ? '' : raw).replace(/[^0-9]/g, '');
+    return d.length >= 9 && d.length <= 15;
+  }
+
   function storedCode() {
     try { return normalizeCode(localStorage.getItem(CODE_KEY) || ''); } catch (e) { return ''; }
   }
@@ -418,6 +455,8 @@
       bg: String(m.bg || '').slice(0, 9),
       role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member'
     };
+    var tel = normalizeTel(m.tel);
+    if (tel) out.tel = tel;
     if (photo) out.photoDataUrl = photo;
     return out;
   }
@@ -510,6 +549,9 @@
     deletePhoto: deletePhoto,
     deleteSamples: deleteSamples,
     saveMembers: saveMembers,
+    normalizeTel: normalizeTel,
+    telDigits: telDigits,
+    telLooksValid: telLooksValid,
     setPin: setPin,
     pinHash: pinHash,
     submitRequest: submitRequest,

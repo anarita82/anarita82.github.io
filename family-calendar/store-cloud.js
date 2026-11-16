@@ -39,6 +39,21 @@
     return code.toLowerCase().replace(/\s+/g, '');
   }
 
+  /* 휴대폰 번호 정리(숫자/하이픈) — 가족 달력 cloud.js와 같은 규칙을 씁니다. */
+  function normTel(v) {
+    if (window.FamilyCloud && typeof window.FamilyCloud.normalizeTel === 'function') {
+      return window.FamilyCloud.normalizeTel(v);
+    }
+    return String(v == null ? '' : v).trim().slice(0, 20);
+  }
+
+  function telDigits(v) {
+    if (window.FamilyCloud && typeof window.FamilyCloud.telDigits === 'function') {
+      return window.FamilyCloud.telDigits(v);
+    }
+    return String(v == null ? '' : v).replace(/[^0-9+]/g, '');
+  }
+
   function roomIdForCode(code) {
     return sha256(ROOM_SALT + normalizeCode(code)).slice(0, 32);
   }
@@ -234,6 +249,7 @@
             color: /^#[0-9a-fA-F]{3,8}$/.test(m.color || '') ? m.color : '#0d9488',
             bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : '#e6fffb',
             hourly: Math.max(0, Math.round(Number(m.hourly) || 0)),
+            tel: normTel(m.tel),
             joinedAt: m.joinedAt && m.joinedAt.toMillis ? m.joinedAt.toMillis() : 0,
             active: m.active === false ? false : true,
             photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl.slice(0, 90000) : ''
@@ -249,6 +265,7 @@
         joins.push({
           id: key,
           name: String(r.name).slice(0, 20),
+          tel: normTel(r.tel),
           deviceId: String(r.deviceId || ''),
           status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
           hourly: Math.max(0, Math.round(Number(r.hourly) || 0)),
@@ -324,6 +341,8 @@
   window.StoreCloud = {
     CODE_KEY: CODE_KEY,
     normalizeCode: normalizeCode,
+    normalizeTel: normTel,
+    telDigits: telDigits,
     roomIdForCode: roomIdForCode,
     generateCode: generateCode,
     storedCode: storedCode,

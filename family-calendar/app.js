@@ -288,6 +288,13 @@
     el.profileList = document.getElementById('profileList');
     el.profileClose = document.getElementById('profileClose');
     el.profileAdminActions = document.getElementById('profileAdminActions');
+    el.myInfoBox = document.getElementById('myInfoBox');
+    el.myInfoName = document.getElementById('myInfoName');
+    el.myInfoRole = document.getElementById('myInfoRole');
+    el.myTelInput = document.getElementById('myTelInput');
+    el.myTelHint = document.getElementById('myTelHint');
+    el.myTelSaveBtn = document.getElementById('myTelSaveBtn');
+    el.newMemberTel = document.getElementById('newMemberTel');
     el.adminBtn = document.getElementById('adminBtn');
     el.pinModal = document.getElementById('pinModal');
     el.pinForm = document.getElementById('pinForm');
@@ -1589,9 +1596,14 @@
 
   function plainMember(m) {
     var out = { id: m.id, name: m.name, color: m.color, bg: m.bg, role: m.role || 'member' };
+    if (m.tel) out.tel = FamilyCloud.normalizeTel(m.tel);
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
     return out;
   }
+
+  /* 등록된 휴대폰 번호 (없으면 빈 문자열) */
+  function telOf(m) { return m && m.tel ? String(m.tel) : ''; }
+  function telHref(tel) { return 'tel:' + FamilyCloud.telDigits(tel); }
 
   /* 방 문서에서 구성원·PIN 해시·등록 요청을 받아 화면 상태에 반영합니다. */
   function applyRoomMeta(info) {
@@ -1608,6 +1620,7 @@
         color: color,
         bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : (color + '1f'),
         role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member',
+        tel: FamilyCloud.normalizeTel(m.tel || ''),
         photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl : ''
       });
     });
@@ -1833,6 +1846,9 @@
     el.profileList.innerHTML = '';
     MEMBERS.forEach(function (m) {
       var role = m.role || 'member';
+      var row = document.createElement('div');
+      row.className = 'profile-row';
+
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'profile-item' + (m.id === state.profile ? ' is-me' : '');
@@ -1856,9 +1872,66 @@
         btn.appendChild(now);
       }
       btn.addEventListener('click', function () { chooseProfile(m.id); });
-      el.profileList.appendChild(btn);
+      row.appendChild(btn);
+
+      /* 등록된 번호는 눌러서 바로 전화(tel:) */
+      var tel = telOf(m);
+      if (tel) {
+        var call = document.createElement('a');
+        call.className = 'profile-call';
+        call.href = telHref(tel);
+        call.textContent = '📞 ' + tel;
+        call.title = m.name + ' ' + tel + ' 전화';
+        call.setAttribute('aria-label', m.name + ' ' + tel + ' 전화 걸기');
+        row.appendChild(call);
+      } else {
+        var none = document.createElement('span');
+        none.className = 'profile-call profile-call--none';
+        none.textContent = '미등록';
+        row.appendChild(none);
+      }
+      el.profileList.appendChild(row);
     });
     el.profileAdminActions.hidden = !canManage();
+    renderMyInfo();
+  }
+
+  /* 내 정보 — 지금 고른 구성원이 자기 휴대폰 번호를 직접 등록·수정 */
+  function renderMyInfo() {
+    if (!el.myInfoBox) return;
+    var me = myMember();
+    el.myInfoBox.hidden = !me;
+    if (!me) return;
+    el.myInfoName.textContent = me.name;
+    el.myInfoRole.textContent = ROLE_LABEL[me.role || 'member'];
+    var tel = telOf(me);
+    if (document.activeElement !== el.myTelInput) el.myTelInput.value = tel;
+    el.myTelHint.textContent = tel
+      ? '저장된 번호 ' + tel + ' · 고쳐서 저장하면 가족 모두에게 바로 반영돼요.'
+      : '아직 번호가 없어요. 저장하면 구성원 목록에서 눌러 바로 전화할 수 있어요.';
+  }
+
+  function saveMyTel() {
+    var me = myMember();
+    if (!me) { toast('먼저 이 폰을 쓰는 사람을 골라 주세요'); return; }
+    var tel = FamilyCloud.normalizeTel(el.myTelInput.value);
+    el.myTelInput.value = tel;
+    if (tel && !FamilyCloud.telLooksValid(tel)) {
+      toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
+      return;
+    }
+    if (tel === telOf(me)) { toast('저장된 번호와 같아요'); return; }
+    var next = MEMBERS.map(plainMember);
+    next.forEach(function (x) { if (x.id === me.id) { if (tel) x.tel = tel; else delete x.tel; } });
+    el.myTelSaveBtn.disabled = true;
+    FamilyCloud.saveMembers(next).then(function () {
+      toast(tel ? me.name + ' 님 번호를 저장했어요' : me.name + ' 님 번호를 지웠어요');
+      renderMyInfo();
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      el.myTelSaveBtn.disabled = false;
+    });
   }
 
   function chooseProfile(id) {
@@ -1920,6 +1993,7 @@
     el.memberError.hidden = true;
     el.pinChangeError.hidden = true;
     el.newMemberName.value = '';
+    if (el.newMemberTel) el.newMemberTel.value = '';
     el.newPin.value = '';
     el.newPin2.value = '';
     renderAdminMembers();
@@ -1986,6 +2060,28 @@
       if (!isAdmin()) select.classList.add('is-locked');
       select.addEventListener('change', function () { changeRole(m, select.value); });
       li.appendChild(select);
+
+      /* 휴대폰 번호 — 숫자/하이픈 자동 정리, 다른 곳을 누르면 저장 */
+      var telRow = document.createElement('div');
+      telRow.className = 'admin-member__tel';
+      var telIcon = document.createElement('span');
+      telIcon.className = 'admin-member__tel-icon';
+      telIcon.textContent = '📱';
+      telRow.appendChild(telIcon);
+      var tel = document.createElement('input');
+      tel.type = 'tel';
+      tel.className = 'admin-member__telinput';
+      tel.value = telOf(m);
+      tel.placeholder = '010-1234-5678';
+      tel.maxLength = 20;
+      tel.setAttribute('inputmode', 'tel');
+      tel.setAttribute('autocomplete', 'off');
+      tel.setAttribute('aria-label', m.name + ' 휴대폰 번호');
+      tel.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
+      tel.addEventListener('change', function () { changeMemberTel(m, tel.value); });
+      telRow.appendChild(tel);
+      li.appendChild(telRow);
+
       el.adminMemberList.appendChild(li);
     });
   }
@@ -2004,6 +2100,21 @@
     var next = MEMBERS.map(plainMember);
     next.forEach(function (x) { if (x.id === m.id) x.name = name; });
     saveMemberList(next, (m.name || '구성원') + ' → ' + name + ' 으로 바꿨어요');
+  }
+
+  /* 구성원 휴대폰 번호 — 관리자 설정에서 저장 (숫자/하이픈 자동 정리) */
+  function changeMemberTel(m, raw) {
+    if (!canManage()) return;
+    var tel = FamilyCloud.normalizeTel(raw);
+    if (tel === telOf(m)) return;
+    if (tel && !FamilyCloud.telLooksValid(tel)) {
+      toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
+      renderAdminMembers();
+      return;
+    }
+    var next = MEMBERS.map(plainMember);
+    next.forEach(function (x) { if (x.id === m.id) { if (tel) x.tel = tel; else delete x.tel; } });
+    saveMemberList(next, tel ? m.name + ' 님 번호를 저장했어요' : m.name + ' 님 번호를 지웠어요');
   }
 
   /* 구성원 사진 — 160×160으로 줄여 방 문서에 저장 */
@@ -2080,15 +2191,20 @@
   function addMember() {
     if (!canManage()) return;
     var name = el.newMemberName.value.trim();
+    var tel = FamilyCloud.normalizeTel(el.newMemberTel ? el.newMemberTel.value : '');
     if (!name) { showMemberError('이름을 넣어 주세요.'); return; }
     if (name.length > 12) { showMemberError('이름은 12자까지 넣을 수 있어요.'); return; }
+    if (tel && !FamilyCloud.telLooksValid(tel)) { showMemberError('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678).'); return; }
     if (MEMBERS.some(function (m) { return m.name === name; })) { showMemberError('같은 이름이 이미 있어요.'); return; }
     if (MEMBERS.length >= 12) { showMemberError('구성원은 12명까지 추가할 수 있어요.'); return; }
     var color = MEMBER_COLORS[state.memberColor % MEMBER_COLORS.length];
     var next = MEMBERS.map(plainMember);
-    next.push({ id: 'm' + Date.now().toString(36), name: name, color: color, bg: color + '1f', role: 'member' });
+    var added = { id: 'm' + Date.now().toString(36), name: name, color: color, bg: color + '1f', role: 'member' };
+    if (tel) added.tel = tel;
+    next.push(added);
     el.memberError.hidden = true;
     el.newMemberName.value = '';
+    if (el.newMemberTel) el.newMemberTel.value = '';
     FamilyCloud.saveMembers(next).then(function () {
       toast(name + ' 님을 구성원으로 추가했어요');
       renderAdminMembers();
@@ -2216,6 +2332,12 @@
     var adminBackdrop = el.adminModal.querySelector('[data-close]');
     if (adminBackdrop) adminBackdrop.addEventListener('click', function () { el.adminModal.hidden = true; });
     el.addMemberBtn.addEventListener('click', addMember);
+    el.myTelSaveBtn.addEventListener('click', saveMyTel);
+    if (el.myTelInput) {
+      el.myTelInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveMyTel(); }
+      });
+    }
     el.changePinBtn.addEventListener('click', changePin);
     el.detailClose.addEventListener('click', function () { el.detailModal.hidden = true; });
     el.detailOk.addEventListener('click', function () { el.detailModal.hidden = true; });

@@ -653,6 +653,33 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @keyframes approvePulse { 50% { box-shadow: 0 0 0 5px rgba(251, 191, 36, .18); } }
 
 .profile-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.profile-row { display: flex; flex-direction: column; gap: 3px; }
+.profile-row .profile-item { width: 100%; }
+.profile-call {
+  align-self: flex-start;
+  margin: 0 0 0 30px;
+  font-size: 12px; font-weight: 700;
+  color: #1d4ed8;
+  text-decoration: none;
+  letter-spacing: -.2px;
+  font-variant-numeric: tabular-nums;
+}
+.profile-call:active { opacity: .6; }
+.profile-call--none { color: #9aa1ad; font-weight: 600; }
+
+.my-info {
+  margin: 0 0 12px;
+  padding: 11px 12px;
+  border: 1px solid #e3e5ec;
+  border-radius: 13px;
+  background: #fafbfe;
+}
+.my-info h3 { margin: 0 0 8px; font-size: 13px; font-weight: 800; letter-spacing: -.2px; }
+.my-info__row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; font-size: 13px; }
+.my-info__k { font-size: 11px; font-weight: 800; color: #9aa1ad; }
+.my-info__role { font-size: 10px; font-weight: 800; color: #4338ca; background: #eef0ff; border-radius: 6px; padding: 2px 6px; }
+.my-info .field { margin-bottom: 8px; }
+.my-info .field-hint { margin-top: 4px; }
 .profile-item {
   display: flex; align-items: center; gap: 8px;
   width: 100%;
@@ -726,10 +753,29 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .admin-block h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 800; letter-spacing: -.2px; }
 .admin-members { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .admin-member {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   background: #fafbfe; border: 1px solid #f0f1f6; border-radius: 11px;
   padding: 8px 10px;
 }
+.admin-member__tel {
+  flex: 1 0 100%;
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 2px;
+}
+.admin-member__tel-icon { font-size: 11px; flex: 0 0 auto; }
+.admin-member__telinput {
+  flex: 1; min-width: 0;
+  border: 1px solid #e3e5ec;
+  border-radius: 9px;
+  background: #fff;
+  color: #2b3040;
+  font-family: inherit;
+  font-size: 12.5px; font-weight: 700;
+  padding: 6px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-member__telinput::placeholder { color: #b8bec9; font-weight: 600; }
+.admin-member__telinput:focus { border-color: #a5a3f5; outline: none; }
 .admin-member__dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
 .admin-member__name { flex: 1; font-size: 13px; font-weight: 700; }
 .admin-member__role {

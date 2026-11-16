@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261116n" />
-<link rel="stylesheet" href="store.css?v=20261116n" />
+<link rel="stylesheet" href="styles.css?v=20261116t" />
+<link rel="stylesheet" href="store.css?v=20261116t" />
 </head>
 <body>
 <div class="app">
@@ -97,6 +97,7 @@
           <li><b>종료일</b>을 넣으면 기간 일정이 돼요 (예: 11/27~11/30 여행). 기간 중 어느 날을 눌러도 그 일정이 보여요.</li>
           <li>일정 추가 화면의 <b>🎤 말로 입력하기</b>를 누르고 “내일 오후 3시 첫째 치과”처럼 말하면 칸이 자동으로 채워져요.</li>
           <li>반복을 <b>매년 음력</b>으로 고르면 음력 날짜를 저장해 두고, 보는 해의 양력 날짜로 자동 계산해요 (2022~2040년 지원).</li>
+          <li>프로필 배지를 누른 뒤 <b>🙋 내 정보</b>에서 내 휴대폰 번호를 넣어 두면, 구성원 목록의 번호를 눌러 바로 전화할 수 있어요. 아빠·엄마는 관리자 설정에서 가족 번호를 한 번에 정리할 수 있어요.</li>
           <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 실제 일정을 넣기 전에 지워 주세요.</li>
         </ul>
         <p class="room-code-now" id="roomCodeNow" hidden></p>
@@ -139,12 +140,17 @@
     <section class="card" id="storeJoinCard" hidden>
       <div class="card-head"><h2>🏪 매장 입장</h2><span class="card-head__hint" id="storeJoinHint"></span></div>
       <div id="storeJoinForm">
-        <p class="room-intro">사장님이 보내 준 초대 링크로 들어왔어요.<br><b>이름</b>을 넣고 요청하면 사장님 승인 뒤 매장 캘린더가 열려요.</p>
+        <p class="room-intro">사장님이 보내 준 초대 링크로 들어왔어요.<br><b>이름</b>과 <b>휴대폰 번호</b>를 넣고 요청하면 사장님 승인 뒤 매장 캘린더가 열려요.</p>
         <div class="field">
           <label for="storeJoinName">이름(닉네임) <span class="req">*</span></label>
           <input id="storeJoinName" type="text" maxlength="12" placeholder="예) 오후 알바" autocomplete="off" />
-          <p class="form-error" id="storeJoinError" hidden></p>
         </div>
+        <div class="field">
+          <label for="storeJoinTel">휴대폰 번호 <span class="req">*</span></label>
+          <input id="storeJoinTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
+          <p class="field-hint">사장님이 연락·급여 안내에 쓰는 번호예요. 승인하면 알바생 정보에 저장돼요.</p>
+        </div>
+        <p class="form-error" id="storeJoinError" hidden></p>
         <div class="sheet-actions">
           <button type="button" class="btn-primary" id="storeJoinBtn">입장 요청 보내기</button>
         </div>
@@ -155,6 +161,7 @@
           <div class="waiting__icon">⏳</div>
           <p class="waiting__title">입장 승인 대기 중</p>
           <p class="waiting__desc" id="storePendingDesc">사장님이 <b>승인</b>하면 이 화면이 바로 매장 캘린더로 바뀌어요.<br>화면을 그대로 두세요.</p>
+          <p class="waiting__who" id="storePendingWho" hidden></p>
           <button type="button" class="btn-ghost btn-small" id="storePendingRejoin">요청 내용 다시 보기</button>
         </div>
       </div>
@@ -176,6 +183,17 @@
         </div>
         <div class="member-filter store-filter" id="storeStaffFilter"></div>
         <p class="dash-person" id="dashPerson" hidden></p>
+      </section>
+
+      <section class="card store-me" id="storeMeCard" hidden>
+        <div class="card-head"><h2>🙋 내 정보</h2><span class="card-head__hint">휴대폰 번호</span></div>
+        <p class="store-me__name" id="storeMeName">-</p>
+        <div class="field">
+          <label for="storeMeTel">내 휴대폰 번호</label>
+          <input id="storeMeTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
+          <p class="field-hint" id="storeMeTelHint">저장하면 사장님 알바생 목록에 바로 보여요.</p>
+        </div>
+        <button type="button" class="btn-primary btn-small" id="storeMeSaveBtn">내 번호 저장</button>
       </section>
 
       <section class="card calendar">
@@ -216,7 +234,7 @@
       <section class="card" id="storeStaffCard" hidden>
         <div class="card-head"><h2>👥 알바생 관리</h2><span class="card-head__hint">기본 시급</span></div>
         <ul class="staff-list" id="staffList"></ul>
-        <p class="field-hint">초대 링크로 들어온 알바생은 위 <b>🔔 입장·승인</b>에서 승인해요. 시급을 고친 뒤 다른 곳을 누르면 자동 저장돼요.</p>
+        <p class="field-hint">초대 링크로 들어온 알바생은 위 <b>🔔 입장·승인</b>에서 승인해요. 시급·휴대폰 번호를 고친 뒤 다른 곳을 누르면 자동 저장돼요.</p>
       </section>
 
       <section class="card" id="storeGuideCard" hidden>
@@ -429,7 +447,7 @@
       <h2>🔔 입장·승인 관리 <span id="storeApproveModalCount">0</span>건</h2>
       <button class="sheet-close" id="storeApproveClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro">알바생이 이름을 넣고 입장을 요청했어요.<br><b>승인</b>하면 그 폰 화면이 바로 매장 캘린더로 바뀌고, <b>거절</b>하면 열리지 않아요.</p>
+    <p class="room-intro">알바생이 이름과 휴대폰 번호를 넣고 입장을 요청했어요.<br><b>승인</b>하면 그 폰 화면이 바로 매장 캘린더로 바뀌고 번호도 알바생 정보에 저장돼요. <b>거절</b>하면 열리지 않아요.</p>
     <div class="req-cards" id="storeApprovalCards"></div>
   </div>
 </div>
@@ -556,6 +574,22 @@
     </div>
     <p class="room-intro">이 폰을 쓰는 사람을 골라 주세요.<br /><b>아빠(메인 관리자)·엄마(부매니저)</b>는 관리자 PIN을 넣어야 바꿀 수 있어요.</p>
     <div class="profile-list" id="profileList"></div>
+
+    <section class="my-info" id="myInfoBox" hidden>
+      <h3>🙋 내 정보 · 휴대폰 번호</h3>
+      <div class="my-info__row">
+        <span class="my-info__k">이름</span>
+        <strong id="myInfoName">-</strong>
+        <span class="my-info__role" id="myInfoRole"></span>
+      </div>
+      <div class="field">
+        <label for="myTelInput">내 휴대폰 번호</label>
+        <input id="myTelInput" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="010-1234-5678" />
+        <p class="field-hint" id="myTelHint"></p>
+      </div>
+      <button type="button" class="btn-primary btn-small" id="myTelSaveBtn">내 번호 저장</button>
+    </section>
+
     <div class="sheet-actions" id="profileAdminActions" hidden>
       <button type="button" class="btn-ghost btn-small" id="adminBtn">⚙️ 관리자 설정</button>
     </div>
@@ -601,6 +635,10 @@
         <div class="field">
           <label for="newMemberName">새 구성원 이름</label>
           <input id="newMemberName" type="text" maxlength="12" placeholder="예) 할아버지" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="newMemberTel">휴대폰 번호 <span class="field-hint--inline">선택</span></label>
+          <input id="newMemberTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
         </div>
         <div class="field">
           <label>색상 배지</label>
@@ -667,15 +705,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261116n"></script>
-<script src="firebase-auth-compat.js?v=20261116n"></script>
-<script src="firebase-firestore-compat.js?v=20261116n"></script>
-<script src="lunar.js?v=20261116n"></script>
-<script src="cloud.js?v=20261116n"></script>
-<script src="app.js?v=20261116n"></script>
-<script src="voice.js?v=20261116n"></script>
-<script src="media.js?v=20261116n"></script>
-<script src="store-cloud.js?v=20261116n"></script>
-<script src="store.js?v=20261116n"></script>
+<script src="firebase-app-compat.js?v=20261116t"></script>
+<script src="firebase-auth-compat.js?v=20261116t"></script>
+<script src="firebase-firestore-compat.js?v=20261116t"></script>
+<script src="lunar.js?v=20261116t"></script>
+<script src="cloud.js?v=20261116t"></script>
+<script src="app.js?v=20261116t"></script>
+<script src="voice.js?v=20261116t"></script>
+<script src="media.js?v=20261116t"></script>
+<script src="store-cloud.js?v=20261116t"></script>
+<script src="store.js?v=20261116t"></script>
 </body>
 </html>

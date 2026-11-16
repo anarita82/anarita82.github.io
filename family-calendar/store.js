@@ -87,6 +87,22 @@
     return null;
   }
 
+  /* 휴대폰 번호 정리·표시 (가족 달력과 같은 규칙) */
+  function normTel(v) {
+    if (window.StoreCloud && typeof StoreCloud.normalizeTel === 'function') return StoreCloud.normalizeTel(v);
+    if (window.FamilyCloud && typeof FamilyCloud.normalizeTel === 'function') return FamilyCloud.normalizeTel(v);
+    return String(v == null ? '' : v).trim().slice(0, 20);
+  }
+  function telOf(o) { return o && o.tel ? String(o.tel) : ''; }
+  function telHref(tel) {
+    if (window.StoreCloud && typeof StoreCloud.telDigits === 'function') return 'tel:' + StoreCloud.telDigits(tel);
+    return 'tel:' + String(tel || '').replace(/[^0-9+]/g, '');
+  }
+  function telLooksValid(v) {
+    var d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+    return d.length >= 9 && d.length <= 15;
+  }
+
   /* ---------------- 날짜·숫자 도구 ---------------- */
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function iso(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
@@ -288,6 +304,8 @@
     if (ownerLink) ownerLink.addEventListener('click', openOwnerPin);
     var rejoin = $('storePendingRejoin');
     if (rejoin) rejoin.addEventListener('click', function () { showJoinForm(); });
+    var meSave = $('storeMeSaveBtn');
+    if (meSave) meSave.addEventListener('click', saveMyTel);
 
     /* 달력 */
     var prev = $('storePrevMonth'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
@@ -622,6 +640,17 @@
       var saved = ls('family-calendar.store.myname.v1');
       if (saved && !nameInput.value) nameInput.value = saved;
     }
+    var telInput = $('storeJoinTel');
+    if (telInput) {
+      var savedTel = ls('family-calendar.store.mytel.v1');
+      if (savedTel && !telInput.value) telInput.value = savedTel;
+    }
+  }
+
+  /* 이 기기에서 보낸 가장 최근 입장 요청 */
+  function myJoinRequest() {
+    return S.joins.filter(function (r) { return r.deviceId === deviceId(); })
+      .sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); })[0] || null;
   }
 
   function showPending() {
@@ -634,6 +663,16 @@
     var form = $('storeJoinForm'), pending = $('storePendingBox');
     if (form) form.hidden = true;
     if (pending) pending.hidden = false;
+    var who = $('storePendingWho');
+    if (who) {
+      var mine = myJoinRequest();
+      if (mine) {
+        who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · 📱 ' + telOf(mine) : ' · 연락처 미입력');
+        who.hidden = false;
+      } else {
+        who.hidden = true;
+      }
+    }
   }
 
   function showMain() {
@@ -684,10 +723,15 @@
   function submitJoin() {
     if (!S.code || !S.connected) { toast('매장 방에 연결하는 중이에요. 잠시 후 다시 눌러 주세요'); return; }
     var nameInput = $('storeJoinName');
+    var telInput = $('storeJoinTel');
     var name = (nameInput ? nameInput.value : '').trim();
+    var tel = normTel(telInput ? telInput.value : '');
+    if (telInput) telInput.value = tel;
     var err = $('storeJoinError');
     if (!name) { if (err) { err.textContent = '이름을 넣어 주세요.'; err.hidden = false; } return; }
     if (name.length > 12) { if (err) { err.textContent = '이름은 12자까지 넣을 수 있어요.'; err.hidden = false; } return; }
+    if (!tel) { if (err) { err.textContent = '휴대폰 번호를 넣어 주세요. (사장님이 연락할 번호)'; err.hidden = false; } return; }
+    if (!telLooksValid(tel)) { if (err) { err.textContent = '휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678).'; err.hidden = false; } return; }
     var already = S.staff.filter(function (m) { return m.name === name; })[0];
     if (already) { if (err) { err.textContent = '같은 이름이 이미 있어요. 구분되는 이름(예: 오후 알바)을 넣어 주세요.'; err.hidden = false; } return; }
     if (err) err.hidden = true;
@@ -697,12 +741,14 @@
     var patch = { joinRequests: {} };
     patch.joinRequests[id] = {
       name: name,
+      tel: tel,
       deviceId: deviceId(),
       status: 'pending',
       requestedAt: new Date()
     };
     StoreCloud.saveRoom(patch).then(function () {
       lsSet('family-calendar.store.myname.v1', name);
+      lsSet('family-calendar.store.mytel.v1', tel);
       showPending();
       setStoreStatus('pending', '입장 승인을 기다리는 중이에요');
       toast('입장 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
@@ -765,6 +811,7 @@
     if (S.role === 'staff' && myStaffId()) S.filter = myStaffId();
     showMain();
     renderDash();
+    renderMyCard();
     renderStaffFilter();
     renderCalendar();
     renderDay();
@@ -1037,6 +1084,12 @@
       pay.className = 'shift__pay';
       pay.textContent = money(shiftPay(sh));
       meta.appendChild(pay);
+    }
+    if (isOwner() && st && telOf(st)) {
+      var tel = document.createElement('span');
+      tel.className = 'shift__tel';
+      tel.textContent = '📱 ' + telOf(st);
+      meta.appendChild(tel);
     }
     body.appendChild(meta);
 
@@ -1388,6 +1441,7 @@
     return {
       staff: staff,
       staffName: staff ? staff.name : '알바',
+      staffTel: staff ? telOf(staff) : '',
       list: list,
       days: Object.keys(days).length,
       minutes: minutes,
@@ -1482,6 +1536,7 @@
     html += '<div class="pay-doc__head"><div class="pay-doc__title">급 여 명 세 서</div>';
     html += '<div class="pay-doc__sub">' + esc(calc.storeName) + ' · ' + calc.y + '년 ' + (calc.m + 1) + '월</div></div>';
     html += '<div class="pay-doc__who"><div>' + esc(calc.staffName) + '</div><span>' + calc.y + '-' + pad2(calc.m + 1) + '-01 ~ ' + calc.y + '-' + pad2(calc.m + 1) + '-' + pad2(daysInMonth(calc.y, calc.m)) + '</span></div>';
+    if (calc.staffTel) html += '<p class="pay-doc__tel">📱 ' + esc(calc.staffTel) + '</p>';
     html += '<table class="pay-doc__table"><tbody>';
     rows.forEach(function (r) {
       html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
@@ -1545,6 +1600,7 @@
     var lines = [];
     lines.push('🧾 [' + calc.storeName + '] ' + calc.y + '년 ' + (calc.m + 1) + '월 급여명세서');
     lines.push('- 성명: ' + calc.staffName);
+    if (calc.staffTel) lines.push('- 연락처: ' + calc.staffTel);
     lines.push('- 근무일수: ' + calc.days + '일 (총 ' + hoursText(calc.minutes) + ')');
     lines.push('- 기본급: ' + money(calc.base) + (calc.avgWage ? ' (평균 시급 ' + money(calc.avgWage) + ')' : ''));
     lines.push('- 주휴수당: ' + money(calc.weekly));
@@ -1637,6 +1693,36 @@
       del.setAttribute('aria-label', m.name + ' 삭제');
       del.addEventListener('click', function () { removeStaff(m); });
       li.appendChild(del);
+
+      /* 휴대폰 번호 — 알바생 카드에서 바로 보이고 고칠 수 있어요 */
+      var telRow = document.createElement('div');
+      telRow.className = 'staff-row__telrow';
+      var telIcon = document.createElement('span');
+      telIcon.className = 'staff-row__telicon';
+      telIcon.textContent = '📱';
+      telRow.appendChild(telIcon);
+      var telInput = document.createElement('input');
+      telInput.type = 'tel';
+      telInput.className = 'staff-row__tel';
+      telInput.value = telOf(m);
+      telInput.placeholder = '010-1234-5678';
+      telInput.maxLength = 20;
+      telInput.setAttribute('inputmode', 'tel');
+      telInput.setAttribute('autocomplete', 'off');
+      telInput.setAttribute('aria-label', m.name + ' 휴대폰 번호');
+      telInput.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
+      telInput.addEventListener('change', function () { saveStaffTel(m, telInput.value); });
+      telRow.appendChild(telInput);
+      if (telOf(m)) {
+        var call = document.createElement('a');
+        call.className = 'staff-row__call';
+        call.href = telHref(telOf(m));
+        call.textContent = '📞';
+        call.title = telOf(m) + ' 전화';
+        call.setAttribute('aria-label', m.name + ' ' + telOf(m) + ' 전화 걸기');
+        telRow.appendChild(call);
+      }
+      li.appendChild(telRow);
       list.appendChild(li);
     });
   }
@@ -1663,6 +1749,8 @@
       id: m.id, name: m.name, color: m.color, bg: m.bg,
       hourly: m.hourly, joinedAt: m.joinedAt || null, active: m.active !== false
     };
+    var tel = normTel(m.tel);
+    if (tel) out.tel = tel;
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
     return out;
   }
@@ -1729,6 +1817,74 @@
     });
   }
 
+  /* 휴대폰 번호 저장 — 사장님이 알바생 번호를 고칠 때 */
+  function saveStaffTel(m, raw) {
+    if (!isOwner()) return;
+    var tel = normTel(raw);
+    if (tel === telOf(m)) return;
+    if (tel && !telLooksValid(tel)) {
+      toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
+      renderStaffList();
+      return;
+    }
+    var next = S.staff.map(function (x) {
+      var out = staffPlain(x);
+      if (x.id === m.id) { if (tel) out.tel = tel; else delete out.tel; }
+      return out;
+    });
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      toast(tel ? m.name + ' 님 번호를 저장했어요' : m.name + ' 님 번호를 지웠어요');
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  /* 알바생 본인 화면 — 자기 휴대폰 번호를 직접 등록·수정 */
+  function renderMyCard() {
+    var card = $('storeMeCard');
+    if (!card) return;
+    var mine = S.role === 'staff' ? me() : null;
+    card.hidden = !mine;
+    if (!mine) return;
+    var nameEl = $('storeMeName');
+    if (nameEl) nameEl.textContent = mine.name + (mine.active === false ? ' · 정지' : '');
+    var input = $('storeMeTel');
+    if (input && document.activeElement !== input) input.value = telOf(mine);
+    var hint = $('storeMeTelHint');
+    if (hint) {
+      hint.textContent = telOf(mine)
+        ? '저장된 번호 ' + telOf(mine) + ' · 고쳐서 저장하면 사장님 목록에 바로 반영돼요.'
+        : '아직 번호가 없어요. 저장하면 사장님 알바생 목록에 바로 보여요.';
+    }
+  }
+
+  function saveMyTel() {
+    var mine = S.role === 'staff' ? me() : null;
+    if (!mine) { toast('알바생으로 입장한 뒤에 저장할 수 있어요'); return; }
+    var input = $('storeMeTel');
+    var tel = normTel(input ? input.value : '');
+    if (input) input.value = tel;
+    if (!tel) { toast('휴대폰 번호를 넣어 주세요'); return; }
+    if (!telLooksValid(tel)) { toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)'); return; }
+    if (tel === telOf(mine)) { toast('저장된 번호와 같아요'); return; }
+    var next = S.staff.map(function (x) {
+      var out = staffPlain(x);
+      if (x.id === mine.id) out.tel = tel;
+      return out;
+    });
+    var btn = $('storeMeSaveBtn');
+    if (btn) btn.disabled = true;
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      lsSet('family-calendar.store.mytel.v1', tel);
+      toast('내 휴대폰 번호를 저장했어요');
+      renderMyCard();
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
+  }
+
   function removeStaff(m) {
     if (!isOwner()) return;
     if (!window.confirm(m.name + ' 님을 알바생 목록에서 지울까요?\n지난 근무 기록과 급여명세서는 그대로 남아요.')) return;
@@ -1761,9 +1917,11 @@
     pending.forEach(function (r) {
       var card = document.createElement('div');
       card.className = 'req-card req-card--pending';
+      var tel = telOf(r);
       card.innerHTML =
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
+        '<div class="req-card__tel">' + (tel ? '📱 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📱 연락처 미입력') + '</div>' +
         '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
       var wageInput = card.querySelector('.approve-wage');
@@ -1790,13 +1948,16 @@
     var next = S.staff.map(function (m) {
       return staffPlain(m);
     });
-    next.push({ id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true });
+    var added = { id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true };
+    var tel = telOf(req);
+    if (tel) added.tel = tel;
+    next.push(added);
     if (btn) btn.disabled = true;
     var patch = {
       staff: next,
       joinRequests: {}
     };
-    patch.joinRequests[req.id] = { status: 'approved', staffId: staffId, hourly: hourly, decidedAt: new Date() };
+    patch.joinRequests[req.id] = { name: req.name, tel: tel || '', status: 'approved', staffId: staffId, hourly: hourly, decidedAt: new Date() };
     StoreCloud.saveRoom(patch).then(function () {
       toast(req.name + ' 님 입장을 승인했어요 · 그 폰에 매장 달력이 열려요');
       renderApprovalCards();
@@ -1813,7 +1974,7 @@
     if (!window.confirm(req.name + ' 님의 입장 요청을 거절할까요?')) return;
     if (btn) btn.disabled = true;
     var patch = { joinRequests: {} };
-    patch.joinRequests[req.id] = { status: 'rejected', decidedAt: new Date() };
+    patch.joinRequests[req.id] = { name: req.name, tel: telOf(req), status: 'rejected', decidedAt: new Date() };
     StoreCloud.saveRoom(patch).then(function () {
       toast('입장 요청을 거절했어요');
       renderApprovalCards();

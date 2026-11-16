@@ -45,7 +45,7 @@
 ```
 rooms/{roomId}
   schema: 2, name: "우리 가족", createdAt
-  members: [ { id, name, color, bg, role } ]    // role: admin | manager | member
+  members: [ { id, name, color, bg, role, tel } ]    // role: admin | manager | member, tel: 휴대폰 번호(선택)
   pins: { dad: "<sha256>", mom: "<sha256>" }     // 4자리 PIN의 해시 (평문 없음)
   requests: {                                    // 일정 등록 요청 (맵 필드)
     <requestId>: { status: pending|approved|rejected, requesterId, requesterName,
@@ -91,6 +91,18 @@ service cloud.firestore {
 공개 저장소입니다. 가족 실명·생년월일·전화번호·주소는 코드와 DB 어디에도 넣지 않았고, 구성원은 `아빠·엄마·외할머니·첫째·둘째·막내`로만 표시합니다.
 Firebase 설정값(apiKey 등)은 웹 앱 식별용 공개 값이며, 접근 통제는 위 보안 규칙이 담당합니다.
 
+## 구성원·알바생 휴대폰 번호 (2026-11-16 추가)
+
+- **가족**: 관리자 설정에서 구성원마다 번호를 넣고(다른 곳을 누르면 저장), 구성원을 추가할 때도 번호를 함께 넣을 수 있어요.
+  상단 프로필 배지 → **누구신가요?** 창에서 **내 정보**로 각자 자기 번호를 직접 등록·수정합니다.
+  구성원 목록에는 등록된 번호가 `📞 010-…`로 보이고 누르면 바로 전화(`tel:`)가 걸려요. 번호가 없으면 `미등록`으로 표시됩니다.
+- **매장**: 알바생이 초대 링크로 들어와 이름과 번호를 넣고 입장을 요청하면,
+  사장님 **🔔 입장·승인** 카드에 이름·번호가 함께 보이고 승인하면 `staff[]`에 번호가 저장돼요.
+  알바생 관리에서 시급처럼 번호를 고칠 수 있고(📞 바로 전화), 알바생은 자기 화면의 **🙋 내 정보**에서 본인 번호를 직접 저장합니다.
+  근무 카드(사장님 화면)와 급여명세서(화면·카톡 복사본)에도 연락처가 들어갑니다.
+- 번호는 `010-1234-5678` / `02-1234-5678` / `1588-1234` / `+82 …` 형태로 자동 정리되고,
+  **저장 위치는 Firestore 방 문서(`rooms/{roomId}`)뿐**입니다. 공개 저장소 코드에는 번호가 없습니다.
+
 ## 🏪 매장 캘린더 (2026-11-16 추가)
 
 가족 달력과 **같은 앱**에서 상단 탭으로 오가지만, **Firebase 방 자체가 달라** 데이터가 섞이지 않습니다.
@@ -111,8 +123,8 @@ Firebase 설정값(apiKey 등)은 웹 앱 식별용 공개 값이며, 접근 통
 ```
 rooms/{storeRoomId}
   schema: 3, kind: "store", storeName
-  staff: [ { id, name, color, bg, hourly, joinedAt, active } ]
-  joinRequests: { <id>: { name, deviceId, status, staffId, hourly, requestedAt, decidedAt } }
+  staff: [ { id, name, color, bg, hourly, tel, joinedAt, active } ]
+  joinRequests: { <id>: { name, tel, deviceId, status, staffId, hourly, requestedAt, decidedAt } }
   storePins: { owner: "<sha256>" }          // PIN 평문 없음
   payrollSettings: { taxMode: none|3.3|custom, taxRate, weeklyAllowance, payDay, weeklyHours }
   events/{eventId}
