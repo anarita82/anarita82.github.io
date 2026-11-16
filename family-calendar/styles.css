@@ -438,6 +438,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ---------- 모달 ---------- */
 .modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
 .modal[hidden] { display: none; }
+/* 🚪 내보낸 구성원 차단 화면 — 뒤 내용이 보이지 않게 불투명 배경 */
+#familyBlockedModal { align-items: center; }
+#familyBlockedModal .modal__backdrop { background: #eef0f6; opacity: 1; }
+#familyBlockedModal .modal__sheet { box-shadow: 0 18px 40px rgba(30, 41, 59, .12); }
 .modal__backdrop {
   position: absolute; inset: 0;
   background: rgba(17, 20, 28, .48);

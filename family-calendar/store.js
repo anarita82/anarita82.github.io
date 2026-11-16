@@ -248,8 +248,9 @@
     if (pill) {
       pill.textContent = S.lastStatus.kind === 'online' ? '공유 중'
         : S.lastStatus.kind === 'offline' ? '오프라인'
+        : S.lastStatus.kind === 'blocked' ? '차단'
         : S.lastStatus.kind === 'error' ? '오류' : '연결 중';
-      pill.className = 'app-bar__status app-bar__status--' + (S.lastStatus.kind || 'pending');
+      pill.className = 'app-bar__status app-bar__status--' + (S.lastStatus.kind === 'error' ? 'error' : (S.lastStatus.kind === 'blocked' ? 'error' : (S.lastStatus.kind || 'pending')));
     }
     if (note) note.textContent = S.lastStatus.text || '';
   }
@@ -716,7 +717,7 @@
       var text = $('storeBlockedMsg');
       if (text) text.textContent = msg || '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
     }
-    setStoreStatus('error', '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다');
+    setStoreStatus('blocked', '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다');
   }
 
   function showSetup(msg) {
