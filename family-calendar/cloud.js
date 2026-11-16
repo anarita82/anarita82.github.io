@@ -25,6 +25,9 @@
     roomId: '',
     code: '',
     unsub: null,
+    unsubRoom: null,
+    room: null,
+    requests: [],
     handlers: {}
   };
 
@@ -164,6 +167,7 @@
       state.roomRef = state.db.collection('rooms').doc(state.roomId);
       // 먼저 구독을 걸어 두면 캐시에 있던 일정이 곧바로 보입니다.
       listen();
+      listenRoom();
       return roomLookup();
     }).then(function (exists) {
       if (exists === false) {
@@ -223,18 +227,23 @@
     return state.roomRef.collection('events');
   }
 
-  function cleanPayload(data) {
+  function eventPayload(data) {
     return {
       title: String(data.title || '').slice(0, 80),
       date: String(data.date || ''),
       time: data.time || null,
-      members: Array.isArray(data.members) ? data.members.slice(0, 10) : [],
+      members: Array.isArray(data.members) ? data.members.slice(0, 20) : [],
       category: String(data.category || 'etc'),
       memo: String(data.memo || '').slice(0, 300),
       repeat: String(data.repeat || 'none'),
-      lunar: data.lunar || null,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      lunar: data.lunar || null
     };
+  }
+
+  function cleanPayload(data) {
+    var payload = eventPayload(data);
+    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    return payload;
   }
 
   function listen() {
@@ -308,11 +317,133 @@
     });
   }
 
+  /* ---------------- 방 문서: 구성원·관리자 PIN·등록 요청 ----------------
+     요청(requests)은 방 문서 안의 맵 필드로 저장합니다. 배포된 보안 규칙이 하위
+     컬렉션(rooms/{roomId}/requests) 쓰기를 막고 있어서, 이미 허용된 방 문서 필드에
+     두면 규칙을 바꾸지 않아도 되고 예전 버전 앱은 이 필드를 무시합니다. */
+  function listenRoom() {
+    if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
+    state.unsubRoom = state.roomRef.onSnapshot(function (snap) {
+      var d = snap.exists ? (snap.data() || {}) : {};
+      state.room = d;
+      var raw = d.requests && typeof d.requests === 'object' ? d.requests : {};
+      var list = [];
+      Object.keys(raw).forEach(function (key) {
+        var r = raw[key];
+        if (!r || typeof r !== 'object' || typeof r.title !== 'string') return;
+        list.push({
+          id: key,
+          status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
+          requesterId: String(r.requesterId || ''),
+          requesterName: String(r.requesterName || ''),
+          title: r.title,
+          date: String(r.date || ''),
+          time: r.time || null,
+          members: Array.isArray(r.members) ? r.members : [],
+          category: String(r.category || 'etc'),
+          memo: String(r.memo || ''),
+          repeat: String(r.repeat || 'none'),
+          lunar: r.lunar || null,
+          createdAt: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0,
+          decidedBy: String(r.decidedBy || ''),
+          decidedByName: String(r.decidedByName || ''),
+          decidedAt: r.decidedAt && r.decidedAt.toMillis ? r.decidedAt.toMillis() : 0,
+          eventId: String(r.eventId || '')
+        });
+      });
+      list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+      state.requests = list;
+      emit('onRoom', {
+        exists: snap.exists,
+        members: Array.isArray(d.members) ? d.members : [],
+        pins: d.pins && typeof d.pins === 'object' ? d.pins : {},
+        requests: list
+      });
+    }, function (err) {
+      emit('onRoomError', err);
+    });
+  }
+
+  function cleanMember(m) {
+    return {
+      id: String(m.id || '').slice(0, 40),
+      name: String(m.name || '').slice(0, 12),
+      color: String(m.color || '#64748b').slice(0, 9),
+      bg: String(m.bg || '').slice(0, 9),
+      role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member'
+    };
+  }
+
+  function saveRoomMeta(patch) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    patch.schema = 2;
+    return state.roomRef.set(patch, { merge: true });
+  }
+
+  function saveMembers(members) {
+    return saveRoomMeta({ members: (members || []).map(cleanMember) });
+  }
+
+  /* PIN은 평문을 저장하지 않습니다. 방 ID를 섞은 SHA-256 해시만 남습니다. */
+  function pinHash(id, pin) {
+    return sha256Hex('family-calendar-pin:' + state.roomId + ':' + String(id) + ':' + String(pin));
+  }
+
+  function setPin(id, pin) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var key = 'pins.' + String(id);
+    var patch = {};
+    if (pin === null || pin === undefined) {
+      patch[key] = firebase.firestore.FieldValue.delete();
+    } else {
+      patch[key] = pinHash(id, pin);
+    }
+    return state.roomRef.update(patch);
+  }
+
+  function submitRequest(data, me) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = 'rq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    var payload = eventPayload(data);
+    payload.status = 'pending';
+    payload.requesterId = String((me && me.id) || '');
+    payload.requesterName = String((me && me.name) || '').slice(0, 12);
+    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    var patch = {};
+    patch['requests.' + id] = payload;
+    return state.roomRef.update(patch).then(function () { return id; });
+  }
+
+  function decideRequest(req, me, approve) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var batch = state.db.batch();
+    var updates = {};
+    updates['requests.' + req.id + '.status'] = approve ? 'approved' : 'rejected';
+    updates['requests.' + req.id + '.decidedBy'] = String((me && me.id) || '');
+    updates['requests.' + req.id + '.decidedByName'] = String((me && me.name) || '').slice(0, 12);
+    updates['requests.' + req.id + '.decidedAt'] = firebase.firestore.FieldValue.serverTimestamp();
+    var eventDocId = '';
+    if (approve) {
+      var evRef = eventCollection().doc();
+      eventDocId = evRef.id;
+      var payload = eventPayload(req);
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      batch.set(evRef, payload);
+      updates['requests.' + req.id + '.eventId'] = eventDocId;
+    }
+    batch.update(state.roomRef, updates);
+    return batch.commit().then(function () { return eventDocId; });
+  }
+
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
+    if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
     state.roomRef = null;
     state.roomId = '';
     state.code = '';
+    state.room = null;
+    state.requests = [];
   }
 
   window.FamilyCloud = {
@@ -328,6 +459,12 @@
     saveEvent: saveEvent,
     deleteEvent: deleteEvent,
     deleteSamples: deleteSamples,
+    saveMembers: saveMembers,
+    setPin: setPin,
+    pinHash: pinHash,
+    submitRequest: submitRequest,
+    approveRequest: function (req, me) { return decideRequest(req, me, true); },
+    rejectRequest: function (req, me) { return decideRequest(req, me, false); },
     sha256Hex: sha256Hex
   };
 })();

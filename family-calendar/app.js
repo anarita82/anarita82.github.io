@@ -4,14 +4,19 @@
 
   var L = window.FamilyLunar;
 
-  var MEMBERS = [
-    { id: 'dad', name: '아빠', color: '#3b82f6', bg: '#e8f1fe' },
-    { id: 'mom', name: '엄마', color: '#ec4899', bg: '#fdeaf3' },
-    { id: 'grandma', name: '외할머니', color: '#f59e0b', bg: '#fef3e2' },
-    { id: 'first', name: '첫째', color: '#10b981', bg: '#e6f7f0' },
-    { id: 'second', name: '둘째', color: '#8b5cf6', bg: '#f0e9fe' },
-    { id: 'third', name: '막내', color: '#06b6d4', bg: '#e2f6fa' }
+  var DEFAULT_MEMBERS = [
+    { id: 'dad', name: '아빠', color: '#3b82f6', bg: '#e8f1fe', role: 'admin' },
+    { id: 'mom', name: '엄마', color: '#ec4899', bg: '#fdeaf3', role: 'manager' },
+    { id: 'grandma', name: '외할머니', color: '#f59e0b', bg: '#fef3e2', role: 'member' },
+    { id: 'first', name: '첫째', color: '#10b981', bg: '#e6f7f0', role: 'member' },
+    { id: 'second', name: '둘째', color: '#8b5cf6', bg: '#f0e9fe', role: 'member' },
+    { id: 'third', name: '막내', color: '#06b6d4', bg: '#e2f6fa', role: 'member' }
   ];
+  var MEMBERS = DEFAULT_MEMBERS.slice();
+  var MEMBER_COLORS = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#84cc16', '#0ea5e9', '#a855f7'];
+  var ROLE_LABEL = { admin: '메인 관리자', manager: '부매니저', member: '구성원' };
+  var PROFILE_KEY = 'family-calendar.me.v2';
+  var INITIAL_PIN = '2026';
 
   var CATEGORIES = [
     { id: 'birthday', label: '생일', emoji: '🎂', color: '#ec4899' },
@@ -28,8 +33,10 @@
 
   /* ---------------- 저장소 (Firebase 공유) ---------------- */
   var events = [];
+  var requests = [];
   var cloudReady = false;
   var connectTimer = null;
+  var toastTimer = null;
   var state = {
     year: 0,
     month: 0,
@@ -37,7 +44,12 @@
     member: 'all',
     editingId: null,
     repeat: 'none',
-    saving: false
+    saving: false,
+    profile: '',
+    roomPins: {},
+    pendingPin: '',
+    pinTarget: '',
+    memberColor: 0
   };
 
   function isEventLike(ev) {
@@ -196,12 +208,61 @@
     el.roomClose = document.getElementById('roomClose');
     el.roomCodeNow = document.getElementById('roomCodeNow');
 
+    el.profileBtn = document.getElementById('profileBtn');
+    el.profileName = document.getElementById('profileName');
+    el.profileRole = document.getElementById('profileRole');
+    el.profileDot = document.getElementById('profileDot');
+    el.approveBtn = document.getElementById('approveBtn');
+    el.approveCount = document.getElementById('approveCount');
+    el.myRequestsCard = document.getElementById('myRequestsCard');
+    el.myRequestsList = document.getElementById('myRequestsList');
+    el.myRequestsHint = document.getElementById('myRequestsHint');
+    el.addBtn = document.getElementById('addBtn');
+    el.resetBtn = document.getElementById('resetBtn');
+    el.codeBtn = document.getElementById('codeBtn');
+    el.requestNote = document.getElementById('requestNote');
+    el.profileModal = document.getElementById('profileModal');
+    el.profileList = document.getElementById('profileList');
+    el.profileClose = document.getElementById('profileClose');
+    el.profileAdminActions = document.getElementById('profileAdminActions');
+    el.adminBtn = document.getElementById('adminBtn');
+    el.pinModal = document.getElementById('pinModal');
+    el.pinForm = document.getElementById('pinForm');
+    el.pinTitle = document.getElementById('pinTitle');
+    el.pinInput = document.getElementById('pinInput');
+    el.pinHint = document.getElementById('pinHint');
+    el.pinError = document.getElementById('pinError');
+    el.pinClose = document.getElementById('pinClose');
+    el.adminModal = document.getElementById('adminModal');
+    el.adminClose = document.getElementById('adminClose');
+    el.adminMemberList = document.getElementById('adminMemberList');
+    el.newMemberName = document.getElementById('newMemberName');
+    el.newMemberColors = document.getElementById('newMemberColors');
+    el.memberError = document.getElementById('memberError');
+    el.addMemberBtn = document.getElementById('addMemberBtn');
+    el.pinTargets = document.getElementById('pinTargets');
+    el.newPin = document.getElementById('newPin');
+    el.newPin2 = document.getElementById('newPin2');
+    el.pinChangeError = document.getElementById('pinChangeError');
+    el.changePinBtn = document.getElementById('changePinBtn');
+    el.approveModal = document.getElementById('approveModal');
+    el.approveClose = document.getElementById('approveClose');
+    el.approveModalCount = document.getElementById('approveModalCount');
+    el.reqCards = document.getElementById('reqCards');
+    el.detailModal = document.getElementById('detailModal');
+    el.detailTitle = document.getElementById('detailTitle');
+    el.detailBody = document.getElementById('detailBody');
+    el.detailClose = document.getElementById('detailClose');
+    el.detailOk = document.getElementById('detailOk');
+    el.toast = document.getElementById('toast');
+
     var today = new Date();
     state.year = today.getFullYear();
     state.month = today.getMonth();
     state.selected = todayISO();
 
     bind();
+    bindRoles();
     renderAll();
     startCloud();
   }
@@ -262,6 +323,11 @@
           return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
         },
         onData: function (list) { events = list; cloudReady = true; clearTimeout(connectTimer); renderAll(); },
+        onRoom: function (info) { applyRoomMeta(info); },
+        onRoomError: function (err) {
+          var code = (err && err.code) || '';
+          if (code === 'permission-denied') setStatus('error', '가족 방 설정을 읽을 수 없어요 (가족 코드를 확인해 주세요)');
+        },
         onStatus: function (s) { setStatus(s.kind, s.text); }
       }).then(function (info) {
         if (info && info.created) {
@@ -340,7 +406,10 @@
     document.getElementById('prevMonth').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('nextMonth').addEventListener('click', function () { shiftMonth(1); });
     document.getElementById('todayBtn').addEventListener('click', goToday);
-    document.getElementById('addBtn').addEventListener('click', function () { openModal(null, state.selected); });
+    document.getElementById('addBtn').addEventListener('click', function () {
+      if (!state.profile) { openProfileModal(); return; }
+      openModal(null, state.selected);
+    });
     document.getElementById('resetBtn').addEventListener('click', deleteSamples);
     document.getElementById('inviteBtn').addEventListener('click', copyInviteLink);
     document.getElementById('codeBtn').addEventListener('click', function () { openRoomModal(false); });
@@ -408,6 +477,7 @@
     renderCalendar();
     renderDayCard();
     renderDDay();
+    renderRoleUI();
   }
 
   function renderFilters() {
@@ -603,7 +673,7 @@
     if (!dayEvents.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
-      empty.innerHTML = '이 날은 일정이 없어요.<br><b>＋ 일정 추가</b>로 등록해 보세요.';
+      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + '</b>로 등록해 보세요.';
       el.dayCard.appendChild(empty);
       return;
     }
@@ -681,7 +751,10 @@
     }
 
     btn.appendChild(body);
-    btn.addEventListener('click', function () { openModal(ev, null); });
+    btn.addEventListener('click', function () {
+      if (canManage()) openModal(ev, null);
+      else openDetail(ev);
+    });
     li.appendChild(btn);
     return li;
   }
@@ -785,9 +858,12 @@
   /* ---------------- 모달 ---------------- */
   function openModal(ev, presetDate) {
     state.editingId = ev ? ev.id : null;
-    el.modalTitle.textContent = ev ? '일정 수정' : '일정 추가';
-    el.deleteBtn.hidden = !ev;
+    var manage = canManage();
+    el.modalTitle.textContent = ev ? (manage ? '일정 수정' : '일정 보기') : (manage ? '일정 추가' : '일정 등록 요청');
+    el.deleteBtn.hidden = !ev || !manage;
     el.formError.hidden = true;
+    el.saveBtn.textContent = ev ? '저장' : (manage ? '저장' : '등록 요청 보내기');
+    el.requestNote.hidden = manage || !!ev;
 
     el.fTitle.value = ev ? ev.title : '';
     el.fDate.value = ev ? ev.date : (presetDate || state.selected);
@@ -964,19 +1040,40 @@
     state.saving = true;
     el.saveBtn.disabled = true;
 
+    var done = function () { state.saving = false; el.saveBtn.disabled = false; };
+    var fail = function (err) {
+      showFormError((canManage() ? '저장하지 못했어요 · ' : '요청을 보내지 못했어요 · ') + errorHint(err));
+    };
+
+    if (!canManage()) {
+      var me = myMember();
+      if (!me) {
+        done();
+        closeModal();
+        openProfileModal();
+        return;
+      }
+      FamilyCloud.submitRequest(payload, { id: me.id, name: me.name }).then(function () {
+        goToDate(date);
+        closeModal();
+        renderAll();
+        toast('등록 요청을 보냈어요 · 아빠·엄마 승인 후 달력에 올라가요');
+      }).catch(fail).then(done);
+      return;
+    }
+
     FamilyCloud.saveEvent(state.editingId, payload).then(function () {
-      state.selected = date;
-      var dt = parseISO(date);
-      state.year = dt.getFullYear();
-      state.month = dt.getMonth();
+      goToDate(date);
       closeModal();
       renderAll();
-    }).catch(function (err) {
-      showFormError('저장하지 못했어요 · ' + errorHint(err));
-    }).then(function () {
-      state.saving = false;
-      el.saveBtn.disabled = false;
-    });
+    }).catch(fail).then(done);
+  }
+
+  function goToDate(date) {
+    state.selected = date;
+    var dt = parseISO(date);
+    state.year = dt.getFullYear();
+    state.month = dt.getMonth();
   }
 
   function deleteEvent() {
@@ -993,6 +1090,7 @@
   }
 
   function deleteSamples() {
+    if (!canManage()) return;
     if (!cloudReady) {
       window.alert('아직 가족 방에 연결되지 않았어요. 잠시 후 다시 시도해 주세요.');
       return;
@@ -1025,6 +1123,596 @@
     }
   }
 
+  /* ---------------- 사용자(프로필)·권한 ---------------- */
+  function myMember() {
+    if (!state.profile) return null;
+    return memberById(state.profile);
+  }
+
+  function myRole() {
+    var m = myMember();
+    return m ? (m.role || 'member') : 'member';
+  }
+
+  function canManage() {
+    var r = myRole();
+    return r === 'admin' || r === 'manager';
+  }
+
+  function isAdmin() { return myRole() === 'admin'; }
+
+  function savedProfile() {
+    try { return localStorage.getItem(PROFILE_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function rememberProfile(id) {
+    try {
+      if (id) localStorage.setItem(PROFILE_KEY, id);
+      else localStorage.removeItem(PROFILE_KEY);
+    } catch (e) { /* 저장 못해도 이번엔 동작 */ }
+  }
+
+  function plainMember(m) {
+    return { id: m.id, name: m.name, color: m.color, bg: m.bg, role: m.role || 'member' };
+  }
+
+  /* 방 문서에서 구성원·PIN 해시·등록 요청을 받아 화면 상태에 반영합니다. */
+  function applyRoomMeta(info) {
+    var list = info && Array.isArray(info.members) ? info.members : [];
+    var next = [];
+    list.forEach(function (m) {
+      if (!m || typeof m.name !== 'string' || !m.name) return;
+      var id = String(m.id || '');
+      if (!id) return;
+      var color = /^#[0-9a-fA-F]{3,8}$/.test(m.color || '') ? m.color : '#64748b';
+      next.push({
+        id: id,
+        name: m.name.slice(0, 12),
+        color: color,
+        bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : (color + '1f'),
+        role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member'
+      });
+    });
+    MEMBERS = next.length ? next : DEFAULT_MEMBERS.slice();
+    state.roomPins = info && info.pins && typeof info.pins === 'object' ? info.pins : {};
+    requests = info && Array.isArray(info.requests) ? info.requests : [];
+    if (state.member !== 'all' && !memberById(state.member)) state.member = 'all';
+    if (state.profile && !memberById(state.profile)) {
+      state.profile = '';
+      rememberProfile('');
+    }
+    renderAll();
+    ensureProfile();
+  }
+
+  function ensureProfile() {
+    if (!el.profileModal) return;
+    if (!state.profile) {
+      var saved = savedProfile();
+      if (saved && memberById(saved)) {
+        state.profile = saved;
+        renderAll();
+      }
+    }
+    if (state.profile) return;
+    if (!el.roomModal.hidden) return;
+    if (!el.profileModal.hidden) return;
+    openProfileModal();
+  }
+
+  function renderRoleUI() {
+    var me = myMember();
+    if (el.profileName) {
+      el.profileName.textContent = me ? me.name : '사용자 선택';
+      el.profileRole.textContent = me ? ROLE_LABEL[me.role || 'member'] : '';
+      el.profileRole.hidden = !me || (me.role || 'member') === 'member';
+      el.profileDot.style.background = me ? me.color : '#ffffff';
+    }
+    var manage = canManage();
+    var pending = requests.filter(function (r) { return r.status === 'pending'; });
+    if (el.approveBtn) {
+      el.approveBtn.hidden = !manage;
+      if (manage) {
+        el.approveCount.textContent = String(pending.length);
+        el.approveBtn.classList.toggle('is-active', pending.length > 0);
+      }
+    }
+    if (el.addBtn) el.addBtn.textContent = manage ? '＋ 일정 추가' : '＋ 일정 등록 요청';
+    if (el.resetBtn) el.resetBtn.hidden = !manage;
+    if (el.codeBtn) el.codeBtn.hidden = !manage;
+    renderMyRequests();
+    if (el.approveModal && !el.approveModal.hidden) renderApproveCards();
+  }
+
+  function formatReqDate(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '날짜 없음';
+    var dt = parseISO(iso);
+    return (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일(' + WEEKDAYS[dt.getDay()] + ')';
+  }
+
+  function requestStatusLabel(s) {
+    if (s === 'approved') return '승인됨';
+    if (s === 'rejected') return '거절됨';
+    return '대기 중';
+  }
+
+  function buildRequestItem(r, withActions) {
+    var li = document.createElement('li');
+    li.className = 'req-card req-card--' + r.status;
+    var cat = categoryById(r.category);
+
+    var top = document.createElement('div');
+    top.className = 'req-card__top';
+    var title = document.createElement('strong');
+    title.textContent = cat.emoji + ' ' + r.title;
+    top.appendChild(title);
+    var chip = document.createElement('span');
+    chip.className = 'req-status req-status--' + r.status;
+    chip.textContent = requestStatusLabel(r.status);
+    top.appendChild(chip);
+    li.appendChild(top);
+
+    var meta = document.createElement('div');
+    meta.className = 'req-card__meta';
+    meta.textContent = '📅 ' + formatReqDate(r.date) + ' · ' + (r.time ? r.time : '종일');
+    li.appendChild(meta);
+
+    var names = (r.members || []).map(function (id) {
+      var m = memberById(id);
+      return m ? m.name : '';
+    }).filter(Boolean);
+    if (names.length) {
+      var who = document.createElement('div');
+      who.className = 'req-card__meta';
+      who.textContent = '👥 담당 ' + names.join('·');
+      li.appendChild(who);
+    }
+    if (r.memo) {
+      var memo = document.createElement('div');
+      memo.className = 'req-card__memo';
+      memo.textContent = r.memo;
+      li.appendChild(memo);
+    }
+
+    var by = document.createElement('div');
+    by.className = 'req-card__by';
+    var byText = (r.requesterName || '구성원') + ' 님이 요청';
+    if (r.status !== 'pending' && r.decidedByName) {
+      byText += ' · ' + r.decidedByName + ' 님이 ' + (r.status === 'approved' ? '승인' : '거절');
+    }
+    by.textContent = byText;
+    li.appendChild(by);
+
+    if (withActions && r.status === 'pending') {
+      var actions = document.createElement('div');
+      actions.className = 'req-card__actions';
+      var reject = document.createElement('button');
+      reject.type = 'button';
+      reject.className = 'btn-ghost btn-small btn-danger';
+      reject.textContent = '거절';
+      reject.addEventListener('click', function () { decideRequest(r, false); });
+      var approve = document.createElement('button');
+      approve.type = 'button';
+      approve.className = 'btn-primary btn-small';
+      approve.textContent = '승인';
+      approve.addEventListener('click', function () { decideRequest(r, true); });
+      actions.appendChild(reject);
+      actions.appendChild(approve);
+      li.appendChild(actions);
+    }
+    return li;
+  }
+
+  function renderMyRequests() {
+    if (!el.myRequestsCard) return;
+    var mine = requests.filter(function (r) { return r.requesterId && r.requesterId === state.profile; });
+    var show = !!state.profile && (mine.length > 0 || !canManage());
+    el.myRequestsCard.hidden = !show;
+    if (!show) return;
+    var waiting = mine.filter(function (r) { return r.status === 'pending'; }).length;
+    el.myRequestsHint.textContent = waiting ? '대기 중 ' + waiting + '건' : '대기 중 없음';
+    el.myRequestsList.innerHTML = '';
+    if (!mine.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = '아직 보낸 요청이 없어요. ＋ 일정 등록 요청으로 보내 보세요.';
+      el.myRequestsList.appendChild(empty);
+      return;
+    }
+    mine.forEach(function (r) {
+      el.myRequestsList.appendChild(buildRequestItem(r, false));
+    });
+  }
+
+  function decideRequest(r, approve) {
+    if (!canManage()) return;
+    var me = myMember();
+    if (!me) return;
+    if (!approve && !window.confirm('"' + r.title + '" 요청을 거절할까요?\n달력에는 올라가지 않아요.')) return;
+    var run = approve ? FamilyCloud.approveRequest : FamilyCloud.rejectRequest;
+    run(r, { id: me.id, name: me.name }).then(function () {
+      toast(approve ? '승인했어요 · 달력에 올라갔어요' : '거절했어요 · 달력에 올라가지 않아요');
+    }).catch(function (err) {
+      window.alert('처리하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function openApproveModal() {
+    if (!canManage()) return;
+    renderApproveCards();
+    el.approveModal.hidden = false;
+  }
+
+  function renderApproveCards() {
+    if (!el.reqCards) return;
+    var pending = requests.filter(function (r) { return r.status === 'pending'; });
+    el.approveModalCount.textContent = String(pending.length);
+    el.reqCards.innerHTML = '';
+    if (!pending.length) {
+      var empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = '지금은 승인을 기다리는 요청이 없어요.';
+      el.reqCards.appendChild(empty);
+      return;
+    }
+    pending.forEach(function (r) {
+      el.reqCards.appendChild(buildRequestItem(r, true));
+    });
+  }
+
+  function toast(msg) {
+    if (!el.toast) return;
+    el.toast.textContent = msg;
+    el.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.hidden = true; }, 2800);
+  }
+
+  /* ---------------- 프로필 선택 ---------------- */
+  function openProfileModal() {
+    if (!el.profileModal) return;
+    renderProfileList();
+    el.profileModal.hidden = false;
+  }
+
+  function closeProfileModal() {
+    if (el.profileModal) el.profileModal.hidden = true;
+  }
+
+  function renderProfileList() {
+    el.profileList.innerHTML = '';
+    MEMBERS.forEach(function (m) {
+      var role = m.role || 'member';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'profile-item' + (m.id === state.profile ? ' is-me' : '');
+      var dot = document.createElement('span');
+      dot.className = 'profile-item__dot';
+      dot.style.background = m.color;
+      btn.appendChild(dot);
+      var name = document.createElement('span');
+      name.className = 'profile-item__name';
+      name.textContent = m.name;
+      btn.appendChild(name);
+      if (role !== 'member') {
+        var badge = document.createElement('span');
+        badge.className = 'profile-item__role';
+        badge.textContent = '🔑 ' + ROLE_LABEL[role];
+        btn.appendChild(badge);
+      }
+      if (m.id === state.profile) {
+        var now = document.createElement('span');
+        now.className = 'profile-item__now';
+        now.textContent = '현재';
+        btn.appendChild(now);
+      }
+      btn.addEventListener('click', function () { chooseProfile(m.id); });
+      el.profileList.appendChild(btn);
+    });
+    el.profileAdminActions.hidden = !canManage();
+  }
+
+  function chooseProfile(id) {
+    var m = memberById(id);
+    if (!m) return;
+    if (m.id === state.profile) { closeProfileModal(); return; }
+    var role = m.role || 'member';
+    if (role === 'admin' || role === 'manager') { askPin(m); return; }
+    switchProfile(m);
+  }
+
+  function switchProfile(m) {
+    state.profile = m.id;
+    rememberProfile(m.id);
+    state.member = 'all';
+    closeProfileModal();
+    renderAll();
+    toast(m.name + ' 님으로 시작해요');
+  }
+
+  /* ---------------- 관리자 PIN ---------------- */
+  function askPin(m) {
+    state.pendingPin = m.id;
+    el.pinTitle.textContent = m.name + ' · ' + ROLE_LABEL[m.role || 'manager'];
+    el.pinError.hidden = true;
+    el.pinInput.value = '';
+    var stored = state.roomPins && state.roomPins[m.id];
+    el.pinHint.textContent = stored
+      ? '등록된 4자리 PIN을 넣어 주세요.'
+      : '아직 PIN을 바꾸지 않았어요. 처음 PIN은 2026이에요. 들어간 뒤 설정에서 바꿔 주세요.';
+    el.pinModal.hidden = false;
+    try { el.pinInput.focus(); } catch (e) { /* 무시 */ }
+  }
+
+  function showPinError(msg) {
+    el.pinError.textContent = msg;
+    el.pinError.hidden = false;
+  }
+
+  function submitPin(e) {
+    if (e) e.preventDefault();
+    var m = memberById(state.pendingPin);
+    if (!m) { el.pinModal.hidden = true; return; }
+    var pin = el.pinInput.value.replace(/\D/g, '');
+    if (pin.length !== 4) { showPinError('4자리 숫자를 넣어 주세요.'); return; }
+    var stored = state.roomPins && state.roomPins[m.id];
+    var ok = stored ? (FamilyCloud.pinHash(m.id, pin) === stored) : (pin === INITIAL_PIN);
+    if (!ok) { showPinError('PIN이 맞지 않아요.'); return; }
+    el.pinError.hidden = true;
+    el.pinModal.hidden = true;
+    state.pendingPin = '';
+    switchProfile(m);
+    if (!stored) toast('처음 PIN(2026)으로 들어왔어요 · 관리자 설정에서 바꿔 주세요');
+  }
+
+  /* ---------------- 관리자 설정 ---------------- */
+  function openAdminModal() {
+    if (!canManage()) return;
+    el.memberError.hidden = true;
+    el.pinChangeError.hidden = true;
+    el.newMemberName.value = '';
+    el.newPin.value = '';
+    el.newPin2.value = '';
+    renderAdminMembers();
+    renderMemberColors();
+    renderPinTargets();
+    el.adminModal.hidden = false;
+  }
+
+  function renderAdminMembers() {
+    el.adminMemberList.innerHTML = '';
+    MEMBERS.forEach(function (m) {
+      var role = m.role || 'member';
+      var li = document.createElement('li');
+      li.className = 'admin-member';
+      var dot = document.createElement('span');
+      dot.className = 'admin-member__dot';
+      dot.style.background = m.color;
+      li.appendChild(dot);
+      var name = document.createElement('span');
+      name.className = 'admin-member__name';
+      name.textContent = m.name;
+      li.appendChild(name);
+      var select = document.createElement('select');
+      select.className = 'admin-member__role';
+      ['admin', 'manager', 'member'].forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = ROLE_LABEL[r];
+        if (r === role) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.disabled = !isAdmin();
+      if (!isAdmin()) select.classList.add('is-locked');
+      select.addEventListener('change', function () { changeRole(m, select.value); });
+      li.appendChild(select);
+      el.adminMemberList.appendChild(li);
+    });
+  }
+
+  function changeRole(m, role) {
+    if (!isAdmin()) return;
+    if ((m.role || 'member') === role) return;
+    var next = MEMBERS.map(plainMember);
+    if (role === 'admin') {
+      var cur = MEMBERS.filter(function (x) { return (x.role || 'member') === 'admin' && x.id !== m.id; });
+      if (cur.length && !window.confirm(m.name + ' 님을 메인 관리자로 바꿀까요?\n지금 메인 관리자(' + cur[0].name + ')는 부매니저가 됩니다.')) {
+        renderAdminMembers();
+        return;
+      }
+      next.forEach(function (x) { if (x.role === 'admin' && x.id !== m.id) x.role = 'manager'; });
+    }
+    next.forEach(function (x) { if (x.id === m.id) x.role = role; });
+    if (!next.some(function (x) { return x.role === 'admin'; })) {
+      window.alert('메인 관리자는 한 명 이상 있어야 해요.');
+      renderAdminMembers();
+      return;
+    }
+    saveMemberList(next, m.name + ' 님 역할을 ' + ROLE_LABEL[role] + '(으)로 바꿨어요');
+  }
+
+  function saveMemberList(next, okMsg) {
+    FamilyCloud.saveMembers(next).then(function () {
+      if (okMsg) toast(okMsg);
+      renderAdminMembers();
+      renderPinTargets();
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function renderMemberColors() {
+    el.newMemberColors.innerHTML = '';
+    MEMBER_COLORS.forEach(function (c, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (i === state.memberColor ? ' is-on' : '');
+      b.style.background = c;
+      b.addEventListener('click', function () {
+        state.memberColor = i;
+        Array.prototype.forEach.call(el.newMemberColors.children, function (child) {
+          child.classList.remove('is-on');
+        });
+        b.classList.add('is-on');
+      });
+      el.newMemberColors.appendChild(b);
+    });
+  }
+
+  function showMemberError(msg) {
+    el.memberError.textContent = msg;
+    el.memberError.hidden = false;
+  }
+
+  function addMember() {
+    if (!canManage()) return;
+    var name = el.newMemberName.value.trim();
+    if (!name) { showMemberError('이름을 넣어 주세요.'); return; }
+    if (name.length > 12) { showMemberError('이름은 12자까지 넣을 수 있어요.'); return; }
+    if (MEMBERS.some(function (m) { return m.name === name; })) { showMemberError('같은 이름이 이미 있어요.'); return; }
+    if (MEMBERS.length >= 12) { showMemberError('구성원은 12명까지 추가할 수 있어요.'); return; }
+    var color = MEMBER_COLORS[state.memberColor % MEMBER_COLORS.length];
+    var next = MEMBERS.map(plainMember);
+    next.push({ id: 'm' + Date.now().toString(36), name: name, color: color, bg: color + '1f', role: 'member' });
+    el.memberError.hidden = true;
+    el.newMemberName.value = '';
+    FamilyCloud.saveMembers(next).then(function () {
+      toast(name + ' 님을 구성원으로 추가했어요');
+      renderAdminMembers();
+    }).catch(function (err) {
+      showMemberError('추가하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function renderPinTargets() {
+    el.pinTargets.innerHTML = '';
+    var targets = MEMBERS.filter(function (m) {
+      var r = m.role || 'member';
+      if (r !== 'admin' && r !== 'manager') return false;
+      return isAdmin() || m.id === state.profile;
+    });
+    if (!targets.some(function (m) { return m.id === state.pinTarget; })) {
+      state.pinTarget = targets.length ? targets[0].id : '';
+    }
+    targets.forEach(function (m) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick' + (m.id === state.pinTarget ? ' is-on' : '');
+      b.style.setProperty('--c', m.color);
+      b.style.setProperty('--bgc', m.bg);
+      b.style.setProperty('--fgc', m.color);
+      b.textContent = m.name + ' · ' + ROLE_LABEL[m.role || 'member'];
+      b.addEventListener('click', function () {
+        state.pinTarget = m.id;
+        Array.prototype.forEach.call(el.pinTargets.children, function (child) {
+          child.classList.remove('is-on');
+        });
+        b.classList.add('is-on');
+      });
+      el.pinTargets.appendChild(b);
+    });
+  }
+
+  function showPinChangeError(msg) {
+    el.pinChangeError.textContent = msg;
+    el.pinChangeError.hidden = false;
+  }
+
+  function changePin() {
+    var target = memberById(state.pinTarget);
+    if (!target) { showPinChangeError('PIN을 바꿀 사람을 골라 주세요.'); return; }
+    var pin = el.newPin.value.replace(/\D/g, '');
+    var pin2 = el.newPin2.value.replace(/\D/g, '');
+    if (pin.length !== 4) { showPinChangeError('4자리 숫자를 넣어 주세요.'); return; }
+    if (pin !== pin2) { showPinChangeError('두 번 넣은 PIN이 달라요.'); return; }
+    el.pinChangeError.hidden = true;
+    FamilyCloud.setPin(target.id, pin).then(function () {
+      el.newPin.value = '';
+      el.newPin2.value = '';
+      toast(target.name + ' 님 PIN을 바꿨어요');
+    }).catch(function (err) {
+      showPinChangeError('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  /* ---------------- 일정 상세(일반 구성원) ---------------- */
+  function openDetail(ev) {
+    var y = Number(ev.date.slice(0, 4));
+    var cat = categoryById(ev.category);
+    var dt = parseISO(ev.date);
+    el.detailTitle.textContent = cat.emoji + ' ' + ev.title;
+    el.detailBody.innerHTML = '';
+    var rows = [];
+    rows.push(['날짜', dt.getFullYear() + '년 ' + (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 (' + WEEKDAYS[dt.getDay()] + ')']);
+    if (ev.time) rows.push(['시간', ev.time]);
+    rows.push(['종류', cat.label]);
+    var names = (ev.members || []).map(function (id) {
+      var m = memberById(id);
+      return m ? m.name : '';
+    }).filter(Boolean);
+    if (names.length) rows.push(['담당', names.join(' · ')]);
+    var lunarText = lunarTextFor(ev, y);
+    if (lunarText) rows.push(['음력', lunarText]);
+    if (ev.repeat === 'yearly-solar') rows.push(['반복', '매년 양력']);
+    if (ev.repeat === 'yearly-lunar') rows.push(['반복', '매년 음력']);
+    if (ev.memo) rows.push(['메모', ev.memo]);
+    rows.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'detail-row';
+      var k = document.createElement('span');
+      k.className = 'detail-row__k';
+      k.textContent = r[0];
+      var v = document.createElement('span');
+      v.className = 'detail-row__v';
+      v.textContent = r[1];
+      row.appendChild(k);
+      row.appendChild(v);
+      el.detailBody.appendChild(row);
+    });
+    var note = document.createElement('p');
+    note.className = 'field-hint';
+    note.textContent = '일정 수정·삭제는 아빠·엄마만 할 수 있어요.';
+    el.detailBody.appendChild(note);
+    el.detailModal.hidden = false;
+  }
+
+  function bindRoles() {
+    el.profileBtn.addEventListener('click', openProfileModal);
+    el.profileClose.addEventListener('click', function () {
+      if (state.profile) closeProfileModal();
+    });
+    var profileBackdrop = el.profileModal.querySelector('[data-close]');
+    if (profileBackdrop) profileBackdrop.addEventListener('click', function () {
+      if (state.profile) closeProfileModal();
+    });
+    el.approveBtn.addEventListener('click', openApproveModal);
+    el.approveClose.addEventListener('click', function () { el.approveModal.hidden = true; });
+    var approveBackdrop = el.approveModal.querySelector('[data-close]');
+    if (approveBackdrop) approveBackdrop.addEventListener('click', function () { el.approveModal.hidden = true; });
+    el.pinForm.addEventListener('submit', submitPin);
+    el.pinClose.addEventListener('click', function () { el.pinModal.hidden = true; state.pendingPin = ''; });
+    var pinBackdrop = el.pinModal.querySelector('[data-close]');
+    if (pinBackdrop) pinBackdrop.addEventListener('click', function () { el.pinModal.hidden = true; state.pendingPin = ''; });
+    el.adminBtn.addEventListener('click', openAdminModal);
+    el.adminClose.addEventListener('click', function () { el.adminModal.hidden = true; });
+    var adminBackdrop = el.adminModal.querySelector('[data-close]');
+    if (adminBackdrop) adminBackdrop.addEventListener('click', function () { el.adminModal.hidden = true; });
+    el.addMemberBtn.addEventListener('click', addMember);
+    el.changePinBtn.addEventListener('click', changePin);
+    el.detailClose.addEventListener('click', function () { el.detailModal.hidden = true; });
+    el.detailOk.addEventListener('click', function () { el.detailModal.hidden = true; });
+    var detailBackdrop = el.detailModal.querySelector('[data-close]');
+    if (detailBackdrop) detailBackdrop.addEventListener('click', function () { el.detailModal.hidden = true; });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!el.detailModal.hidden) el.detailModal.hidden = true;
+      if (!el.approveModal.hidden) el.approveModal.hidden = true;
+      if (!el.adminModal.hidden) el.adminModal.hidden = true;
+      if (!el.pinModal.hidden) { el.pinModal.hidden = true; state.pendingPin = ''; }
+      if (!el.profileModal.hidden && state.profile) closeProfileModal();
+    });
+  }
+
   /* ---------------- PWA ---------------- */
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
@@ -1041,10 +1729,13 @@
 
   window.FamilyCalendar = {
     get events() { return events; },
+    get requests() { return requests; },
     occurrenceForYear: occurrenceForYear,
     eventsOn: eventsOn,
     seedSamples: seedSamples,
     inviteLink: inviteLink,
-    isReady: function () { return cloudReady; }
+    isReady: function () { return cloudReady; },
+    role: function () { return myRole(); },
+    profile: function () { return state.profile; }
   };
 })();

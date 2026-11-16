@@ -18,20 +18,52 @@
 | --- | --- |
 | `index.html` | 화면 구조, Firebase SDK 및 스크립트 로드 |
 | `app.js` | 달력·모달·필터·D-Day 등 UI 로직 |
-| `cloud.js` | Firebase 초기화, 익명 로그인, 방 ID 계산(SHA-256), 실시간 구독, 읽기/쓰기 |
+| `cloud.js` | Firebase 초기화, 익명 로그인, 방 ID 계산(SHA-256), 실시간 구독, 읽기/쓰기, 구성원·PIN 해시·등록 요청 |
 | `lunar.js` | 음력↔양력 변환과 공휴일 계산 (2022~2040) |
 | `styles.css` | 모바일 우선 스타일 |
 | `firebase-*-compat.js` | Firebase JS SDK 10.14.1 (저장소에 함께 둠, CDN 의존 없음) |
 | `sw.js`, `manifest.json` | PWA 오프라인 캐시·홈 화면 추가 |
 
+## 구성원·관리자·승인 (2026-11-16 추가)
+
+| 역할 | 사람 | 할 수 있는 일 |
+| --- | --- | --- |
+| 메인 관리자 | 아빠 | 일정 즉시 등록·수정·삭제, 승인/거절, 구성원 추가·역할 변경, 아빠·엄마 PIN 변경 |
+| 부매니저 | 엄마 | 일정 즉시 등록·수정·삭제, 승인/거절, 구성원 추가, 자기 PIN 변경 |
+| 일반 구성원 | 외할머니·첫째·둘째·막내 + 추가한 인원 | 일정은 `일정 등록 요청`으로만 보낼 수 있고, 아빠·엄마 승인 후 달력에 올라감 |
+
+- 앱을 열면 **"현재 사용자 선택"** 창에서 이 폰을 쓰는 사람을 고릅니다(폰에 기억).
+  상단 프로필 배지를 누르면 언제든 바꿀 수 있습니다.
+- **아빠·엄마는 4자리 관리자 PIN**을 넣어야 전환됩니다. 처음 PIN은 **`2026`** 이고,
+  관리자 설정에서 각각 바꿀 수 있습니다. PIN 평문은 어디에도 저장하지 않고
+  `SHA-256(방 ID + 구성원 ID + PIN)` 해시만 Firestore에 둡니다.
+- 일반 구성원이 보낸 요청은 `요청 현황`(대기 중/승인됨/거절됨)으로 확인할 수 있고,
+  관리자 화면 상단의 **🔔 승인 대기 N건**에서 승인·거절합니다.
+
 ## 데이터 구조 (Cloud Firestore)
 
 ```
 rooms/{roomId}
-  schema: 1, name: "우리 가족", createdAt
+  schema: 2, name: "우리 가족", createdAt
+  members: [ { id, name, color, bg, role } ]    // role: admin | manager | member
+  pins: { dad: "<sha256>", mom: "<sha256>" }     // 4자리 PIN의 해시 (평문 없음)
+  requests: {                                    // 일정 등록 요청 (맵 필드)
+    <requestId>: { status: pending|approved|rejected, requesterId, requesterName,
+                   title, date, time, members[], category, memo, repeat, lunar,
+                   createdAt, decidedBy, decidedByName, decidedAt, eventId }
+  }
   events/{eventId}
     title, date(YYYY-MM-DD), time, members[], category, memo, repeat, lunar, createdAt, updatedAt
 ```
+
+> 요청을 하위 컬렉션(`rooms/{roomId}/requests`)이 아니라 방 문서의 맵 필드로 둔 이유:
+> 현재 게시된 보안 규칙이 `events` 하위 컬렉션만 허용하고, Firebase 콘솔이 재로그인을
+> 요구해 규칙을 새로 게시하지 못했습니다. 방 문서 필드는 이미 허용된 경로라 규칙 변경
+> 없이 동작하고, 예전 버전 앱은 이 필드를 무시합니다.
+> 나중에 규칙을 바꾸게 되면 아래 한 줄을 `match /rooms/{roomId}` 안에 추가하면 됩니다.
+> ```
+> match /requests/{requestId} { allow read, create, update, delete: if request.auth != null; }
+> ```
 
 - `roomId` = `SHA-256("family-calendar-room:" + 가족코드)` 앞 32자리 — 코드 자체는 DB에 저장하지 않습니다.
 - 보안 규칙(배포본):
@@ -42,6 +74,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /rooms/{roomId} {
       allow get, create, update: if request.auth != null;   // 목록 조회는 막음
+      // 구성원·PIN 해시·요청은 이 문서의 필드라 위 규칙으로 함께 커버됩니다.
       match /events/{eventId} {
         allow read, create, update, delete: if request.auth != null;
       }
