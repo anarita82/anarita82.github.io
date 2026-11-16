@@ -571,6 +571,7 @@
       lsSet(LOCK_KEY, '');
       renderModeChrome();
     }
+    setStoreStatus('online', '매장 실시간 공유 중');
     renderAll();
   }
 
