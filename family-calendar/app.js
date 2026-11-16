@@ -408,6 +408,7 @@
     el.accountNameField = document.getElementById('accountNameField');
     el.accountName = document.getElementById('accountName');
     el.accountError = document.getElementById('accountError');
+    el.accountError2 = document.getElementById('accountError2');
     el.accountSubmitBtn = document.getElementById('accountSubmitBtn');
     el.accountGoogleBtn = document.getElementById('accountGoogleBtn');
     el.accountGoogleText = document.getElementById('accountGoogleText');
@@ -2524,11 +2525,15 @@
     });
   }
 
+  /* 오류 문구는 로그인 전(accountError)·로그인 후(accountError2) 두 곳에 함께 넣습니다.
+     로그인 상태에서는 로그인 전 영역이 숨겨져 있어 한 곳만 쓰면 안내가 보이지 않습니다. */
   function showAccountError(msg) {
-    if (!el.accountError) return;
-    if (!msg) { el.accountError.hidden = true; el.accountError.textContent = ''; return; }
-    el.accountError.textContent = msg;
-    el.accountError.hidden = false;
+    [el.accountError, el.accountError2].forEach(function (box) {
+      if (!box) return;
+      if (!msg) { box.hidden = true; box.textContent = ''; return; }
+      box.textContent = msg;
+      box.hidden = false;
+    });
   }
 
   function setBusy(btn, busy, label) {
