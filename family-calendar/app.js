@@ -414,6 +414,7 @@
     el.notifyScope = document.getElementById('notifyScope');
     el.notifyNewEvent = document.getElementById('notifyNewEvent');
     el.notifyNote = document.getElementById('notifyNote');
+    el.notifyExactBtn = document.getElementById('notifyExactBtn');
     el.newMemberTel = document.getElementById('newMemberTel');
     el.adminBtn = document.getElementById('adminBtn');
     el.pinModal = document.getElementById('pinModal');
@@ -702,6 +703,15 @@
     }
     if (el.notifyNewEvent) {
       el.notifyNewEvent.addEventListener('change', function () { setMyNotifyPrefs({ newEvent: el.notifyNewEvent.checked }); });
+    }
+    if (el.notifyExactBtn) {
+      el.notifyExactBtn.addEventListener('click', function () {
+        try {
+          if (window.AndroidApp && typeof window.AndroidApp.openExactAlarmSettings === 'function') {
+            window.AndroidApp.openExactAlarmSettings();
+          }
+        } catch (e) { /* 무시 */ }
+      });
     }
     if (el.daySheetClose) el.daySheetClose.addEventListener('click', closeDaySheet);
     if (el.daySheetModal) {
@@ -1610,6 +1620,15 @@
         ? '앱을 닫아 둬도 예약 알림이 울려요.'
         : '브라우저에서는 달력 화면이 열려 있을 때만 알림이 울려요(푸시 서버 없이 예약 불가).';
       el.notifyNote.textContent = scopeText + ' ' + where;
+    }
+    if (el.notifyExactBtn) {
+      var bridge = window.AndroidApp;
+      var exactUnknown = !!(bridge && typeof bridge.canScheduleExact === 'function');
+      var exactOk = true;
+      if (exactUnknown) {
+        try { exactOk = !!bridge.canScheduleExact(); } catch (e) { exactOk = true; }
+      }
+      el.notifyExactBtn.hidden = !exactUnknown || exactOk;
     }
   }
 

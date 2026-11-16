@@ -3,6 +3,7 @@ package com.anarita82.familycalendar;
 import android.annotation.SuppressLint;
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -353,6 +354,36 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean hasScheduledNotifications() { return true; }
+
+        /* Android 12+에서는 '알람 및 리마인더' 권한이 있어야 분 단위로 정확히 울립니다.
+           없으면 몇 분 늦을 수 있어 웹앱이 안내·설정 열기를 할 수 있게 상태를 알려 줍니다. */
+        @JavascriptInterface
+        public boolean canScheduleExact() {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true;
+            try {
+                AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+                return am != null && am.canScheduleExactAlarms();
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void openExactAlarmSettings() {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, "설정에서 '알람 및 리마인더'를 허용해 주세요", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
 
         /* 🎤 음성 입력 — WebView에는 Web Speech API가 없어 네이티브 음성인식 창을 띄웁니다.
            결과는 window.onAndroidVoiceResult(text), 취소·오류는 window.onAndroidVoiceError(reason). */
