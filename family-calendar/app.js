@@ -59,7 +59,9 @@
     blocked: '',
     pendingPin: '',
     pinTarget: '',
-    memberColor: 0
+    memberColor: 0,
+    sheetDate: '',
+    sheetOpen: ''
   };
 
   function isEventLike(ev) {
@@ -328,6 +330,14 @@
     el.grid = document.getElementById('grid');
     el.legend = document.getElementById('legend');
     el.dayCard = document.getElementById('dayCard');
+    el.daySheetModal = document.getElementById('daySheetModal');
+    el.daySheetTitle = document.getElementById('daySheetTitle');
+    el.daySheetSub = document.getElementById('daySheetSub');
+    el.daySheetStats = document.getElementById('daySheetStats');
+    el.daySheetHint = document.getElementById('daySheetHint');
+    el.daySheetAddBtn = document.getElementById('daySheetAddBtn');
+    el.daySheetList = document.getElementById('daySheetList');
+    el.daySheetClose = document.getElementById('daySheetClose');
     el.ddayList = document.getElementById('ddayList');
     el.modal = document.getElementById('modal');
     el.form = document.getElementById('eventForm');
@@ -671,7 +681,14 @@
     if (el.kakaoTodayBtn) el.kakaoTodayBtn.addEventListener('click', function () { copyKakaoSummary('today'); });
     if (el.kakaoWeekBtn) el.kakaoWeekBtn.addEventListener('click', function () { copyKakaoSummary('week'); });
     if (el.notifyBtn) el.notifyBtn.addEventListener('click', askNotify);
+    if (el.daySheetClose) el.daySheetClose.addEventListener('click', closeDaySheet);
+    if (el.daySheetModal) {
+      var daySheetBackdrop = el.daySheetModal.querySelector('[data-close]');
+      if (daySheetBackdrop) daySheetBackdrop.addEventListener('click', closeDaySheet);
+    }
+    if (el.daySheetAddBtn) el.daySheetAddBtn.addEventListener('click', addEventFromSheet);
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && el.daySheetModal && !el.daySheetModal.hidden) closeDaySheet();
       if (e.key === 'Escape' && !el.modal.hidden) closeModal();
     });
   }
@@ -722,6 +739,7 @@
     renderAlbum();
     renderDDay();
     renderRoleUI();
+    renderDaySheet();
   }
 
   function renderFilters() {
@@ -823,28 +841,30 @@
         cell.appendChild(hl);
       }
 
+      /* 달력 칸 안 미리보기 — 최대 2개 제목 + 남은 개수(+N) */
       var dayEvents = eventsOn(dateISO);
       if (dayEvents.length) {
-        var cats = [];
-        dayEvents.forEach(function (ev) {
+        var evs = document.createElement('span');
+        evs.className = 'day__evs';
+        dayEvents.slice(0, 2).forEach(function (ev) {
           var c = categoryById(ev.category);
-          if (cats.indexOf(c.color) === -1) cats.push(c.color);
+          var row = document.createElement('span');
+          row.className = 'day__ev';
+          var bar = document.createElement('i');
+          bar.style.background = c.color;
+          row.appendChild(bar);
+          var tx = document.createElement('span');
+          tx.textContent = ev.title;
+          row.appendChild(tx);
+          evs.appendChild(row);
         });
-        var dots = document.createElement('span');
-        dots.className = 'dots';
-        cats.slice(0, 3).forEach(function (color) {
-          var d = document.createElement('span');
-          d.className = 'dot';
-          d.style.background = color;
-          dots.appendChild(d);
-        });
-        if (cats.length > 3) {
+        if (dayEvents.length > 2) {
           var more = document.createElement('span');
-          more.className = 'dots__more';
-          more.textContent = '+' + (cats.length - 3);
-          dots.appendChild(more);
+          more.className = 'day__more';
+          more.textContent = '+' + (dayEvents.length - 2);
+          evs.appendChild(more);
         }
-        cell.appendChild(dots);
+        cell.appendChild(evs);
       }
 
       (function (targetISO, inMonthFlag) {
@@ -861,6 +881,7 @@
             renderDayCard();
             renderAlbum();
           }
+          openDaySheet(targetISO);
         });
       })(dateISO, inMonth);
 
@@ -927,6 +948,250 @@
       list.appendChild(buildEventItem(ev, y));
     });
     el.dayCard.appendChild(list);
+  }
+
+  /* ---------------- 📅 날짜 한눈에 보기 바텀시트 ---------------- */
+  /* 종일 → 시간순 정렬 (달력 칸·시트 공통) */
+  function sheetSort(a, b) {
+    var aa = a.time ? 1 : 0;
+    var bb = b.time ? 1 : 0;
+    if (aa !== bb) return aa - bb;
+    if (a.time && b.time && a.time !== b.time) return a.time < b.time ? -1 : 1;
+    return String(a.title).localeCompare(String(b.title), 'ko');
+  }
+
+  function sheetEvents(dateISO) {
+    return eventsOn(dateISO).slice().sort(sheetSort);
+  }
+
+  /* 사용자가 날짜를 직접 눌렀을 때만 열립니다(첫 진입 자동 팝업 없음). */
+  function openDaySheet(dateISO) {
+    if (!el.daySheetModal) return;
+    state.sheetDate = dateISO;
+    var list = sheetEvents(dateISO);
+    state.sheetOpen = list.length === 1 ? list[0].id : '';
+    el.daySheetModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderDaySheet();
+  }
+
+  function closeDaySheet() {
+    if (!el.daySheetModal || el.daySheetModal.hidden) return;
+    el.daySheetModal.hidden = true;
+    document.body.style.overflow = '';
+    state.sheetDate = '';
+    state.sheetOpen = '';
+  }
+
+  function renderDaySheet() {
+    if (!el.daySheetModal || el.daySheetModal.hidden) return;
+    var dateISO = state.sheetDate || state.selected;
+    if (!dateISO) return;
+    var dt = parseISO(dateISO);
+    var y = dt.getFullYear();
+    var m = dt.getMonth() + 1;
+    var d = dt.getDate();
+    var wd = dt.getDay();
+
+    el.daySheetTitle.textContent = m + '월 ' + d + '일 (' + WEEKDAYS[wd] + ')';
+    var subParts = [];
+    var lunar = L.toLunar(y, m, d);
+    if (lunar) subParts.push(L.lunarLabel(lunar));
+    var holiday = L.holidayName(y, m, d);
+    if (holiday) subParts.push('🎉 ' + holiday);
+    el.daySheetSub.textContent = subParts.join(' · ');
+
+    var list = sheetEvents(dateISO);
+    if (el.daySheetStats) {
+      var allDay = list.filter(function (ev) { return !ev.time; }).length;
+      el.daySheetStats.textContent = list.length
+        ? '일정 ' + list.length + '건' + (allDay ? ' · 종일 ' + allDay : '')
+        : '일정 없음';
+    }
+    if (el.daySheetAddBtn) {
+      el.daySheetAddBtn.textContent = canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청';
+    }
+    if (el.daySheetHint) {
+      el.daySheetHint.textContent = list.length > 1
+        ? '일정을 누르면 메모·준비물·수정이 펼쳐져요'
+        : (list.length ? '메모·준비물·수정을 여기서 바로 할 수 있어요' : '');
+    }
+
+    el.daySheetList.innerHTML = '';
+    if (!list.length) {
+      var empty = document.createElement('li');
+      empty.className = 'sheet-empty';
+      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + '</b>로 넣어 보세요.';
+      el.daySheetList.appendChild(empty);
+      return;
+    }
+    list.forEach(function (ev) {
+      el.daySheetList.appendChild(buildSheetEvent(ev, y));
+    });
+  }
+
+  function buildSheetEvent(ev, year) {
+    var cat = categoryById(ev.category);
+    var open = state.sheetOpen === ev.id;
+    var li = document.createElement('li');
+    li.className = 'sheet-item' + (open ? ' is-open' : '');
+
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'sheet-row';
+    row.style.setProperty('--cat', cat.color);
+    row.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+    var emoji = document.createElement('span');
+    emoji.className = 'sheet-row__emoji';
+    emoji.textContent = cat.emoji;
+    row.appendChild(emoji);
+
+    var title = document.createElement('span');
+    title.className = 'sheet-row__title';
+    title.textContent = ev.title;
+    row.appendChild(title);
+
+    var time = document.createElement('span');
+    time.className = 'sheet-row__time';
+    time.textContent = ev.time || '종일';
+    row.appendChild(time);
+
+    var members = ev.members || [];
+    if (members.length) {
+      var badges = document.createElement('span');
+      badges.className = 'sheet-row__badges';
+      members.slice(0, 2).forEach(function (id) {
+        var mb = memberById(id);
+        if (!mb) return;
+        var b = document.createElement('span');
+        b.className = 'sheet-row__badge';
+        b.style.setProperty('--mbg', mb.bg);
+        b.style.setProperty('--mfg', mb.color);
+        b.textContent = mb.name;
+        badges.appendChild(b);
+      });
+      if (members.length > 2) {
+        var bm = document.createElement('span');
+        bm.className = 'sheet-row__more';
+        bm.textContent = '+' + (members.length - 2);
+        badges.appendChild(bm);
+      }
+      row.appendChild(badges);
+    }
+
+    var ck = checklistDone(ev);
+    if (ck.total) {
+      var ckEl = document.createElement('span');
+      ckEl.className = 'sheet-row__check' + (ck.done === ck.total ? ' is-done' : '');
+      ckEl.textContent = '☑ ' + ck.done + '/' + ck.total;
+      row.appendChild(ckEl);
+    }
+
+    var chev = document.createElement('span');
+    chev.className = 'sheet-row__chev';
+    chev.textContent = open ? '▴' : '▾';
+    row.appendChild(chev);
+
+    row.addEventListener('click', function () {
+      state.sheetOpen = open ? '' : ev.id;
+      renderDaySheet();
+    });
+    li.appendChild(row);
+
+    if (open) li.appendChild(buildSheetEventDetail(ev, year));
+    return li;
+  }
+
+  function buildSheetEventDetail(ev, year) {
+    var box = document.createElement('div');
+    box.className = 'sheet-detail';
+
+    var metaBits = [];
+    var occ = occurrenceCovering(ev, state.sheetDate || state.selected);
+    if (occ && occ.start !== occ.end) metaBits.push('📅 ' + fmtRange(occ.start, occ.end));
+    var rep = repeatLabel(ev);
+    if (rep) metaBits.push(rep);
+    var lunarText = lunarTextFor(ev, year);
+    if (lunarText) metaBits.push(lunarText);
+    if (ev.remind !== null && ev.remind !== undefined) metaBits.push('🔔 ' + remindLabel(ev.remind));
+    if (metaBits.length) {
+      var meta = document.createElement('p');
+      meta.className = 'sheet-detail__meta';
+      meta.textContent = metaBits.join(' · ');
+      box.appendChild(meta);
+    }
+
+    if (ev.memo) {
+      var memo = document.createElement('p');
+      memo.className = 'sheet-detail__memo';
+      memo.textContent = ev.memo;
+      box.appendChild(memo);
+    }
+
+    var ck = checklistDone(ev);
+    if (ck.total) {
+      var ckWrap = document.createElement('div');
+      ckWrap.className = 'sheet-detail__check';
+      var ckHead = document.createElement('div');
+      ckHead.className = 'sheet-detail__checkhead';
+      ckHead.textContent = '☑️ 준비물 ' + ck.done + '/' + ck.total;
+      ckWrap.appendChild(ckHead);
+      ckWrap.appendChild(buildChecklistNode(ev, 'sheet'));
+      box.appendChild(ckWrap);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'sheet-detail__actions';
+    if (canManage()) {
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-ghost btn-small';
+      editBtn.textContent = '✏️ 수정';
+      editBtn.addEventListener('click', function () {
+        var date = state.sheetDate || state.selected;
+        closeDaySheet();
+        openModal(ev, date);
+      });
+      actions.appendChild(editBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-ghost btn-small btn-danger';
+      delBtn.textContent = '🗑 삭제';
+      delBtn.addEventListener('click', function () { deleteEventFromSheet(ev); });
+      actions.appendChild(delBtn);
+    } else {
+      var viewBtn = document.createElement('button');
+      viewBtn.type = 'button';
+      viewBtn.className = 'btn-ghost btn-small';
+      viewBtn.textContent = '자세히 보기';
+      viewBtn.addEventListener('click', function () {
+        closeDaySheet();
+        openDetail(ev);
+      });
+      actions.appendChild(viewBtn);
+      var note = document.createElement('span');
+      note.className = 'sheet-detail__note';
+      note.textContent = '수정·삭제는 아빠·엄마만 할 수 있어요';
+      actions.appendChild(note);
+    }
+    box.appendChild(actions);
+    return box;
+  }
+
+  function deleteEventFromSheet(ev) {
+    if (!window.confirm('"' + ev.title + '" 일정을 삭제할까요?\n가족 모두의 달력에서 지워집니다.')) return;
+    FamilyCloud.deleteEvent(ev.id).catch(function (err) {
+      window.alert('삭제하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function addEventFromSheet() {
+    var date = state.sheetDate || state.selected;
+    closeDaySheet();
+    if (!state.profile) { openProfileModal(); return; }
+    openModal(null, date);
   }
 
   /* ---------------- 📷 날짜 사진 앨범 ---------------- */
@@ -1312,6 +1577,7 @@
     ev.checklist = list;
     if (el.dayCard) renderDayCard();
     if (el.detailModal && !el.detailModal.hidden) openDetail(ev);
+    renderDaySheet();
     var c = checklistDone({ checklist: list });
     if (FamilyCloud.saveChecklist) {
       FamilyCloud.saveChecklist(ev.id, list).then(function () {

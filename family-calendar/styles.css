@@ -186,19 +186,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: relative;
   border: 0;
   background: transparent;
-  padding: 3px 1px 2px;
-  min-height: 50px;
+  padding: 4px 2px 3px;
+  min-height: 58px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 2px;
   border-radius: 11px;
   cursor: pointer;
   font-family: inherit;
 }
 .day:active { background: #f1f2f7; }
 .day__num {
+  align-self: center;
   font-size: 13.5px;
   font-weight: 600;
   color: #2b3040;
@@ -231,6 +232,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .day--selected .dot { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .85); }
 
 .day__hol {
+  align-self: center;
   font-size: 8.5px;
   line-height: 1.1;
   font-weight: 700;
@@ -246,6 +248,29 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .dot { width: 5px; height: 5px; border-radius: 50%; }
 .dots__more { font-size: 8px; color: var(--ink-faint); }
 .day--selected .dots__more { color: rgba(255, 255, 255, .9); }
+
+/* 달력 칸 안 일정 미리보기 (최대 2줄 + 남은 개수) */
+.day__evs {
+  display: flex; flex-direction: column; gap: 1px;
+  width: 100%; min-width: 0; margin-top: 1px;
+}
+.day__ev { display: flex; align-items: center; gap: 2px; width: 100%; min-width: 0; }
+.day__ev i { flex: 0 0 2.5px; height: 8px; border-radius: 2px; }
+.day__ev > span {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 8.5px; font-weight: 700; line-height: 1.25;
+  letter-spacing: -.4px; color: #4b5160;
+  text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.day__more {
+  align-self: flex-end;
+  font-size: 8px; font-weight: 800; line-height: 1.1;
+  letter-spacing: -.3px; color: var(--ink-faint);
+}
+.day--selected .day__ev > span { color: rgba(255, 255, 255, .95); }
+.day--selected .day__ev i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .75); }
+.day--selected .day__more { color: rgba(255, 255, 255, .9); }
 
 /* ---------- 선택일 카드 ---------- */
 .day-card { padding: 14px 14px 6px; }
@@ -584,14 +609,94 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sheet-actions .btn-ghost { flex: 0 0 auto; }
 
 @media (min-width: 420px) {
-  .day { min-height: 55px; }
+  .day { min-height: 66px; }
   .day__num { font-size: 14.5px; }
   .day__hol { font-size: 9px; }
+  .day__ev > span { font-size: 9.5px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- 📅 날짜 한눈에 보기 바텀시트 ---------- */
+.day-sheet { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+.day-sheet__head { min-width: 0; }
+.day-sheet__head h2 {
+  margin: 0; font-size: 18px; font-weight: 800;
+  letter-spacing: -.4px; font-variant-numeric: tabular-nums;
+}
+.day-sheet__sub { margin: 2px 0 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+.day-sheet__top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin: -2px 0 10px;
+}
+.day-sheet__stats {
+  font-size: 11.5px; font-weight: 800; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.day-sheet__top .btn-primary { flex: 0 0 auto; }
+.sheet-events {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 58vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.sheet-item {
+  border: 1px solid #eef0f6; border-radius: 13px;
+  background: #fcfcff; overflow: hidden;
+}
+.sheet-item.is-open { border-color: #ddd9f9; background: #fff; }
+.sheet-row {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%; border: 0; border-left: 3.5px solid var(--cat, #94a3b8);
+  background: transparent; padding: 9px 9px;
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.sheet-row__emoji { flex: 0 0 auto; font-size: 12.5px; line-height: 1; }
+.sheet-row__title {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 13px; font-weight: 700; letter-spacing: -.3px; color: #2b3040;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-row__time {
+  flex: 0 0 auto; font-size: 11px; font-weight: 800; color: #4b5160;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-row__badges { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
+.sheet-row__badge {
+  font-size: 9px; font-weight: 800; letter-spacing: -.2px;
+  padding: 1.5px 5px; border-radius: 999px;
+  background: var(--mbg, #eef0f5); color: var(--mfg, #4b5160);
+}
+.sheet-row__more { font-size: 9px; font-weight: 800; color: var(--ink-faint); }
+.sheet-row__check {
+  flex: 0 0 auto; font-size: 9.5px; font-weight: 800; color: #7c3aed;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-row__check.is-done { color: #10b981; }
+.sheet-row__chev { flex: 0 0 auto; font-size: 9px; color: #9aa1b1; }
+.sheet-detail { padding: 2px 10px 10px 12px; border-top: 1px dashed #e7e8f0; }
+.sheet-detail__meta { margin: 8px 0 0; font-size: 11px; font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
+.sheet-detail__memo {
+  margin: 7px 0 0; font-size: 12px; color: #3b4152; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+.sheet-detail__check { margin-top: 9px; }
+.sheet-detail__checkhead { font-size: 11px; font-weight: 800; color: #7c3aed; margin-bottom: 3px; }
+.sheet-detail .checklist--sheet { margin: 0; }
+.sheet-detail__actions {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; flex-wrap: wrap;
+}
+.sheet-detail__actions .btn-small { flex: 0 0 auto; }
+.sheet-detail__note { font-size: 10.5px; color: var(--ink-faint); font-weight: 600; }
+.sheet-empty {
+  margin: 2px 0;
+  padding: 14px 0 16px;
+  text-align: center;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-faint); line-height: 1.65;
+}
+.day-sheet__hint { margin: 10px 0 0; font-size: 10.5px; color: var(--ink-faint); text-align: center; }
 
 /* ---------- 가족 공유(상태 배지·방 코드) ---------- */
 .app-bar__status {

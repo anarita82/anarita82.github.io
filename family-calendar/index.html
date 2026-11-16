@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117p" />
-<link rel="stylesheet" href="store.css?v=20261117p" />
+<link rel="stylesheet" href="styles.css?v=20261117q" />
+<link rel="stylesheet" href="store.css?v=20261117q" />
 </head>
 <body>
 <div class="app">
@@ -534,6 +534,27 @@
   </form>
 </div>
 
+<!-- 📅 날짜 한눈에 보기 (매장) -->
+<div class="modal" id="storeDaySheetModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet day-sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <div class="day-sheet__head">
+        <h2 id="storeDaySheetTitle">-</h2>
+        <p class="day-sheet__sub" id="storeDaySheetSub"></p>
+      </div>
+      <button class="sheet-close" id="storeDaySheetClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="day-sheet__top">
+      <span class="day-sheet__stats" id="storeDaySheetStats"></span>
+      <button type="button" class="btn-primary btn-small" id="storeDaySheetAddBtn">＋ 근무 등록</button>
+    </div>
+    <ul class="sheet-events" id="storeDaySheetList"></ul>
+    <p class="day-sheet__hint" id="storeDaySheetHint">근무를 누르면 출퇴근 체크·근무 변경 요청이 펼쳐져요</p>
+  </div>
+</div>
+
 <!-- 🏪 급여명세서 -->
 <div class="modal" id="payrollModal" hidden>
   <div class="modal__backdrop" data-close="1"></div>
@@ -825,6 +846,27 @@
   </div>
 </div>
 
+<!-- 📅 날짜 한눈에 보기 (가족) -->
+<div class="modal" id="daySheetModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet day-sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <div class="day-sheet__head">
+        <h2 id="daySheetTitle">-</h2>
+        <p class="day-sheet__sub" id="daySheetSub"></p>
+      </div>
+      <button class="sheet-close" id="daySheetClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="day-sheet__top">
+      <span class="day-sheet__stats" id="daySheetStats"></span>
+      <button type="button" class="btn-primary btn-small" id="daySheetAddBtn">＋ 일정 추가</button>
+    </div>
+    <ul class="sheet-events" id="daySheetList"></ul>
+    <p class="day-sheet__hint" id="daySheetHint">일정을 누르면 메모·준비물·수정이 펼쳐져요</p>
+  </div>
+</div>
+
 <!-- 🚪 내보낸 구성원 안내 (닫기 버튼 없는 차단 화면) -->
 <div class="modal" id="familyBlockedModal" hidden>
   <div class="modal__backdrop"></div>
@@ -842,15 +884,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117p"></script>
-<script src="firebase-auth-compat.js?v=20261117p"></script>
-<script src="firebase-firestore-compat.js?v=20261117p"></script>
-<script src="lunar.js?v=20261117p"></script>
-<script src="cloud.js?v=20261117p"></script>
-<script src="app.js?v=20261117p"></script>
-<script src="voice.js?v=20261117p"></script>
-<script src="media.js?v=20261117p"></script>
-<script src="store-cloud.js?v=20261117p"></script>
-<script src="store.js?v=20261117p"></script>
+<script src="firebase-app-compat.js?v=20261117q"></script>
+<script src="firebase-auth-compat.js?v=20261117q"></script>
+<script src="firebase-firestore-compat.js?v=20261117q"></script>
+<script src="lunar.js?v=20261117q"></script>
+<script src="cloud.js?v=20261117q"></script>
+<script src="app.js?v=20261117q"></script>
+<script src="voice.js?v=20261117q"></script>
+<script src="media.js?v=20261117q"></script>
+<script src="store-cloud.js?v=20261117q"></script>
+<script src="store.js?v=20261117q"></script>
 </body>
 </html>

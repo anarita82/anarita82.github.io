@@ -105,6 +105,18 @@ body.store-mode .btn-primary:active { background: #0f766e; }
   letter-spacing: -.3px;
 }
 .day--selected .store-cell__hours { color: rgba(255, 255, 255, .92); }
+.day__ev.store i { border-radius: 2px; }
+
+/* ---------- 📅 날짜 한눈에 보기 (매장) ---------- */
+.sheet-row--shift { border-left-color: var(--sc, #94a3b8); }
+.sheet-row--shift .sheet-row__title { font-size: 12.5px; }
+.sheet-row--shift .sheet-row__time { font-size: 10.5px; color: #134e4a; }
+body.store-mode .day-sheet__stats { color: #0f766e; }
+body.store-mode .sheet-item.is-open { border-color: #b8e9e1; }
+body.store-mode .sheet-row__check { color: #0f766e; }
+body.store-mode .day-sheet__hint { color: #6b817e; }
+.sheet-detail__att { margin-top: 9px; }
+.sheet-detail__req { color: #b45309; font-weight: 700; }
 
 /* ---------- 당일 근무 목록 ---------- */
 .shift-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }

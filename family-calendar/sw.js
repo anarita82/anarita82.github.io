@@ -1,5 +1,5 @@
 /* 우리 가족 달력 — /family-calendar/ 범위에서만 동작하는 오프라인 캐시 */
-const CACHE = 'family-calendar-v38';
+const CACHE = 'family-calendar-v39';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png',
   'styles.css', 'store.css', 'app.js', 'cloud.js', 'store.js', 'store-cloud.js', 'voice.js', 'media.js', 'lunar.js'];
 

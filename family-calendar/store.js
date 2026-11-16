@@ -48,6 +48,8 @@
     year: 0,
     month: 0,
     selected: '',
+    sheetDate: '',
+    sheetOpen: '',
     filter: 'all',
     payY: 0,
     payM: 0,
@@ -413,6 +415,21 @@
       openShift(null, S.selected);
     });
 
+    /* 📅 날짜 한눈에 보기 바텀시트 */
+    var daySheetCloseBtn = $('storeDaySheetClose');
+    if (daySheetCloseBtn) daySheetCloseBtn.addEventListener('click', closeDaySheet);
+    var daySheetModal = $('storeDaySheetModal');
+    if (daySheetModal) {
+      var daySheetBackdrop = daySheetModal.querySelector('[data-close]');
+      if (daySheetBackdrop) daySheetBackdrop.addEventListener('click', closeDaySheet);
+    }
+    var daySheetAddBtn = $('storeDaySheetAddBtn');
+    if (daySheetAddBtn) daySheetAddBtn.addEventListener('click', addShiftFromSheet);
+    document.addEventListener('keydown', function (e) {
+      var m = $('storeDaySheetModal');
+      if (e.key === 'Escape' && m && !m.hidden) closeDaySheet();
+    });
+
     /* 근무 모달 */
     var shiftForm = $('shiftForm');
     if (shiftForm) shiftForm.addEventListener('submit', function (e) { e.preventDefault(); saveShift(); });
@@ -559,6 +576,7 @@
     if (el.storeView) el.storeView.hidden = true;
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
     if (el.title) el.title.textContent = '📅 우리 가족 달력';
+    closeDaySheet();
     lsSet(MODE_KEY, 'family');
     syncTabs();
     if (window.FamilyCalendar) {
@@ -956,6 +974,7 @@
     renderPayroll();
     renderStaffList();
     renderGuide();
+    renderDaySheet();
     var apModal = $('storeApproveModal');
     if (apModal && !apModal.hidden) renderApprovalCards();
     paintStoreStatus();
@@ -1071,33 +1090,30 @@
       num.textContent = String(dt.getDate());
       cell.appendChild(num);
 
-      var dayShifts = S.shifts.filter(function (s) { return s.date === dateISO && passFilter(s); });
+      var dayShifts = S.shifts.filter(function (s) { return s.date === dateISO && passFilter(s); }).sort(byStart);
+      /* 달력 칸 안 근무 미리보기 — 알바 이름·시간 최대 2줄 + 남은 개수(+N) */
       if (dayShifts.length) {
-        var dots = document.createElement('span');
-        dots.className = 'dots';
-        var seen = [];
-        dayShifts.forEach(function (s) {
+        var evs = document.createElement('span');
+        evs.className = 'day__evs';
+        dayShifts.slice(0, 2).forEach(function (s) {
           var st = staffById(s.staffId);
-          var color = st ? st.color : '#94a3b8';
-          if (seen.indexOf(color) !== -1) return;
-          seen.push(color);
-          if (seen.length > 3) return;
-          var d = document.createElement('span');
-          d.className = 'dot';
-          d.style.background = color;
-          dots.appendChild(d);
+          var row = document.createElement('span');
+          row.className = 'day__ev store';
+          var bar = document.createElement('i');
+          bar.style.background = st ? st.color : '#94a3b8';
+          row.appendChild(bar);
+          var tx = document.createElement('span');
+          tx.textContent = (s.staffName || (st ? st.name : '알바')) + ' ' + compactShiftTime(s);
+          row.appendChild(tx);
+          evs.appendChild(row);
         });
-        if (seen.length > 3) {
+        if (dayShifts.length > 2) {
           var more = document.createElement('span');
-          more.className = 'dots__more';
-          more.textContent = '+' + (seen.length - 3);
-          dots.appendChild(more);
+          more.className = 'day__more';
+          more.textContent = '+' + (dayShifts.length - 2);
+          evs.appendChild(more);
         }
-        cell.appendChild(dots);
-        var hEl = document.createElement('span');
-        hEl.className = 'store-cell__hours';
-        hEl.textContent = dayShifts.length + '명';
-        cell.appendChild(hEl);
+        cell.appendChild(evs);
       }
 
       (function (target, inM) {
@@ -1110,6 +1126,7 @@
           S.selected = target;
           renderCalendar();
           renderDay();
+          openDaySheet(target);
         });
       })(dateISO, inMonth);
 
@@ -1183,6 +1200,227 @@
     var heads = list.filter(function (s) { return countsForPay(s); }).length;
     total.textContent = '당일 ' + heads + '명 근무 · ' + hoursText(min) + (isOwner() ? ' · 인건비 ' + money(sumPay(list)) : '');
     card.appendChild(total);
+  }
+
+  /* ---------------- 📅 날짜 한눈에 보기 바텀시트 ---------------- */
+  /* 18:00 → 18, 18:30 → 18:30 (달력 칸을 좁게 쓰기 위해) */
+  function shortHM(v) {
+    var s = String(v || '');
+    if (!/^\d{2}:\d{2}$/.test(s)) return s;
+    return s.slice(3) === '00' ? s.slice(0, 2) : s;
+  }
+  function compactShiftTime(sh) {
+    return shortHM(sh.start) + '~' + shortHM(sh.end);
+  }
+
+  /* 사용자가 날짜를 직접 눌렀을 때만 엽니다(첫 진입 자동 팝업 없음). */
+  function openDaySheet(dateISO) {
+    var modal = $('storeDaySheetModal');
+    if (!modal) return;
+    S.sheetDate = dateISO;
+    var list = shiftsOn(dateISO);
+    S.sheetOpen = list.length === 1 ? list[0].id : '';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderDaySheet();
+  }
+
+  function closeDaySheet() {
+    var modal = $('storeDaySheetModal');
+    if (!modal || modal.hidden) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    S.sheetDate = '';
+    S.sheetOpen = '';
+  }
+
+  function renderDaySheet() {
+    var modal = $('storeDaySheetModal');
+    if (!modal || modal.hidden) return;
+    var dateISO = S.sheetDate || S.selected || todayISO();
+    var dt = parseISO(dateISO);
+    var title = $('storeDaySheetTitle');
+    if (title) {
+      title.textContent = (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 (' + WEEKDAYS[dt.getDay()] + ')';
+    }
+
+    var list = shiftsOn(dateISO);
+    var heads = list.filter(function (s) { return countsForPay(s); }).length;
+    var sub = $('storeDaySheetSub');
+    if (sub) sub.textContent = list.length ? '근무 ' + list.length + '건' : '등록된 근무 없음';
+    var stats = $('storeDaySheetStats');
+    if (stats) {
+      stats.textContent = list.length
+        ? heads + '명 근무 · ' + hoursText(sumMinutes(list)) + (isOwner() ? ' · 인건비 ' + money(sumPay(list)) : '')
+        : '';
+    }
+    var addBtn = $('storeDaySheetAddBtn');
+    if (addBtn) addBtn.hidden = !isOwner();
+    var hint = $('storeDaySheetHint');
+    if (hint) {
+      hint.textContent = list.length > 1
+        ? '근무를 누르면 출퇴근 체크·수정·변경 요청이 펼쳐져요'
+        : (list.length ? '출퇴근 체크·수정·변경 요청을 여기서 바로 할 수 있어요' : '');
+    }
+
+    var ul = $('storeDaySheetList');
+    if (!ul) return;
+    ul.innerHTML = '';
+    if (!list.length) {
+      var empty = document.createElement('li');
+      empty.className = 'sheet-empty';
+      empty.innerHTML = '이 날은 등록된 근무가 없어요.' + (isOwner() ? '<br><b>＋ 근무 등록</b>으로 알바 스케줃을 넣어 보세요.' : '');
+      ul.appendChild(empty);
+      return;
+    }
+    list.forEach(function (sh) { ul.appendChild(buildSheetShift(sh)); });
+  }
+
+  function buildSheetShift(sh) {
+    var st = staffById(sh.staffId);
+    var color = st ? st.color : '#94a3b8';
+    var open = S.sheetOpen === sh.id;
+    var li = document.createElement('li');
+    li.className = 'sheet-item' + (open ? ' is-open' : '');
+
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'sheet-row sheet-row--shift';
+    row.style.setProperty('--sc', color);
+    row.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+    var av = storeAvatar(st, 18);
+    av.style.flex = '0 0 auto';
+    row.appendChild(av);
+
+    var name = document.createElement('span');
+    name.className = 'sheet-row__title';
+    name.textContent = sh.staffName || (st ? st.name : '알바');
+    row.appendChild(name);
+
+    var time = document.createElement('span');
+    time.className = 'sheet-row__time';
+    time.textContent = (sh.start || '--:--') + '~' + (sh.end || '--:--');
+    row.appendChild(time);
+
+    var tag = document.createElement('span');
+    tag.className = 'store-tag store-tag--' + (sh.status || 'planned');
+    tag.textContent = STATUS_LABEL[sh.status] || '예정';
+    row.appendChild(tag);
+
+    var chev = document.createElement('span');
+    chev.className = 'sheet-row__chev';
+    chev.textContent = open ? '▴' : '▾';
+    row.appendChild(chev);
+
+    row.addEventListener('click', function () {
+      S.sheetOpen = open ? '' : sh.id;
+      renderDaySheet();
+    });
+    li.appendChild(row);
+
+    if (open) li.appendChild(buildSheetShiftDetail(sh, st));
+    return li;
+  }
+
+  function buildSheetShiftDetail(sh, st) {
+    var box = document.createElement('div');
+    box.className = 'sheet-detail';
+
+    var bits = ['근무 ' + hoursText(shiftMinutes(sh))];
+    if (sh.breakMin) bits.push('휴게 ' + sh.breakMin + '분');
+    if (isOwner() || (sh.staffId && sh.staffId === myStaffId())) {
+      bits.push('시급 ' + money(sh.wage));
+      bits.push('예상 ' + money(shiftPay(sh)));
+    }
+    var meta = document.createElement('p');
+    meta.className = 'sheet-detail__meta';
+    meta.textContent = bits.join(' · ');
+    box.appendChild(meta);
+
+    if (sh.actualStart) {
+      var act = document.createElement('p');
+      act.className = 'sheet-detail__meta';
+      act.textContent = '🕒 실제 ' + sh.actualStart + ' ~ ' + (sh.actualEnd || '근무 중')
+        + (sh.actualEnd ? ' (' + hoursText(actualMinutes(sh)) + ')' : '');
+      box.appendChild(act);
+    }
+
+    var myReq = latestShiftRequest(sh.id, isOwner() ? '' : myStaffId());
+    if (myReq) {
+      var rq = document.createElement('p');
+      rq.className = 'sheet-detail__meta sheet-detail__req';
+      rq.textContent = '🙋 변경 요청 ' + (myReq.status === 'pending' ? '대기 중' : myReq.status === 'approved' ? '승인됨' : '거절됨')
+        + (myReq.reqStart || myReq.reqEnd ? ' · ' + (myReq.reqStart || '?') + '~' + (myReq.reqEnd || '?') : '')
+        + (myReq.wantStaffName ? ' · 대타 ' + myReq.wantStaffName : '');
+      box.appendChild(rq);
+    }
+
+    if (sh.memo) {
+      var memo = document.createElement('p');
+      memo.className = 'sheet-detail__memo';
+      memo.textContent = sh.memo;
+      box.appendChild(memo);
+    }
+
+    var attRow = buildAttendanceRow(sh);
+    if (attRow) {
+      var attWrap = document.createElement('div');
+      attWrap.className = 'sheet-detail__att';
+      attWrap.appendChild(attRow);
+      box.appendChild(attWrap);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'sheet-detail__actions';
+    if (isOwner()) {
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-ghost btn-small';
+      editBtn.textContent = '✏️ 수정';
+      editBtn.addEventListener('click', function () {
+        closeDaySheet();
+        openShift(sh, null);
+      });
+      actions.appendChild(editBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-ghost btn-small btn-danger';
+      delBtn.textContent = '🗑 삭제';
+      delBtn.addEventListener('click', function () { deleteShiftFromSheet(sh); });
+      actions.appendChild(delBtn);
+    } else {
+      var reqBtn = document.createElement('button');
+      reqBtn.type = 'button';
+      reqBtn.className = 'btn-primary btn-small';
+      reqBtn.textContent = '🙋 근무 변경 · 대타 요청';
+      reqBtn.addEventListener('click', function () {
+        closeDaySheet();
+        openShiftReq(sh);
+      });
+      actions.appendChild(reqBtn);
+    }
+    box.appendChild(actions);
+    return box;
+  }
+
+  function deleteShiftFromSheet(sh) {
+    if (!isOwner()) return;
+    var label = sh.date.slice(5) + ' ' + (sh.staffName || '') + ' ' + (sh.start || '') + '~' + (sh.end || '');
+    if (!window.confirm(label + ' 근무를 지울까요?\n매장 달력에서 사라져요.')) return;
+    StoreCloud.deleteShift(sh.id).then(function () {
+      toast('근무를 지웠어요');
+    }).catch(function (err) {
+      window.alert('지우지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function addShiftFromSheet() {
+    if (!isOwner()) return;
+    var date = S.sheetDate || S.selected;
+    closeDaySheet();
+    openShift(null, date);
   }
 
   function buildShiftItem(sh) {
