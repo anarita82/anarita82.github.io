@@ -268,7 +268,9 @@
   function eventPayload(data) {
     var date = String(data.date || '');
     var endDate = String(data.endDate || '');
-    var remind = Number(data.remind);
+    /* 알림 없음(null)을 0(정시)으로 바꾸지 않습니다. Number(null) === 0 이기 때문입니다. */
+    var hasRemind = data.remind !== null && data.remind !== undefined && data.remind !== '' && !isNaN(Number(data.remind));
+    var remind = hasRemind ? Number(data.remind) : NaN;
     return {
       title: String(data.title || '').slice(0, 80),
       date: date,
