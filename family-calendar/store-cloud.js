@@ -289,6 +289,7 @@
         exists: snap.exists,
         staff: staff,
         joinRequests: joins,
+        profileRequests: parseProfileRequests(d.profileRequests),
         pins: d.storePins && typeof d.storePins === 'object' ? d.storePins : {},
         payrollSettings: settings,
         storeName: String(d.storeName || '')
@@ -329,6 +330,148 @@
     return sha256(PIN_SALT + state.roomId + ':owner:' + String(pin));
   }
 
+  /* 방 문서 필드만 원자적으로 고칩니다(update).
+     `joinRequests.<id>.status` 처럼 점을 쓴 경로를 넣을 수 있어 다른 대기 요청을 덮어쓰지 않습니다. */
+  function updateRoom(fields) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    return state.roomRef.update(fields || {});
+  }
+
+  /* 입장 요청 한 건 추가 — joinRequests 맵 전체를 덮어쓰지 않습니다. */
+  function submitJoinRequest(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = 'jq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var patch = {};
+    patch['joinRequests.' + id] = {
+      name: String((data && data.name) || '').slice(0, 20),
+      tel: normTel(data && data.tel),
+      deviceId: String((data && data.deviceId) || ''),
+      status: 'pending',
+      requestedAt: new Date()
+    };
+    return updateRoom(patch).then(function () { return id; });
+  }
+
+  /* 입장 요청 승인·거절 — 상태 필드만 점 경로로 고쳐 다른 요청 기록을 보존합니다. */
+  function decideJoinRequest(id, fields) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!id) return Promise.reject(new Error('no-request'));
+    var patch = {};
+    Object.keys(fields || {}).forEach(function (key) {
+      patch['joinRequests.' + id + '.' + key] = fields[key];
+    });
+    return updateRoom(patch);
+  }
+
+  /* ---------------- 신상정보(이름·휴대폰 번호) 변경 요청 ----------------
+     알바생 본인이 이름·번호를 고치면 바로 staff[] 를 바꾸지 않고 profileRequests 에 남깁니다.
+     사장님이 [승인]해야 staff[] 에 반영됩니다. 점 경로 업데이트로 다른 요청을 지우지 않습니다. */
+  function parseProfileRequests(raw) {
+    var list = [];
+    if (!raw || typeof raw !== 'object') return list;
+    Object.keys(raw).forEach(function (key) {
+      var r = raw[key];
+      if (!r || typeof r !== 'object') return;
+      var targetId = String(r.targetId || '');
+      if (!targetId) return;
+      var name = typeof r.name === 'string' ? r.name.slice(0, 12) : '';
+      var tel = normTel(r.tel == null ? '' : r.tel);
+      if (!name && !tel) return;
+      list.push({
+        id: key,
+        targetId: targetId,
+        status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
+        requesterId: String(r.requesterId || ''),
+        requesterName: String(r.requesterName || '').slice(0, 12),
+        prevName: String(r.prevName || '').slice(0, 12),
+        prevTel: normTel(r.prevTel == null ? '' : r.prevTel),
+        name: name,
+        tel: tel,
+        createdAt: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0,
+        decidedByName: String(r.decidedByName || '').slice(0, 12),
+        decidedAt: r.decidedAt && r.decidedAt.toMillis ? r.decidedAt.toMillis() : 0
+      });
+    });
+    list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    return list;
+  }
+
+  function submitProfileRequest(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var staffId = String((data && data.staffId) || '');
+    var name = String((data && data.name) || '').trim().slice(0, 12);
+    var tel = normTel(data && data.tel);
+    if (!staffId) return Promise.reject(new Error('no-member'));
+    if (!name) return Promise.reject(new Error('empty-name'));
+    var prev = null;
+    var list = state.room && Array.isArray(state.room.staff) ? state.room.staff : [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].id || '') === staffId) { prev = list[i]; break; }
+    }
+    prev = prev || {};
+    var mine = parseProfileRequests(state.room && state.room.profileRequests).filter(function (r) {
+      return r.targetId === staffId && r.status === 'pending';
+    })[0];
+    var id = mine ? mine.id : ('pq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    var patch = {};
+    var base = 'profileRequests.' + id + '.';
+    patch[base + 'targetId'] = staffId;
+    patch[base + 'requesterId'] = staffId;
+    patch[base + 'requesterName'] = String(prev.name || (data && data.staffName) || '').slice(0, 12);
+    patch[base + 'prevName'] = String(prev.name || '').slice(0, 12);
+    patch[base + 'prevTel'] = normTel(prev.tel == null ? '' : prev.tel);
+    patch[base + 'name'] = name;
+    patch[base + 'tel'] = tel;
+    patch[base + 'status'] = 'pending';
+    patch[base + 'createdAt'] = firebase.firestore.FieldValue.serverTimestamp();
+    patch[base + 'decidedByName'] = firebase.firestore.FieldValue.delete();
+    patch[base + 'decidedAt'] = firebase.firestore.FieldValue.delete();
+    return updateRoom(patch).then(function () { return id; });
+  }
+
+  /* 승인하면 staff[] 의 그 알바생 이름·번호를 바뀝니다. 입사일 등 나머지 값은 그대로 둡니다. */
+  function decideProfileRequest(req, approve, ownerName) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!req || !req.id) return Promise.reject(new Error('no-request'));
+    var base = 'profileRequests.' + req.id + '.';
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        var d = snap.exists ? (snap.data() || {}) : {};
+        var raw = d.profileRequests && typeof d.profileRequests === 'object' ? d.profileRequests : {};
+        var cur = raw[req.id];
+        if (!cur || typeof cur !== 'object') throw new Error('request-missing');
+        if (cur.status && cur.status !== 'pending') throw new Error('already-decided');
+        var updates = {};
+        updates[base + 'status'] = approve ? 'approved' : 'rejected';
+        updates[base + 'decidedByName'] = String(ownerName || '').slice(0, 12);
+        updates[base + 'decidedAt'] = firebase.firestore.FieldValue.serverTimestamp();
+        if (approve) {
+          var targetId = String(cur.targetId || req.targetId || '');
+          var list = Array.isArray(d.staff) ? d.staff.slice() : [];
+          var idx = -1, i;
+          for (i = 0; i < list.length; i++) {
+            if (list[i] && String(list[i].id || '') === targetId) { idx = i; break; }
+          }
+          if (idx < 0) throw new Error('member-missing');
+          var next = {};
+          var src = list[idx] || {};
+          Object.keys(src).forEach(function (k) { next[k] = src[k]; });
+          var name = String(cur.name == null ? '' : cur.name).trim().slice(0, 12);
+          if (name) next.name = name;
+          var tel = normTel(cur.tel == null ? '' : cur.tel);
+          if (tel) next.tel = tel; else delete next.tel;
+          for (i = 0; i < list.length; i++) {
+            if (i === idx) continue;
+            if (list[i] && String(list[i].name || '') === next.name) throw new Error('name-taken');
+          }
+          list[idx] = next;
+          updates.staff = list;
+        }
+        tx.update(state.roomRef, updates);
+      });
+    });
+  }
+
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
@@ -354,6 +497,13 @@
     saveShift: saveShift,
     deleteShift: deleteShift,
     saveRoom: saveRoom,
+    updateRoom: updateRoom,
+    submitJoinRequest: submitJoinRequest,
+    decideJoinRequest: decideJoinRequest,
+    submitProfileRequest: submitProfileRequest,
+    approveProfileRequest: function (req, ownerName) { return decideProfileRequest(req, true, ownerName); },
+    rejectProfileRequest: function (req, ownerName) { return decideProfileRequest(req, false, ownerName); },
+    parseProfileRequests: parseProfileRequests,
     pinHash: pinHash,
     currentRoomId: function () { return state.roomId; },
     currentCode: function () { return state.code; }

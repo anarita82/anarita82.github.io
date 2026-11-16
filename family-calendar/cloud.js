@@ -28,6 +28,7 @@
     unsubRoom: null,
     room: null,
     requests: [],
+    profileRequests: [],
     handlers: {}
   };
 
@@ -434,15 +435,61 @@
       });
       list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
       state.requests = list;
+      var profileList = parseProfileRequests(d.profileRequests);
+      state.profileRequests = profileList;
       emit('onRoom', {
         exists: snap.exists,
         members: Array.isArray(d.members) ? d.members : [],
         pins: d.pins && typeof d.pins === 'object' ? d.pins : {},
-        requests: list
+        requests: list,
+        profileRequests: profileList
       });
     }, function (err) {
       emit('onRoomError', err);
     });
+  }
+
+  /* 신상정보(이름·휴대폰 번호) 변경 요청 — 방 문서의 profileRequests 맵 필드
+     항목: { targetId, requesterId, requesterName, prevName, prevTel, name, tel,
+             status: pending|approved|rejected, createdAt, decidedBy, decidedByName, decidedAt } */
+  function parseProfileRequests(raw) {
+    var list = [];
+    if (!raw || typeof raw !== 'object') return list;
+    Object.keys(raw).forEach(function (key) {
+      var r = raw[key];
+      if (!r || typeof r !== 'object') return;
+      var targetId = String(r.targetId || '');
+      if (!targetId) return;
+      var name = typeof r.name === 'string' ? r.name.slice(0, 12) : '';
+      var tel = normalizeTel(r.tel == null ? '' : r.tel);
+      if (!name && !tel) return;
+      list.push({
+        id: key,
+        targetId: targetId,
+        status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
+        requesterId: String(r.requesterId || ''),
+        requesterName: String(r.requesterName || '').slice(0, 12),
+        prevName: String(r.prevName || '').slice(0, 12),
+        prevTel: normalizeTel(r.prevTel == null ? '' : r.prevTel),
+        name: name,
+        tel: tel,
+        createdAt: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0,
+        decidedBy: String(r.decidedBy || ''),
+        decidedByName: String(r.decidedByName || '').slice(0, 12),
+        decidedAt: r.decidedAt && r.decidedAt.toMillis ? r.decidedAt.toMillis() : 0
+      });
+    });
+    list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    return list;
+  }
+
+  /* 지금 방 문서에 있는 구성원(없으면 null) */
+  function roomMember(id) {
+    var list = state.room && Array.isArray(state.room.members) ? state.room.members : [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].id || '') === String(id || '')) return list[i];
+    }
+    return null;
   }
 
   function cleanMember(m) {
@@ -523,6 +570,82 @@
     return batch.commit().then(function () { return eventDocId; });
   }
 
+  /* ---------------- 신상정보 변경 요청 --------------
+     일반 구성원은 자기 이름·번호를 바로 고칠 수 없고, 요청만 남깁니다.
+     요청 맵은 dot-notation(`profileRequests.<id>.<field>`)으로만 건드려 다른 대기 요청을
+     덮어쓰지 않습니다. 이미 대기 중인 요청이 있으면 같은 키를 갱신합니다(사람당 1건). */
+  function submitProfileRequest(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var meId = String((data && data.meId) || '');
+    var name = String((data && data.name) || '').trim().slice(0, 12);
+    var tel = normalizeTel((data && data.tel) || '');
+    if (!meId) return Promise.reject(new Error('no-member'));
+    if (!name) return Promise.reject(new Error('empty-name'));
+    var prev = roomMember(meId) || {};
+    var existing = state.profileRequests.filter(function (r) {
+      return r.targetId === meId && r.status === 'pending';
+    })[0];
+    var id = existing ? existing.id : ('pq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    var base = 'profileRequests.' + id + '.';
+    var patch = {};
+    patch[base + 'targetId'] = meId;
+    patch[base + 'requesterId'] = meId;
+    patch[base + 'requesterName'] = String((data && data.meName) || prev.name || '').slice(0, 12);
+    patch[base + 'prevName'] = String(prev.name || '').slice(0, 12);
+    patch[base + 'prevTel'] = normalizeTel(prev.tel == null ? '' : prev.tel);
+    patch[base + 'name'] = name;
+    patch[base + 'tel'] = tel;
+    patch[base + 'status'] = 'pending';
+    patch[base + 'createdAt'] = firebase.firestore.FieldValue.serverTimestamp();
+    patch[base + 'decidedBy'] = firebase.firestore.FieldValue.delete();
+    patch[base + 'decidedByName'] = firebase.firestore.FieldValue.delete();
+    patch[base + 'decidedAt'] = firebase.firestore.FieldValue.delete();
+    return state.roomRef.update(patch).then(function () { return id; });
+  }
+
+  /* 승인하면 members[] 의 그 구성원 이름·번호를 요청 값으로 바꿉니다.
+     현재 문서를 트랜잭션 안에서 다시 읽어, 그 사이 다른 곳에서 저장한 내용을 지우지 않습니다. */
+  function decideProfileRequest(req, me, approve) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!req || !req.id) return Promise.reject(new Error('no-request'));
+    var base = 'profileRequests.' + req.id + '.';
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        var d = snap.exists ? (snap.data() || {}) : {};
+        var raw = d.profileRequests && typeof d.profileRequests === 'object' ? d.profileRequests : {};
+        var cur = raw[req.id];
+        if (!cur || typeof cur !== 'object') throw new Error('request-missing');
+        if (cur.status && cur.status !== 'pending') throw new Error('already-decided');
+        var updates = {};
+        updates[base + 'status'] = approve ? 'approved' : 'rejected';
+        updates[base + 'decidedBy'] = String((me && me.id) || '');
+        updates[base + 'decidedByName'] = String((me && me.name) || '').slice(0, 12);
+        updates[base + 'decidedAt'] = firebase.firestore.FieldValue.serverTimestamp();
+        if (approve) {
+          var targetId = String(cur.targetId || req.targetId || '');
+          var members = Array.isArray(d.members) ? d.members.slice() : [];
+          var idx = -1, i;
+          for (i = 0; i < members.length; i++) {
+            if (members[i] && String(members[i].id || '') === targetId) { idx = i; break; }
+          }
+          if (idx < 0) throw new Error('member-missing');
+          var next = cleanMember(members[idx]);
+          var name = String(cur.name == null ? '' : cur.name).trim().slice(0, 12);
+          if (name) next.name = name;
+          var tel = normalizeTel(cur.tel == null ? '' : cur.tel);
+          if (tel) next.tel = tel; else delete next.tel;
+          for (i = 0; i < members.length; i++) {
+            if (i === idx) continue;
+            if (members[i] && String(members[i].name || '') === next.name) throw new Error('name-taken');
+          }
+          members[idx] = next;
+          updates.members = members;
+        }
+        tx.update(state.roomRef, updates);
+      });
+    });
+  }
+
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
@@ -531,6 +654,7 @@
     state.code = '';
     state.room = null;
     state.requests = [];
+    state.profileRequests = [];
   }
 
   window.FamilyCloud = {
@@ -557,6 +681,10 @@
     submitRequest: submitRequest,
     approveRequest: function (req, me) { return decideRequest(req, me, true); },
     rejectRequest: function (req, me) { return decideRequest(req, me, false); },
+    submitProfileRequest: submitProfileRequest,
+    approveProfileRequest: function (req, me) { return decideProfileRequest(req, me, true); },
+    rejectProfileRequest: function (req, me) { return decideProfileRequest(req, me, false); },
+    parseProfileRequests: parseProfileRequests,
     sha256Hex: sha256Hex
   };
 })();

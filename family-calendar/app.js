@@ -34,6 +34,7 @@
   /* ---------------- 저장소 (Firebase 공유) ---------------- */
   var events = [];
   var requests = [];
+  var profileRequests = [];
   var photos = [];
   var cloudReady = false;
   var connectTimer = null;
@@ -291,9 +292,11 @@
     el.myInfoBox = document.getElementById('myInfoBox');
     el.myInfoName = document.getElementById('myInfoName');
     el.myInfoRole = document.getElementById('myInfoRole');
+    el.myNameInput = document.getElementById('myNameInput');
     el.myTelInput = document.getElementById('myTelInput');
     el.myTelHint = document.getElementById('myTelHint');
-    el.myTelSaveBtn = document.getElementById('myTelSaveBtn');
+    el.myInfoNote = document.getElementById('myInfoNote');
+    el.myInfoSaveBtn = document.getElementById('myInfoSaveBtn');
     el.newMemberTel = document.getElementById('newMemberTel');
     el.adminBtn = document.getElementById('adminBtn');
     el.pinModal = document.getElementById('pinModal');
@@ -1627,6 +1630,7 @@
     MEMBERS = next.length ? next : DEFAULT_MEMBERS.slice();
     state.roomPins = info && info.pins && typeof info.pins === 'object' ? info.pins : {};
     requests = info && Array.isArray(info.requests) ? info.requests : [];
+    profileRequests = info && Array.isArray(info.profileRequests) ? info.profileRequests : [];
     if (state.member !== 'all' && !memberById(state.member)) state.member = 'all';
     if (state.profile && !memberById(state.profile)) {
       state.profile = '';
@@ -1651,6 +1655,10 @@
     openProfileModal();
   }
 
+  function pendingProfileRequests() {
+    return profileRequests.filter(function (r) { return r.status === 'pending'; });
+  }
+
   function renderRoleUI() {
     var me = myMember();
     if (el.profileName) {
@@ -1668,11 +1676,12 @@
     }
     var manage = canManage();
     var pending = requests.filter(function (r) { return r.status === 'pending'; });
+    var pendingCount = pending.length + pendingProfileRequests().length;
     if (el.approveBtn) {
       el.approveBtn.hidden = !manage;
       if (manage) {
-        el.approveCount.textContent = String(pending.length);
-        el.approveBtn.classList.toggle('is-active', pending.length > 0);
+        el.approveCount.textContent = String(pendingCount);
+        el.approveBtn.classList.toggle('is-active', pendingCount > 0);
       }
     }
     if (el.addBtn) el.addBtn.textContent = manage ? '＋ 일정 추가' : '＋ 일정 등록 요청';
@@ -1766,16 +1775,117 @@
     return li;
   }
 
+  /* 신상정보(이름·번호) 변경 요청 카드 */
+  function profileChangeLines(r) {
+    var lines = [];
+    if (r.name) {
+      lines.push(r.name === r.prevName
+        ? '이름 ' + r.name + ' (그대로)'
+        : '이름 ' + (r.prevName || '없음') + ' → ' + r.name);
+    }
+    if ((r.tel || '') !== (r.prevTel || '')) {
+      lines.push('번호 ' + (r.prevTel || '미등록') + ' → ' + (r.tel || '지움'));
+    } else if (r.tel) {
+      lines.push('번호 ' + r.tel + ' (그대로)');
+    }
+    return lines;
+  }
+
+  function buildProfileRequestItem(r, withActions) {
+    var li = document.createElement('li');
+    li.className = 'req-card req-card--' + r.status;
+
+    var top = document.createElement('div');
+    top.className = 'req-card__top';
+    var title = document.createElement('strong');
+    title.textContent = '🙋 신상정보 변경 요청';
+    top.appendChild(title);
+    var chip = document.createElement('span');
+    chip.className = 'req-status req-status--' + r.status;
+    chip.textContent = requestStatusLabel(r.status);
+    top.appendChild(chip);
+    li.appendChild(top);
+
+    var who = document.createElement('div');
+    who.className = 'req-card__meta';
+    var requester = r.requesterName || (memberById(r.targetId) ? memberById(r.targetId).name : '') || '구성원';
+    who.textContent = '👤 ' + requester + ' 님';
+    li.appendChild(who);
+
+    profileChangeLines(r).forEach(function (line) {
+      var row = document.createElement('div');
+      row.className = 'req-card__meta';
+      row.textContent = line;
+      li.appendChild(row);
+    });
+
+    var by = document.createElement('div');
+    by.className = 'req-card__by';
+    var byText = (r.requesterName || '구성원') + ' 님이 요청';
+    if (r.status !== 'pending' && r.decidedByName) {
+      byText += ' · ' + r.decidedByName + ' 님이 ' + (r.status === 'approved' ? '승인' : '거절');
+    }
+    by.textContent = byText;
+    li.appendChild(by);
+
+    if (withActions && r.status === 'pending') {
+      var actions = document.createElement('div');
+      actions.className = 'req-card__actions';
+      var reject = document.createElement('button');
+      reject.type = 'button';
+      reject.className = 'btn-ghost btn-small btn-danger';
+      reject.textContent = '거절';
+      reject.addEventListener('click', function () { decideProfileChange(r, false); });
+      var approve = document.createElement('button');
+      approve.type = 'button';
+      approve.className = 'btn-primary btn-small';
+      approve.textContent = '승인';
+      approve.addEventListener('click', function () { decideProfileChange(r, true); });
+      actions.appendChild(reject);
+      actions.appendChild(approve);
+      li.appendChild(actions);
+    }
+    return li;
+  }
+
+  function profileErrorHint(err) {
+    var msg = (err && err.message) || '';
+    if (msg === 'already-decided') return '이미 처리된 요청이에요. 화면을 새로 고쳐 확인해 주세요.';
+    if (msg === 'member-missing') return '그 구성원을 찾을 수 없어요. 관리자 설정에서 확인해 주세요.';
+    if (msg === 'name-taken') return '같은 이름의 구성원이 이미 있어요.';
+    if (msg === 'request-missing') return '요청을 찾을 수 없어요. 화면을 새로 고쳐 확인해 주세요.';
+    return errorHint(err);
+  }
+
+  /* 승인하면 members[] 가 바뀌고, 거절하면 그대로입니다. */
+  function decideProfileChange(r, approve) {
+    if (!canManage()) return;
+    var me = myMember();
+    if (!me) return;
+    var who = r.requesterName || '구성원';
+    if (!approve && !window.confirm(who + ' 님의 신상정보 변경 요청을 거절할까요?\n구성원 정보는 바뀌지 않아요.')) return;
+    var run = approve ? FamilyCloud.approveProfileRequest : FamilyCloud.rejectProfileRequest;
+    run(r, { id: me.id, name: me.name }).then(function () {
+      toast(approve ? who + ' 님 신상정보를 바꿨어요' : '거절했어요 · 구성원 정보는 그대로예요');
+    }).catch(function (err) {
+      window.alert('처리하지 못했어요 · ' + profileErrorHint(err));
+    });
+  }
+
   function renderMyRequests() {
     if (!el.myRequestsCard) return;
     var mine = requests.filter(function (r) { return r.requesterId && r.requesterId === state.profile; });
-    var show = !!state.profile && (mine.length > 0 || !canManage());
+    var mineProf = profileRequests.filter(function (r) {
+      return !!state.profile && (r.requesterId === state.profile || r.targetId === state.profile);
+    });
+    var show = !!state.profile && (mine.length > 0 || mineProf.length > 0 || !canManage());
     el.myRequestsCard.hidden = !show;
     if (!show) return;
-    var waiting = mine.filter(function (r) { return r.status === 'pending'; }).length;
+    var waiting = mine.filter(function (r) { return r.status === 'pending'; }).length
+      + mineProf.filter(function (r) { return r.status === 'pending'; }).length;
     el.myRequestsHint.textContent = waiting ? '대기 중 ' + waiting + '건' : '대기 중 없음';
     el.myRequestsList.innerHTML = '';
-    if (!mine.length) {
+    if (!mine.length && !mineProf.length) {
       var empty = document.createElement('li');
       empty.className = 'empty';
       empty.textContent = '아직 보낸 요청이 없어요. ＋ 일정 등록 요청으로 보내 보세요.';
@@ -1784,6 +1894,9 @@
     }
     mine.forEach(function (r) {
       el.myRequestsList.appendChild(buildRequestItem(r, false));
+    });
+    mineProf.forEach(function (r) {
+      el.myRequestsList.appendChild(buildProfileRequestItem(r, false));
     });
   }
 
@@ -1809,9 +1922,10 @@
   function renderApproveCards() {
     if (!el.reqCards) return;
     var pending = requests.filter(function (r) { return r.status === 'pending'; });
-    el.approveModalCount.textContent = String(pending.length);
+    var pendingProf = pendingProfileRequests();
+    el.approveModalCount.textContent = String(pending.length + pendingProf.length);
     el.reqCards.innerHTML = '';
-    if (!pending.length) {
+    if (!pending.length && !pendingProf.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
       empty.textContent = '지금은 승인을 기다리는 요청이 없어요.';
@@ -1820,6 +1934,9 @@
     }
     pending.forEach(function (r) {
       el.reqCards.appendChild(buildRequestItem(r, true));
+    });
+    pendingProf.forEach(function (r) {
+      el.reqCards.appendChild(buildProfileRequestItem(r, true));
     });
   }
 
@@ -1896,7 +2013,9 @@
     renderMyInfo();
   }
 
-  /* 내 정보 — 지금 고른 구성원이 자기 휴대폰 번호를 직접 등록·수정 */
+  /* 내 정보 — 지금 고른 구성원이 자기 이름·휴대폰 번호를 직접 고칩니다.
+     일반 구성원이 저장하면 신상정보 변경 요청(pending)으로 올라가고, 아빠·엄마가 승인해야
+     members[] 에 반영됩니다. 관리자(아빠·엄마)는 저장하면 바로 반영됩니다. */
   function renderMyInfo() {
     if (!el.myInfoBox) return;
     var me = myMember();
@@ -1904,33 +2023,77 @@
     if (!me) return;
     el.myInfoName.textContent = me.name;
     el.myInfoRole.textContent = ROLE_LABEL[me.role || 'member'];
+    if (el.myNameInput && document.activeElement !== el.myNameInput) el.myNameInput.value = me.name;
     var tel = telOf(me);
-    if (document.activeElement !== el.myTelInput) el.myTelInput.value = tel;
+    if (el.myTelInput && document.activeElement !== el.myTelInput) el.myTelInput.value = tel;
     el.myTelHint.textContent = tel
-      ? '저장된 번호 ' + tel + ' · 고쳐서 저장하면 가족 모두에게 바로 반영돼요.'
-      : '아직 번호가 없어요. 저장하면 구성원 목록에서 눌러 바로 전화할 수 있어요.';
+      ? '저장된 번호 ' + tel
+      : '아직 번호가 없어요. 번호를 넣으면 구성원 목록에서 눌러 바로 전화할 수 있어요.';
+
+    var mineProf = profileRequests.filter(function (r) { return r.targetId === me.id; });
+    var pending = mineProf.filter(function (r) { return r.status === 'pending'; })[0];
+    if (el.myInfoNote) {
+      if (pending) {
+        el.myInfoNote.textContent = '승인 대기 중 · ' + profileChangeLines(pending).join(', ')
+          + '. 다시 저장하면 이 요청이 바뀝니다.';
+      } else if (canManage()) {
+        el.myInfoNote.textContent = '관리자는 저장하면 바로 반영돼요.';
+      } else if (mineProf.length && mineProf[0].status === 'rejected') {
+        el.myInfoNote.textContent = '마지막 변경 요청이 거절되었어요. 내용을 다시 확인해 저장해 보세요.';
+      } else {
+        el.myInfoNote.textContent = '저장하면 신상정보 변경 요청으로 올라가고, 아빠·엄마 승인 뒤에 반영돼요.';
+      }
+    }
   }
 
-  function saveMyTel() {
+  function saveMyInfo() {
     var me = myMember();
     if (!me) { toast('먼저 이 폰을 쓰는 사람을 골라 주세요'); return; }
-    var tel = FamilyCloud.normalizeTel(el.myTelInput.value);
-    el.myTelInput.value = tel;
+    var name = String(el.myNameInput ? el.myNameInput.value : me.name).trim().slice(0, 12);
+    var tel = FamilyCloud.normalizeTel(el.myTelInput ? el.myTelInput.value : '');
+    if (el.myTelInput) el.myTelInput.value = tel;
+    if (!name) { toast('이름을 넣어 주세요'); return; }
     if (tel && !FamilyCloud.telLooksValid(tel)) {
       toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
       return;
     }
-    if (tel === telOf(me)) { toast('저장된 번호와 같아요'); return; }
-    var next = MEMBERS.map(plainMember);
-    next.forEach(function (x) { if (x.id === me.id) { if (tel) x.tel = tel; else delete x.tel; } });
-    el.myTelSaveBtn.disabled = true;
-    FamilyCloud.saveMembers(next).then(function () {
-      toast(tel ? me.name + ' 님 번호를 저장했어요' : me.name + ' 님 번호를 지웠어요');
+    var nameSame = name === me.name;
+    var telSame = tel === telOf(me);
+    if (nameSame && telSame) { toast('저장된 정보와 같아요'); return; }
+    if (!nameSame && MEMBERS.some(function (x) { return x.id !== me.id && x.name === name; })) {
+      toast('같은 이름이 이미 있어요');
+      return;
+    }
+    var btn = el.myInfoSaveBtn;
+    if (btn) btn.disabled = true;
+
+    /* 관리자(아빠·엄마): 저장하면 바로 반영 */
+    if (canManage()) {
+      var next = MEMBERS.map(plainMember);
+      next.forEach(function (x) {
+        if (x.id !== me.id) return;
+        x.name = name;
+        if (tel) x.tel = tel; else delete x.tel;
+      });
+      FamilyCloud.saveMembers(next).then(function () {
+        toast(telSame ? '내 이름을 저장했어요' : '내 정보를 저장했어요');
+        renderMyInfo();
+      }).catch(function (err) {
+        window.alert('저장하지 못했어요 · ' + errorHint(err));
+      }).then(function () {
+        if (btn) btn.disabled = false;
+      });
+      return;
+    }
+
+    /* 일반 구성원: 신상정보 변경 요청 */
+    FamilyCloud.submitProfileRequest({ meId: me.id, meName: me.name, name: name, tel: tel }).then(function () {
+      toast('변경 요청을 보냈어요 · 아빠·엄마 승인을 기다려 주세요');
       renderMyInfo();
     }).catch(function (err) {
-      window.alert('저장하지 못했어요 · ' + errorHint(err));
+      window.alert('요청을 보내지 못했어요 · ' + profileErrorHint(err));
     }).then(function () {
-      el.myTelSaveBtn.disabled = false;
+      if (btn) btn.disabled = false;
     });
   }
 
@@ -2332,12 +2495,13 @@
     var adminBackdrop = el.adminModal.querySelector('[data-close]');
     if (adminBackdrop) adminBackdrop.addEventListener('click', function () { el.adminModal.hidden = true; });
     el.addMemberBtn.addEventListener('click', addMember);
-    el.myTelSaveBtn.addEventListener('click', saveMyTel);
-    if (el.myTelInput) {
-      el.myTelInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); saveMyTel(); }
+    if (el.myInfoSaveBtn) el.myInfoSaveBtn.addEventListener('click', saveMyInfo);
+    [el.myNameInput, el.myTelInput].forEach(function (input) {
+      if (!input) return;
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveMyInfo(); }
       });
-    }
+    });
     el.changePinBtn.addEventListener('click', changePin);
     el.detailClose.addEventListener('click', function () { el.detailModal.hidden = true; });
     el.detailOk.addEventListener('click', function () { el.detailModal.hidden = true; });

@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261116v" />
-<link rel="stylesheet" href="store.css?v=20261116v" />
+<link rel="stylesheet" href="styles.css?v=20261116w" />
+<link rel="stylesheet" href="store.css?v=20261116w" />
 </head>
 <body>
 <div class="app">
@@ -186,14 +186,19 @@
       </section>
 
       <section class="card store-me" id="storeMeCard" hidden>
-        <div class="card-head"><h2>🙋 내 정보</h2><span class="card-head__hint">휴대폰 번호</span></div>
+        <div class="card-head"><h2>🙋 내 정보</h2><span class="card-head__hint">이름·휴대폰 번호</span></div>
         <p class="store-me__name" id="storeMeName">-</p>
+        <div class="field">
+          <label for="storeMeNameInput">내 이름</label>
+          <input id="storeMeNameInput" type="text" maxlength="12" placeholder="예) 오후 알바" autocomplete="off" />
+        </div>
         <div class="field">
           <label for="storeMeTel">내 휴대폰 번호</label>
           <input id="storeMeTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
-          <p class="field-hint" id="storeMeTelHint">저장하면 사장님 알바생 목록에 바로 보여요.</p>
+          <p class="field-hint" id="storeMeTelHint">저장하면 사장님 승인 뒤에 알바생 정보에 반영돼요.</p>
         </div>
-        <button type="button" class="btn-primary btn-small" id="storeMeSaveBtn">내 번호 저장</button>
+        <button type="button" class="btn-primary btn-small" id="storeMeSaveBtn">내 정보 저장</button>
+        <p class="field-hint" id="storeMeNote"></p>
       </section>
 
       <section class="card calendar">
@@ -447,7 +452,7 @@
       <h2>🔔 입장·승인 관리 <span id="storeApproveModalCount">0</span>건</h2>
       <button class="sheet-close" id="storeApproveClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro">알바생이 이름과 휴대폰 번호를 넣고 입장을 요청했어요.<br><b>승인</b>하면 그 폰 화면이 바로 매장 캘린더로 바뀌고 번호도 알바생 정보에 저장돼요. <b>거절</b>하면 열리지 않아요.</p>
+    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>과 <b>신상정보 변경 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(입장은 그 폰 화면이 매장 캘린더로 바뀜), <b>거절</b>하면 바뀌지 않아요.</p>
     <div class="req-cards" id="storeApprovalCards"></div>
   </div>
 </div>
@@ -576,18 +581,23 @@
     <div class="profile-list" id="profileList"></div>
 
     <section class="my-info" id="myInfoBox" hidden>
-      <h3>🙋 내 정보 · 휴대폰 번호</h3>
+      <h3>🙋 내 정보 · 이름·휴대폰 번호</h3>
       <div class="my-info__row">
-        <span class="my-info__k">이름</span>
+        <span class="my-info__k">지금</span>
         <strong id="myInfoName">-</strong>
         <span class="my-info__role" id="myInfoRole"></span>
+      </div>
+      <div class="field">
+        <label for="myNameInput">내 이름</label>
+        <input id="myNameInput" type="text" maxlength="12" autocomplete="off" placeholder="예) 우리할머니" />
       </div>
       <div class="field">
         <label for="myTelInput">내 휴대폰 번호</label>
         <input id="myTelInput" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="010-1234-5678" />
         <p class="field-hint" id="myTelHint"></p>
       </div>
-      <button type="button" class="btn-primary btn-small" id="myTelSaveBtn">내 번호 저장</button>
+      <button type="button" class="btn-primary btn-small" id="myInfoSaveBtn">내 정보 저장</button>
+      <p class="field-hint" id="myInfoNote"></p>
     </section>
 
     <div class="sheet-actions" id="profileAdminActions" hidden>
@@ -680,7 +690,7 @@
       <h2>🔔 승인 대기 <span id="approveModalCount">0</span>건</h2>
       <button class="sheet-close" id="approveClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro">구성원이 보낸 일정 등록 요청이에요.<br /><b>승인</b>하면 달력에 바로 올라가고, <b>거절</b>하면 등록되지 않아요.</p>
+    <p class="room-intro">구성원이 보낸 <b>일정 등록 요청</b>과 <b>신상정보 변경 요청</b>이에요.<br /><b>승인</b>하면 바로 반영되고, <b>거절</b>하면 바뀌지 않아요.</p>
     <div class="req-cards" id="reqCards"></div>
   </div>
 </div>
@@ -705,15 +715,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261116v"></script>
-<script src="firebase-auth-compat.js?v=20261116v"></script>
-<script src="firebase-firestore-compat.js?v=20261116v"></script>
-<script src="lunar.js?v=20261116v"></script>
-<script src="cloud.js?v=20261116v"></script>
-<script src="app.js?v=20261116v"></script>
-<script src="voice.js?v=20261116v"></script>
-<script src="media.js?v=20261116v"></script>
-<script src="store-cloud.js?v=20261116v"></script>
-<script src="store.js?v=20261116v"></script>
+<script src="firebase-app-compat.js?v=20261116w"></script>
+<script src="firebase-auth-compat.js?v=20261116w"></script>
+<script src="firebase-firestore-compat.js?v=20261116w"></script>
+<script src="lunar.js?v=20261116w"></script>
+<script src="cloud.js?v=20261116w"></script>
+<script src="app.js?v=20261116w"></script>
+<script src="voice.js?v=20261116w"></script>
+<script src="media.js?v=20261116w"></script>
+<script src="store-cloud.js?v=20261116w"></script>
+<script src="store.js?v=20261116w"></script>
 </body>
 </html>

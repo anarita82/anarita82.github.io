@@ -35,6 +35,7 @@
     via: '',               // invite | manual | restore
     staff: [],
     joins: [],
+    profileRequests: [],
     shifts: [],
     pins: {},
     settings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: false, payDay: 10, weeklyHours: 15 },
@@ -305,7 +306,7 @@
     var rejoin = $('storePendingRejoin');
     if (rejoin) rejoin.addEventListener('click', function () { showJoinForm(); });
     var meSave = $('storeMeSaveBtn');
-    if (meSave) meSave.addEventListener('click', saveMyTel);
+    if (meSave) meSave.addEventListener('click', saveMyInfo);
 
     /* 달력 */
     var prev = $('storePrevMonth'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
@@ -526,6 +527,7 @@
   function applyRoom(info) {
     S.staff = info.staff || [];
     S.joins = info.joinRequests || [];
+    S.profileRequests = info.profileRequests || [];
     S.pins = info.pins || {};
     S.settings = info.payrollSettings || S.settings;
     S.payWeekly = !!S.settings.weeklyAllowance;
@@ -686,13 +688,33 @@
       if (el.storeWho) el.storeWho.textContent = who;
     }
     if (el.storeApproveBtn) {
-      var pending = S.joins.filter(function (r) { return r.status === 'pending'; });
+      var pendingCount = S.joins.filter(function (r) { return r.status === 'pending'; }).length
+        + pendingProfileRequests().length;
       el.storeApproveBtn.hidden = !isOwner();
       if (isOwner()) {
-        el.storeApproveCount.textContent = String(pending.length);
-        el.storeApproveBtn.classList.toggle('is-active', pending.length > 0);
+        el.storeApproveCount.textContent = String(pendingCount);
+        el.storeApproveBtn.classList.toggle('is-active', pendingCount > 0);
       }
     }
+  }
+
+  function pendingProfileRequests() {
+    return (S.profileRequests || []).filter(function (r) { return r.status === 'pending'; });
+  }
+
+  function profileChangeLines(r) {
+    var lines = [];
+    if (r.name) {
+      lines.push(r.name === r.prevName
+        ? '이름 ' + r.name + ' (그대로)'
+        : '이름 ' + (r.prevName || '없음') + ' → ' + r.name);
+    }
+    if ((r.tel || '') !== (r.prevTel || '')) {
+      lines.push('번호 ' + (r.prevTel || '미등록') + ' → ' + (r.tel || '지움'));
+    } else if (r.tel) {
+      lines.push('번호 ' + r.tel + ' (그대로)');
+    }
+    return lines;
   }
 
   /* ---------------- 매장 만들기 / 입장 요청 ---------------- */
@@ -737,16 +759,7 @@
     if (err) err.hidden = true;
     var btn = $('storeJoinBtn');
     if (btn) btn.disabled = true;
-    var id = 'jq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    var patch = { joinRequests: {} };
-    patch.joinRequests[id] = {
-      name: name,
-      tel: tel,
-      deviceId: deviceId(),
-      status: 'pending',
-      requestedAt: new Date()
-    };
-    StoreCloud.saveRoom(patch).then(function () {
+    StoreCloud.submitJoinRequest({ name: name, tel: tel, deviceId: deviceId() }).then(function () {
       lsSet('family-calendar.store.myname.v1', name);
       lsSet('family-calendar.store.mytel.v1', tel);
       showPending();
@@ -1848,7 +1861,8 @@
     });
   }
 
-  /* 알바생 본인 화면 — 자기 휴대폰 번호를 직접 등록·수정 */
+  /* 알바생 본인 화면 — 자기 이름·휴대폰 번호를 직접 고칩니다.
+     저장하면 staff[] 를 바로 바꾸지 않고 신상정보 변경 요청으로 올라갑니다(사장님 승인 후 반영). */
   function renderMyCard() {
     var card = $('storeMeCard');
     if (!card) return;
@@ -1857,38 +1871,56 @@
     if (!mine) return;
     var nameEl = $('storeMeName');
     if (nameEl) nameEl.textContent = mine.name + (mine.active === false ? ' · 정지' : '');
+    var nameInput = $('storeMeNameInput');
+    if (nameInput && document.activeElement !== nameInput) nameInput.value = mine.name;
     var input = $('storeMeTel');
     if (input && document.activeElement !== input) input.value = telOf(mine);
     var hint = $('storeMeTelHint');
     if (hint) {
       hint.textContent = telOf(mine)
-        ? '저장된 번호 ' + telOf(mine) + ' · 고쳐서 저장하면 사장님 목록에 바로 반영돼요.'
-        : '아직 번호가 없어요. 저장하면 사장님 알바생 목록에 바로 보여요.';
+        ? '저장된 번호 ' + telOf(mine)
+        : '아직 번호가 없어요. 번호를 넣으면 사장님 알바생 목록에 보여요.';
+    }
+    var note = $('storeMeNote');
+    if (note) {
+      var mineReq = (S.profileRequests || []).filter(function (r) { return r.targetId === mine.id; });
+      var pending = mineReq.filter(function (r) { return r.status === 'pending'; })[0];
+      if (pending) {
+        note.textContent = '승인 대기 중 · ' + profileChangeLines(pending).join(', ')
+          + '. 다시 저장하면 이 요청이 바뀝니다.';
+      } else if (mineReq.length && mineReq[0].status === 'rejected') {
+        note.textContent = '마지막 변경 요청이 거절되었어요. 내용을 다시 확인해 저장해 보세요.';
+      } else {
+        note.textContent = '저장하면 신상정보 변경 요청으로 올라가고, 사장님 승인 뒤에 반영돼요.';
+      }
     }
   }
 
-  function saveMyTel() {
+  function saveMyInfo() {
     var mine = S.role === 'staff' ? me() : null;
     if (!mine) { toast('알바생으로 입장한 뒤에 저장할 수 있어요'); return; }
+    var nameInput = $('storeMeNameInput');
+    var name = String(nameInput ? nameInput.value : mine.name).trim().slice(0, 12);
     var input = $('storeMeTel');
     var tel = normTel(input ? input.value : '');
     if (input) input.value = tel;
-    if (!tel) { toast('휴대폰 번호를 넣어 주세요'); return; }
-    if (!telLooksValid(tel)) { toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)'); return; }
-    if (tel === telOf(mine)) { toast('저장된 번호와 같아요'); return; }
-    var next = S.staff.map(function (x) {
-      var out = staffPlain(x);
-      if (x.id === mine.id) out.tel = tel;
-      return out;
-    });
+    if (!name) { toast('이름을 넣어 주세요'); return; }
+    if (tel && !telLooksValid(tel)) { toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)'); return; }
+    var nameSame = name === mine.name;
+    var telSame = tel === telOf(mine);
+    if (nameSame && telSame) { toast('저장된 정보와 같아요'); return; }
+    if (!nameSame && S.staff.some(function (x) { return x.id !== mine.id && x.name === name; })) {
+      toast('같은 이름이 이미 있어요');
+      return;
+    }
     var btn = $('storeMeSaveBtn');
     if (btn) btn.disabled = true;
-    StoreCloud.saveRoom({ staff: next }).then(function () {
+    StoreCloud.submitProfileRequest({ staffId: mine.id, staffName: mine.name, name: name, tel: tel }).then(function () {
       lsSet('family-calendar.store.mytel.v1', tel);
-      toast('내 휴대폰 번호를 저장했어요');
+      toast('변경 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
       renderMyCard();
     }).catch(function (err) {
-      window.alert('저장하지 못했어요 · ' + errorHint(err));
+      window.alert('요청을 보내지 못했어요 · ' + profileErrorHint(err));
     }).then(function () {
       if (btn) btn.disabled = false;
     });
@@ -1916,11 +1948,12 @@
     var wrap = $('storeApprovalCards');
     if (!wrap) return;
     var pending = S.joins.filter(function (r) { return r.status === 'pending'; });
+    var pendingProf = pendingProfileRequests();
     var count = $('storeApproveModalCount');
-    if (count) count.textContent = String(pending.length);
+    if (count) count.textContent = String(pending.length + pendingProf.length);
     wrap.innerHTML = '';
-    if (!pending.length) {
-      wrap.innerHTML = '<p class="empty">지금은 입장을 기다리는 알바생이 없어요.</p>';
+    if (!pending.length && !pendingProf.length) {
+      wrap.innerHTML = '<p class="empty">지금은 승인을 기다리는 요청이 없어요.</p>';
       return;
     }
     pending.forEach(function (r) {
@@ -1942,6 +1975,50 @@
       rejectBtn.addEventListener('click', function () { rejectJoin(r, rejectBtn); });
       wrap.appendChild(card);
     });
+
+    /* 신상정보(이름·번호) 변경 요청 */
+    pendingProf.forEach(function (r) {
+      var card = document.createElement('div');
+      card.className = 'req-card req-card--pending';
+      var who = r.requesterName || '알바생';
+      var lines = profileChangeLines(r).map(function (line) { return '<div class="req-card__meta">' + esc(line) + '</div>'; }).join('');
+      card.innerHTML =
+        '<div class="req-card__top"><strong>🙋 신상정보 변경 요청</strong><span class="req-status req-status--pending">대기 중</span></div>' +
+        '<div class="req-card__meta">👤 ' + esc(who) + ' 님</div>' +
+        lines +
+        '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
+      var approveBtn = card.querySelector('[data-act="approve"]');
+      var rejectBtn = card.querySelector('[data-act="reject"]');
+      approveBtn.addEventListener('click', function () { decideProfileChange(r, true, approveBtn); });
+      rejectBtn.addEventListener('click', function () { decideProfileChange(r, false, rejectBtn); });
+      wrap.appendChild(card);
+    });
+  }
+
+  function profileErrorHint(err) {
+    var msg = (err && err.message) || '';
+    if (msg === 'already-decided') return '이미 처리된 요청이에요. 화면을 새로 고쳐 확인해 주세요.';
+    if (msg === 'member-missing') return '그 알바생을 찾을 수 없어요.';
+    if (msg === 'name-taken') return '같은 이름의 알바생이 이미 있어요.';
+    if (msg === 'request-missing') return '요청을 찾을 수 없어요. 화면을 새로 고쳐 확인해 주세요.';
+    return errorHint(err);
+  }
+
+  function decideProfileChange(r, approve, btn) {
+    if (!isOwner()) return;
+    var who = r.requesterName || '알바생';
+    if (!approve && !window.confirm(who + ' 님의 신상정보 변경 요청을 거절할까요?\n알바생 정보는 바뀌지 않아요.')) return;
+    if (btn) btn.disabled = true;
+    var run = approve ? StoreCloud.approveProfileRequest : StoreCloud.rejectProfileRequest;
+    run(r, '사장님').then(function () {
+      toast(approve ? who + ' 님 신상정보를 바꿨어요' : '거절했어요 · 알바생 정보는 그대로예요');
+      renderApprovalCards();
+      renderAll();
+    }).catch(function (err) {
+      window.alert('처리하지 못했어요 · ' + profileErrorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
   }
 
   function suggestedWage() {
@@ -1962,12 +2039,12 @@
     if (tel) added.tel = tel;
     next.push(added);
     if (btn) btn.disabled = true;
-    var patch = {
-      staff: next,
-      joinRequests: {}
-    };
-    patch.joinRequests[req.id] = { name: req.name, tel: tel || '', status: 'approved', staffId: staffId, hourly: hourly, decidedAt: new Date() };
-    StoreCloud.saveRoom(patch).then(function () {
+    var patch = { staff: next };
+    patch['joinRequests.' + req.id + '.status'] = 'approved';
+    patch['joinRequests.' + req.id + '.staffId'] = staffId;
+    patch['joinRequests.' + req.id + '.hourly'] = hourly;
+    patch['joinRequests.' + req.id + '.decidedAt'] = new Date();
+    StoreCloud.updateRoom(patch).then(function () {
       toast(req.name + ' 님 입장을 승인했어요 · 그 폰에 매장 달력이 열려요');
       renderApprovalCards();
       renderAll();
@@ -1982,9 +2059,7 @@
     if (!isOwner()) return;
     if (!window.confirm(req.name + ' 님의 입장 요청을 거절할까요?')) return;
     if (btn) btn.disabled = true;
-    var patch = { joinRequests: {} };
-    patch.joinRequests[req.id] = { name: req.name, tel: telOf(req), status: 'rejected', decidedAt: new Date() };
-    StoreCloud.saveRoom(patch).then(function () {
+    StoreCloud.decideJoinRequest(req.id, { status: 'rejected', decidedAt: new Date() }).then(function () {
       toast('입장 요청을 거절했어요');
       renderApprovalCards();
     }).catch(function (err) {
