@@ -673,7 +673,7 @@
     if (!dayEvents.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
-      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + '</b>으로 등록해 보세요.';
+      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + ' 버튼</b>으로 등록해 보세요.';
       el.dayCard.appendChild(empty);
       return;
     }
@@ -1222,6 +1222,10 @@
     if (el.codeBtn) el.codeBtn.hidden = !manage;
     renderMyRequests();
     if (el.approveModal && !el.approveModal.hidden) renderApproveCards();
+    if (el.adminModal && !el.adminModal.hidden) {
+      renderAdminMembers();
+      renderPinTargets();
+    }
   }
 
   function formatReqDate(iso) {
@@ -1548,6 +1552,8 @@
       b.type = 'button';
       b.className = 'swatch' + (i === state.memberColor ? ' is-on' : '');
       b.style.background = c;
+      b.setAttribute('aria-label', '색상 ' + (i + 1) + ' · ' + c);
+      b.title = c;
       b.addEventListener('click', function () {
         state.memberColor = i;
         Array.prototype.forEach.call(el.newMemberColors.children, function (child) {
