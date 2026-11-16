@@ -1,3 +1,7 @@
+
+/* hidden 속성이 항상 이기도록 (display 지정 클래스보다 우선) */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #f4f5f9;
   --card: #ffffff;

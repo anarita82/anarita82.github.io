@@ -673,7 +673,7 @@
     if (!dayEvents.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
-      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + '</b>로 등록해 보세요.';
+      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + '</b>으로 등록해 보세요.';
       el.dayCard.appendChild(empty);
       return;
     }
