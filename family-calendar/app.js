@@ -2468,6 +2468,17 @@
     }
   }
 
+  /* 구글 버튼은 안쪽 G 배지를 지우지 않도록 따로 처리합니다. */
+  function setGoogleBusy(busy, label) {
+    if (!el.accountGoogleBtn) return;
+    el.accountGoogleBtn.disabled = !!busy;
+    if (el.accountGoogleText) {
+      el.accountGoogleText.textContent = busy
+        ? (label || '여는 중…')
+        : (isAndroidShell() ? '크롬에서 구글로 로그인' : '구글로 로그인');
+    }
+  }
+
   function findMemberByName(name) {
     var target = String(name == null ? '' : name).trim();
     if (!target) return null;
@@ -2610,7 +2621,7 @@
       return;
     }
     showAccountError('');
-    setBusy(el.accountGoogleBtn, true, '구글 로그인 여는 중…');
+    setGoogleBusy(true, '구글 로그인 여는 중…');
     FamilyCloud.signInWithGoogle().then(function (info) {
       state.account = info;
       renderAccountPills();
@@ -2628,8 +2639,7 @@
       }
       showAccountError(FamilyCloud.authErrorHint(err));
     }).then(function () {
-      setBusy(el.accountGoogleBtn, false);
-      if (el.accountGoogleText) el.accountGoogleText.textContent = isAndroidShell() ? '크롬에서 구글로 로그인' : '구글로 로그인';
+      setGoogleBusy(false);
     });
   }
 
