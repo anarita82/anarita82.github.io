@@ -941,7 +941,7 @@
     var now = new Date();
     var y = now.getFullYear();
     events.forEach(function (ev) {
-      if (!ev.remind) return;
+      if (ev.remind === null || ev.remind === undefined || isNaN(Number(ev.remind))) return;
       [y, y + 1].forEach(function (yy) {
         var r = occurrenceRange(ev, yy);
         if (!r) return;
@@ -1055,7 +1055,7 @@
       pEl.textContent = '📅 ' + period;
       meta.appendChild(pEl);
     }
-    if (ev.remind) {
+    if (ev.remind !== null && ev.remind !== undefined) {
       var rEl = document.createElement('span');
       rEl.className = 'event__remind';
       rEl.textContent = '🔔 ' + remindLabel(ev.remind);
@@ -1275,7 +1275,7 @@
     });
 
     setRepeat(ev ? ev.repeat : 'none');
-    setRemind(ev && ev.remind ? String(ev.remind) : 'none');
+    setRemind(ev && ev.remind !== null && ev.remind !== undefined ? String(ev.remind) : 'none');
     updateDateHint();
 
     el.modal.hidden = false;
@@ -2172,7 +2172,7 @@
     if (lunarText) rows.push(['음력', lunarText]);
     if (ev.repeat === 'yearly-solar') rows.push(['반복', '매년 양력']);
     if (ev.repeat === 'yearly-lunar') rows.push(['반복', '매년 음력']);
-    if (ev.remind) rows.push(['알림', '🔔 ' + remindLabel(ev.remind)]);
+    if (ev.remind !== null && ev.remind !== undefined) rows.push(['알림', '🔔 ' + remindLabel(ev.remind)]);
     if (ev.memo) rows.push(['메모', ev.memo]);
     rows.forEach(function (r) {
       var row = document.createElement('div');
