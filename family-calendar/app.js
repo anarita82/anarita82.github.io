@@ -1393,9 +1393,10 @@
     syncAndroidAlarms();
   }
 
-  /* 내가 알림 받을 일정인가 — '전체 일정'이면 모두, 아니면 내가 담당으로 들어간 일정만 */
+  /* 내가 알림 받을 일정인가 — '전체 일정'이면 모두, 아니면 내가 담당으로 들어간 일정만.
+     이 폰을 쓰는 사람(프로필)을 아직 고르지 않았으면 아무 알림도 울리지 않습니다. */
   function notifyCovers(ev) {
-    if (!state.profile) return true;
+    if (!state.profile) return false;
     if (myNotifyPrefs().scope === 'all') return true;
     return (ev.members || []).indexOf(state.profile) !== -1;
   }
