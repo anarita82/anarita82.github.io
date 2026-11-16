@@ -187,16 +187,40 @@
       breakMin: Math.max(0, Math.min(600, Number(d.breakMin) || 0)),
       wage: Math.max(0, Math.round(Number(d.wage) || 0)),
       status: (d.status === 'done' || d.status === 'absent' || d.status === 'canceled') ? d.status : 'planned',
+      actualStart: cleanHM(d.actualStart),
+      actualEnd: cleanHM(d.actualEnd),
       memo: String(d.memo || '').slice(0, 200)
     };
+  }
+
+  /* 출퇴근 실제 시각 "HH:MM" */
+  function cleanHM(value) {
+    var v = String(value == null ? '' : value);
+    return /^\d{2}:\d{2}$/.test(v) ? v : null;
   }
 
   function listenShifts() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     state.unsub = shiftCollection().onSnapshot({ includeMetadataChanges: true }, function (snap) {
       var list = [];
+      var handovers = [];
       snap.forEach(function (doc) {
         var d = doc.data() || {};
+        /* 📝 교대 인수인계 메모 — 같은 events 컬렉션에 kind='handover'로 둡니다 */
+        if (d.kind === 'handover') {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date || '')) return;
+          if (typeof d.text !== 'string' || !d.text) return;
+          handovers.push({
+            id: doc.id,
+            date: d.date,
+            text: String(d.text).slice(0, 80),
+            done: d.done === true,
+            author: String(d.author || '').slice(0, 20),
+            authorId: String(d.authorId || '').slice(0, 40),
+            createdAt: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0
+          });
+          return;
+        }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date || '')) return;
         if (!d.staffId && !d.staffName) return;
         list.push({
@@ -209,6 +233,8 @@
           breakMin: Number(d.breakMin) || 0,
           wage: Number(d.wage) || 0,
           status: (d.status === 'done' || d.status === 'absent' || d.status === 'canceled') ? d.status : 'planned',
+          actualStart: cleanHM(d.actualStart),
+          actualEnd: cleanHM(d.actualEnd),
           memo: String(d.memo || '')
         });
       });
@@ -220,6 +246,7 @@
         emit('onStatus', { kind: 'online', text: '매장 실시간 공유 중 · 근무 ' + list.length + '건' });
       }
       emit('onShifts', list);
+      emit('onHandovers', handovers);
     }, function (err) {
       var code = (err && err.code) || '';
       if (code === 'permission-denied') {
@@ -290,6 +317,7 @@
         staff: staff,
         joinRequests: joins,
         profileRequests: parseProfileRequests(d.profileRequests),
+        shiftRequests: parseShiftRequests(d.shiftRequests),
         pins: d.storePins && typeof d.storePins === 'object' ? d.storePins : {},
         payrollSettings: settings,
         storeName: String(d.storeName || '')
@@ -472,6 +500,122 @@
     });
   }
 
+  /* ---------------- 🙋 근무 변경·대타 요청 --------------
+     알바생이 올린 요청은 방 문서의 shiftRequests 맵에 둡니다(점 경로 업데이트라 다른 요청 보존).
+     사장님이 [승인]하면 같은 배치로 근무(events) 도큐먼트를 바꿉니다. */
+  function parseShiftRequests(raw) {
+    var list = [];
+    if (!raw || typeof raw !== 'object') return list;
+    Object.keys(raw).forEach(function (key) {
+      var r = raw[key];
+      if (!r || typeof r !== 'object') return;
+      if (!r.shiftId) return;
+      list.push({
+        id: key,
+        shiftId: String(r.shiftId || ''),
+        date: String(r.date || ''),
+        staffId: String(r.staffId || ''),
+        staffName: String(r.staffName || '').slice(0, 20),
+        reqStart: cleanHM(r.reqStart) || '',
+        reqEnd: cleanHM(r.reqEnd) || '',
+        wantStaffId: String(r.wantStaffId || ''),
+        wantStaffName: String(r.wantStaffName || '').slice(0, 20),
+        reason: String(r.reason || '').slice(0, 120),
+        status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
+        createdAt: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0,
+        decidedByName: String(r.decidedByName || '').slice(0, 12),
+        decidedAt: r.decidedAt && r.decidedAt.toMillis ? r.decidedAt.toMillis() : 0
+      });
+    });
+    list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    return list;
+  }
+
+  function submitShiftRequest(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!data || !data.shiftId) return Promise.reject(new Error('no-shift'));
+    var id = 'sr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var patch = {};
+    patch['shiftRequests.' + id] = {
+      shiftId: String(data.shiftId || '').slice(0, 60),
+      date: String(data.date || ''),
+      staffId: String(data.staffId || '').slice(0, 40),
+      staffName: String(data.staffName || '').slice(0, 20),
+      reqStart: cleanHM(data.reqStart) || '',
+      reqEnd: cleanHM(data.reqEnd) || '',
+      wantStaffId: String(data.wantStaffId || '').slice(0, 40),
+      wantStaffName: String(data.wantStaffName || '').slice(0, 20),
+      reason: String(data.reason || '').slice(0, 120),
+      status: 'pending',
+      createdAt: new Date()
+    };
+    return updateRoom(patch).then(function () { return id; });
+  }
+
+  /* 사장님 승인·거절 — 승인 시 근무(events) 도큐먼트를 같은 배치로 바꿉니다. */
+  function decideShiftRequest(req, approve, opts) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!req || !req.id) return Promise.reject(new Error('no-request'));
+    var base = 'shiftRequests.' + req.id + '.';
+    var patch = {};
+    patch[base + 'status'] = approve ? 'approved' : 'rejected';
+    patch[base + 'decidedByName'] = String((opts && opts.ownerName) || '사장님').slice(0, 12);
+    patch[base + 'decidedAt'] = new Date();
+    var batch = state.db.batch();
+    batch.update(state.roomRef, patch);
+    if (approve) {
+      if (!req.shiftId) return Promise.reject(new Error('no-shift'));
+      var shiftPatch = (opts && opts.shiftPatch) || {};
+      shiftPatch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      batch.set(shiftCollection().doc(req.shiftId), shiftPatch, { merge: true });
+    }
+    return batch.commit();
+  }
+
+  /* ---------------- 📝 교대 인수인계 메모 ---------------- */
+  function saveHandover(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var text = String((data && data.text) || '').trim().slice(0, 80);
+    var date = String((data && data.date) || '');
+    if (!text) return Promise.reject(new Error('empty-text'));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Promise.reject(new Error('bad-date'));
+    var ref = shiftCollection().doc();
+    return ref.set({
+      kind: 'handover',
+      date: date,
+      text: text,
+      done: false,
+      author: String((data && data.author) || '').slice(0, 20),
+      authorId: String((data && data.authorId) || '').slice(0, 40),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () { return ref.id; });
+  }
+
+  function updateHandover(id, patch) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!id) return Promise.reject(new Error('no-handover'));
+    var fields = {};
+    if (patch && typeof patch.done === 'boolean') fields.done = patch.done;
+    if (patch && typeof patch.text === 'string' && patch.text.trim()) fields.text = patch.text.trim().slice(0, 80);
+    return shiftCollection().doc(id).set(fields, { merge: true });
+  }
+
+  function deleteHandover(id) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    return shiftCollection().doc(id).delete();
+  }
+
+  /* 출퇴근 실제 시각 — 그 근무 도큐먼트의 두 칸만 고칩니다. */
+  function updateShift(id, patch) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!id) return Promise.reject(new Error('no-shift'));
+    var fields = {};
+    if (patch && 'actualStart' in patch) fields.actualStart = cleanHM(patch.actualStart);
+    if (patch && 'actualEnd' in patch) fields.actualEnd = cleanHM(patch.actualEnd);
+    fields.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    return shiftCollection().doc(id).set(fields, { merge: true });
+  }
+
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
@@ -500,6 +644,13 @@
     updateRoom: updateRoom,
     submitJoinRequest: submitJoinRequest,
     decideJoinRequest: decideJoinRequest,
+    submitShiftRequest: submitShiftRequest,
+    decideShiftRequest: decideShiftRequest,
+    parseShiftRequests: parseShiftRequests,
+    saveHandover: saveHandover,
+    updateHandover: updateHandover,
+    deleteHandover: deleteHandover,
+    updateShift: updateShift,
     submitProfileRequest: submitProfileRequest,
     approveProfileRequest: function (req, ownerName) { return decideProfileRequest(req, true, ownerName); },
     rejectProfileRequest: function (req, ownerName) { return decideProfileRequest(req, false, ownerName); },

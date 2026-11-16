@@ -36,6 +36,8 @@
     staff: [],
     joins: [],
     profileRequests: [],
+    shiftRequests: [],
+    handovers: [],
     shifts: [],
     pins: {},
     settings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: false, payDay: 10, weeklyHours: 15 },
@@ -49,6 +51,8 @@
     shiftEditingId: null,
     shiftStaffId: '',
     shiftStatus: 'planned',
+    reqShift: null,
+    reqWantStaff: '',
     payStaffId: '',
     payExtra: 0,
     payWeekly: false,
@@ -256,8 +260,14 @@
 
     var familyCode = (window.FamilyCloud && FamilyCloud.storedCode()) || '';
     var hadOwner = isOwnerDevice();
-    var inviteViaLink = !!storeParam && !familyCode && !hadOwner;
-    if (inviteViaLink) lsSet(LOCK_KEY, '1');
+    /* 매장 초대 링크(?store=)로 들어왔으면, 이 폰에 가족 코드가 이미 있어도
+       가족 화면 대신 매장 입장 화면부터 엽니다. (가족 탭은 그대로 보입니다)
+       가족 방이 없는 알바생 폰에서는 계속 가족 탭·방이 보이지 않습니다(잠금 유지). */
+    var inviteViaLink = !!storeParam && !hadOwner;
+    if (inviteViaLink) {
+      if (!familyCode) lsSet(LOCK_KEY, '1');
+      S.via = 'invite';
+    }
 
     if (StoreCloud.storedCode()) S.code = StoreCloud.storedCode();
 
@@ -265,7 +275,7 @@
     renderModeChrome();
 
     var mode = ls(MODE_KEY) || 'family';
-    if (isLocked()) {
+    if (isLocked() || inviteViaLink) {
       activate('boot');
     } else if (mode === 'store' && S.code) {
       activate('boot');
@@ -307,6 +317,34 @@
     if (rejoin) rejoin.addEventListener('click', function () { showJoinForm(); });
     var meSave = $('storeMeSaveBtn');
     if (meSave) meSave.addEventListener('click', saveMyInfo);
+
+    /* 📝 교대 인수인계 */
+    var handAdd = $('storeHandoverAddBtn');
+    if (handAdd) handAdd.addEventListener('click', addHandover);
+    var handInput = $('storeHandoverInput');
+    if (handInput) handInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); addHandover(); }
+    });
+
+    /* 💬 카톡 요약 */
+    var kanToday = $('storeKakaoTodayBtn');
+    if (kanToday) kanToday.addEventListener('click', function () { copyStoreKakao('today'); });
+    var kanWeek = $('storeKakaoWeekBtn');
+    if (kanWeek) kanWeek.addEventListener('click', function () { copyStoreKakao('week'); });
+
+    /* 🙋 근무 변경·대타 요청 */
+    var reqForm = $('shiftReqForm');
+    if (reqForm) reqForm.addEventListener('submit', function (e) { e.preventDefault(); submitShiftReq(); });
+    var reqClose = $('shiftReqClose');
+    if (reqClose) reqClose.addEventListener('click', closeShiftReq);
+    var reqBackdrop = $('shiftReqModal') && $('shiftReqModal').querySelector('[data-close]');
+    if (reqBackdrop) reqBackdrop.addEventListener('click', closeShiftReq);
+    var reqOpenBtn = $('shiftReqBtn');
+    if (reqOpenBtn) reqOpenBtn.addEventListener('click', function () {
+      var target = null;
+      S.shifts.forEach(function (s) { if (s.id === S.shiftEditingId) target = s; });
+      if (target) openShiftReq(target);
+    });
 
     /* 달력 */
     var prev = $('storePrevMonth'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
@@ -433,7 +471,7 @@
 
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
-      ['shiftModal', 'storeApproveModal', 'payrollModal', 'storeSettingsModal', 'storePinModal'].forEach(function (id) {
+      ['shiftModal', 'shiftReqModal', 'storeApproveModal', 'payrollModal', 'storeSettingsModal', 'storePinModal'].forEach(function (id) {
         var m = $(id);
         if (m && !m.hidden) m.hidden = true;
       });
@@ -470,7 +508,7 @@
       setStoreStatus('pending', '매장 캘린더를 시작해 주세요');
       return;
     }
-    if (!S.connected && !S.connecting) enterStore(S.code, 'restore');
+    if (!S.connected && !S.connecting) enterStore(S.code, S.via === 'invite' ? 'invite' : 'restore');
     renderAll();
   }
 
@@ -505,6 +543,7 @@
     StoreCloud.start(clean, {
       onStatus: function (s) { setStoreStatus(s.kind, s.text); },
       onShifts: function (list) { S.shifts = list; S.connected = true; S.connecting = false; renderAll(); },
+      onHandovers: function (list) { S.handovers = list || []; renderHandover(); },
       onRoom: function (info) { applyRoom(info); },
       onRoomError: function (err) {
         if (err && err.code === 'permission-denied') setStoreStatus('error', '매장 방 설정을 읽을 수 없어요 (매장 코드를 확인해 주세요)');
@@ -528,6 +567,7 @@
     S.staff = info.staff || [];
     S.joins = info.joinRequests || [];
     S.profileRequests = info.profileRequests || [];
+    S.shiftRequests = info.shiftRequests || [];
     S.pins = info.pins || {};
     S.settings = info.payrollSettings || S.settings;
     S.payWeekly = !!S.settings.weeklyAllowance;
@@ -689,7 +729,8 @@
     }
     if (el.storeApproveBtn) {
       var pendingCount = S.joins.filter(function (r) { return r.status === 'pending'; }).length
-        + pendingProfileRequests().length;
+        + pendingProfileRequests().length
+        + (S.shiftRequests || []).filter(function (r) { return r.status === 'pending'; }).length;
       el.storeApproveBtn.hidden = !isOwner();
       if (isOwner()) {
         el.storeApproveCount.textContent = String(pendingCount);
@@ -827,6 +868,7 @@
     renderStaffFilter();
     renderCalendar();
     renderDay();
+    renderHandover();
     renderPayroll();
     renderStaffList();
     renderGuide();
@@ -1113,13 +1155,373 @@
       memo.textContent = sh.memo;
       body.appendChild(memo);
     }
+
+    /* 실제 출퇴근 시각 */
+    if (sh.actualStart) {
+      var act = document.createElement('div');
+      act.className = 'shift__actual';
+      act.textContent = '🕒 실제 ' + sh.actualStart + ' ~ ' + (sh.actualEnd || '근무 중')
+        + (sh.actualEnd ? ' (' + hoursText(actualMinutes(sh)) + ')' : '');
+      body.appendChild(act);
+    }
+
+    /* 내 근무 변경·대타 요청 상태 */
+    var myReq = latestShiftRequest(sh.id, isOwner() ? '' : myStaffId());
+    if (myReq) {
+      var rq = document.createElement('div');
+      rq.className = 'shift__req shift__req--' + myReq.status;
+      rq.textContent = '🙋 변경 요청 ' + (myReq.status === 'pending' ? '대기 중' : myReq.status === 'approved' ? '승인됨' : '거절됨')
+        + (myReq.reqStart || myReq.reqEnd ? ' · ' + (myReq.reqStart || '?') + '~' + (myReq.reqEnd || '?') : '')
+        + (myReq.wantStaffName ? ' · 대타 ' + myReq.wantStaffName : '');
+      body.appendChild(rq);
+    }
+
     btn.appendChild(body);
     btn.addEventListener('click', function () {
       if (isOwner()) openShift(sh, null);
       else openShift(sh, null, true);
     });
     li.appendChild(btn);
+    var attRow = buildAttendanceRow(sh);
+    if (attRow) li.appendChild(attRow);
     return li;
+  }
+
+  /* ---------------- 🕒 출퇴근 체크 ---------------- */
+  function nowHM() {
+    var d = new Date();
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function actualMinutes(sh) {
+    if (!sh || !sh.actualStart || !sh.actualEnd) return 0;
+    var s = toMin(sh.actualStart), e = toMin(sh.actualEnd);
+    if (e <= s) e += 1440;
+    return Math.max(0, e - s);
+  }
+
+  /* 내 근무(알바생)이거나 사장님이면, 오늘 근무에 출근·퇴근 단추가 보입니다. */
+  function buildAttendanceRow(sh) {
+    var mine = isOwner() || (sh.staffId && sh.staffId === myStaffId());
+    if (!mine) return null;
+    if (!sh.actualStart && sh.date !== todayISO()) return null;
+    if (sh.status === 'canceled' || sh.status === 'absent') return null;
+
+    var row = document.createElement('div');
+    row.className = 'att-row';
+
+    function btn(label, cls, onClick) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'att-btn ' + cls;
+      b.textContent = label;
+      b.addEventListener('click', onClick);
+      row.appendChild(b);
+      return b;
+    }
+
+    if (!sh.actualStart) {
+      btn('출근 체크', 'is-start', function () { markAttendance(sh, 'start'); });
+    } else if (!sh.actualEnd) {
+      var s = document.createElement('span');
+      s.className = 'att-state';
+      s.textContent = '출근 ' + sh.actualStart;
+      row.appendChild(s);
+      btn('퇴근 체크', 'is-end', function () { markAttendance(sh, 'end'); });
+      btn('출근 취소', 'is-ghost', function () { clearAttendance(sh, 'start'); });
+    } else {
+      btn('퇴근 취소', 'is-ghost', function () { clearAttendance(sh, 'end'); });
+    }
+    return row;
+  }
+
+  function markAttendance(sh, which) {
+    var hm = nowHM();
+    var patch = {};
+    if (which === 'start') {
+      patch.actualStart = hm;
+      patch.actualEnd = null;
+    } else {
+      patch.actualEnd = hm;
+    }
+    StoreCloud.updateShift(sh.id, patch).then(function () {
+      toast(which === 'start' ? '출근 ' + hm + ' 체크했어요' : '퇴근 ' + hm + ' 체크했어요');
+    }).catch(function (err) {
+      window.alert('출퇴근을 저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function clearAttendance(sh, which) {
+    var patch = which === 'start' ? { actualStart: null, actualEnd: null } : { actualEnd: null };
+    StoreCloud.updateShift(sh.id, patch).then(function () {
+      toast(which === 'start' ? '출근 기록을 지웠어요' : '퇴근 기록을 지웠어요');
+    }).catch(function (err) {
+      window.alert('기록을 지우지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  /* 그 근무의 가장 최근 변경 요청 (staffId 있으면 그 알바생 것만) */
+  function latestShiftRequest(shiftId, staffId) {
+    var list = (S.shiftRequests || []).filter(function (r) {
+      if (r.shiftId !== shiftId) return false;
+      if (staffId && r.staffId !== staffId) return false;
+      return true;
+    });
+    return list.length ? list[0] : null;
+  }
+
+  /* ---------------- 📝 교대 인수인계 메모 ---------------- */
+  function timeHHMM(ms) {
+    var d = new Date(ms);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function handoversOn(dateISO) {
+    return (S.handovers || []).filter(function (h) { return h.date === dateISO; })
+      .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  }
+
+  function renderHandover() {
+    var card = $('storeHandoverCard');
+    if (!card) return;
+    var dateISO = S.selected || todayISO();
+    var dt = parseISO(dateISO);
+    var list = handoversOn(dateISO);
+    var hint = $('storeHandoverHint');
+    if (hint) hint.textContent = (dt.getMonth() + 1) + '/' + dt.getDate() + ' · ' + list.length + '건';
+    var listEl = $('storeHandoverList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!list.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = '아직 남긴 인수인계가 없어요. 교대할 때 특이사항을 한 줄 남겨 주세요.';
+      listEl.appendChild(empty);
+      return;
+    }
+    list.forEach(function (h) {
+      var li = document.createElement('li');
+      li.className = 'handover-item' + (h.done ? ' is-done' : '');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'check-row';
+      b.setAttribute('aria-pressed', h.done ? 'true' : 'false');
+      var box = document.createElement('span');
+      box.className = 'check-row__box';
+      box.textContent = h.done ? '✓' : '';
+      b.appendChild(box);
+      var tx = document.createElement('span');
+      tx.className = 'check-row__text';
+      tx.textContent = h.text;
+      b.appendChild(tx);
+      b.addEventListener('click', function () { toggleHandover(h); });
+      li.appendChild(b);
+      var by = document.createElement('div');
+      by.className = 'handover-item__by';
+      by.textContent = '✍️ ' + (h.author || '알바') + (h.createdAt ? ' · ' + timeHHMM(h.createdAt) : '');
+      li.appendChild(by);
+      if (isOwner() || (h.authorId && h.authorId === myStaffId())) {
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'handover-item__del';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', '인수인계 삭제');
+        del.addEventListener('click', function () { removeHandover(h); });
+        li.appendChild(del);
+      }
+      listEl.appendChild(li);
+    });
+  }
+
+  function addHandover() {
+    var input = $('storeHandoverInput');
+    var text = String(input ? input.value : '').trim().slice(0, 80);
+    if (!text) { toast('남길 내용을 입력해 주세요'); if (input) input.focus(); return; }
+    var dateISO = S.selected || todayISO();
+    var author = isOwner() ? '사장님' : (me() ? me().name : '알바');
+    var authorId = isOwner() ? '' : myStaffId();
+    var btn = $('storeHandoverAddBtn');
+    if (btn) btn.disabled = true;
+    StoreCloud.saveHandover({ date: dateISO, text: text, author: author, authorId: authorId }).then(function () {
+      if (input) input.value = '';
+      toast('인수인계를 남겼어요');
+    }).catch(function (err) {
+      window.alert('남기지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  function toggleHandover(h) {
+    StoreCloud.updateHandover(h.id, { done: !h.done }).then(function () {
+      toast(!h.done ? '확인 완료로 표시했어요' : '확인 표시를 풀었어요');
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function removeHandover(h) {
+    if (!window.confirm('"' + h.text + '" 인수인계를 지울까요?')) return;
+    StoreCloud.deleteHandover(h.id).then(function () {
+      toast('인수인계를 지웠어요');
+    }).catch(function (err) {
+      window.alert('지우지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  /* ---------------- 🙋 근무 변경·대타 요청 (알바생) ---------------- */
+  function openShiftReq(sh) {
+    if (!sh) return;
+    S.reqShift = sh;
+    S.reqWantStaff = '';
+    var d = parseISO(sh.date);
+    var intro = $('shiftReqIntro');
+    if (intro) {
+      intro.innerHTML = '<b>' + esc((d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + (sh.start || '--:--') + ' ~ ' + (sh.end || '--:--')) +
+        '</b> 근무를 바꾸려고 해요.<br>바꿀 내용을 적어 보내면 사장님이 <b>승인</b>한 뒤 근무가 바뀝니다.';
+    }
+    setVal('reqStart', '');
+    setVal('reqEnd', '');
+    setVal('reqReason', '');
+    var err = $('reqError');
+    if (err) err.hidden = true;
+    var pick = $('reqStaffPicker');
+    if (pick) {
+      pick.innerHTML = '';
+      var others = S.staff.filter(function (m) { return m.id !== sh.staffId && m.active !== false; });
+      if (!others.length) {
+        var none = document.createElement('span');
+        none.className = 'field-hint';
+        none.textContent = '대타로 넘길 다른 알바생이 없어요. 시간 변경만 요청할 수 있어요.';
+        pick.appendChild(none);
+      }
+      others.forEach(function (m) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pick';
+        b.setAttribute('data-id', m.id);
+        b.style.setProperty('--c', m.color);
+        b.style.setProperty('--bgc', m.bg);
+        b.style.setProperty('--fgc', m.color);
+        var i = document.createElement('i');
+        b.appendChild(i);
+        b.appendChild(document.createTextNode(m.name));
+        b.addEventListener('click', function () {
+          if (S.reqWantStaff === m.id) {
+            S.reqWantStaff = '';
+            b.classList.remove('is-on');
+          } else {
+            S.reqWantStaff = m.id;
+            Array.prototype.forEach.call(pick.querySelectorAll('button'), function (c) { c.classList.remove('is-on'); });
+            b.classList.add('is-on');
+          }
+        });
+        pick.appendChild(b);
+      });
+    }
+    var m2 = $('shiftReqModal');
+    if (m2) m2.hidden = false;
+  }
+
+  function closeShiftReq() {
+    var m = $('shiftReqModal');
+    if (m) m.hidden = true;
+    S.reqShift = null;
+    S.reqWantStaff = '';
+  }
+
+  function showReqError(msg) {
+    var err = $('reqError');
+    if (err) { err.textContent = msg; err.hidden = false; }
+  }
+
+  function submitShiftReq() {
+    var sh = S.reqShift;
+    if (!sh) return;
+    var rs = getVal('reqStart'), re = getVal('reqEnd');
+    if ((rs && !re) || (!rs && re)) { showReqError('희망 시간은 출근·퇴근을 함께 넣어 주세요.'); return; }
+    if (rs && re && rs === re) { showReqError('희망 출근과 퇴근 시간이 같아요.'); return; }
+    var want = S.reqWantStaff ? staffById(S.reqWantStaff) : null;
+    if (!rs && !want) { showReqError('바꿀 시간이나 대타 직원을 하나는 골라 주세요.'); return; }
+    var btn = $('reqSaveBtn');
+    if (btn) btn.disabled = true;
+    StoreCloud.submitShiftRequest({
+      shiftId: sh.id,
+      date: sh.date,
+      staffId: sh.staffId,
+      staffName: sh.staffName,
+      reqStart: rs,
+      reqEnd: re,
+      wantStaffId: want ? want.id : '',
+      wantStaffName: want ? want.name : '',
+      reason: getVal('reqReason').trim()
+    }).then(function () {
+      closeShiftReq();
+      var sm = $('shiftModal');
+      if (sm) sm.hidden = true;
+      toast('변경 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
+    }).catch(function (err) {
+      showReqError('요청을 보내지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  /* ---------------- 💬 카톡 요약 복사 ---------------- */
+  function storeSummaryLine(sh) {
+    var line = '· ' + (sh.start || '--:--') + '~' + (sh.end || '--:--') + ' ' + (sh.staffName || '알바') + ' (' + hoursText(shiftMinutes(sh)) + ')';
+    if (sh.status && sh.status !== 'planned') line += ' ' + (STATUS_LABEL[sh.status] || '');
+    if (sh.actualStart) line += '\n   실제 ' + sh.actualStart + '~' + (sh.actualEnd || '근무 중');
+    return line;
+  }
+
+  function storeDayBlock(dateISO) {
+    var list = S.shifts.filter(function (s) { return s.date === dateISO && passFilter(s); }).sort(byStart);
+    var hand = handoversOn(dateISO);
+    if (!list.length && !hand.length) return '';
+    var dt = parseISO(dateISO);
+    var out = ['[' + (dt.getMonth() + 1) + '/' + dt.getDate() + '(' + WEEKDAYS[dt.getDay()] + ')]'];
+    list.forEach(function (sh) { out.push(storeSummaryLine(sh)); });
+    if (hand.length) {
+      out.push('· 인수인계 ' + hand.length + '건: ' + hand.slice(0, 3).map(function (h) { return h.text; }).join(' / ')
+        + (hand.length > 3 ? ' 외 ' + (hand.length - 3) : ''));
+    }
+    return out.join('\n');
+  }
+
+  function buildStoreKakaoText(scope) {
+    var lines = [];
+    var start = scope === 'today' ? todayISO() : weekKey(todayISO());
+    var end = scope === 'today' ? todayISO() : isoOfDate(new Date(parseISO(start).getFullYear(), parseISO(start).getMonth(), parseISO(start).getDate() + 6));
+    var s = parseISO(start), e = parseISO(end);
+    var who = isOwner() ? (S.filter !== 'all' && staffById(S.filter) ? staffById(S.filter).name : '전체') : (me() ? me().name : '내');
+    var head = '🏪 ' + (S.storeName || '매장') + ' · ' + (scope === 'today' ? '오늘' : '이번 주') + ' 근무';
+    lines.push(head);
+    if (scope === 'today') {
+      var block = storeDayBlock(start);
+      lines.push(block ? block.split('\n').slice(1).join('\n') : '오늘은 등록된 근무가 없어요.');
+    } else {
+      lines.push((s.getMonth() + 1) + '/' + s.getDate() + '(' + WEEKDAYS[s.getDay()] + ') ~ ' + (e.getMonth() + 1) + '/' + e.getDate() + '(' + WEEKDAYS[e.getDay()] + ') · ' + who);
+      var any = false;
+      for (var i = 0; i < 7; i++) {
+        var b = storeDayBlock(isoOfDate(new Date(s.getFullYear(), s.getMonth(), s.getDate() + i)));
+        if (!b) continue;
+        any = true;
+        lines.push(b);
+      }
+      if (!any) lines.push('이번 주는 등록된 근무가 없어요.');
+    }
+    return lines.join('\n').trim();
+  }
+
+  function copyStoreKakao(scope) {
+    var text = buildStoreKakaoText(scope);
+    var prev = $('storeKakaoPreview');
+    if (prev) {
+      prev.textContent = text;
+      prev.hidden = false;
+    }
+    copyText(text, scope === 'today' ? '오늘 근무를 복사했어요 · 카톡에 붙여넣으세요' : '이번 주 근무를 복사했어요 · 카톡에 붙여넣으세요');
   }
 
   /* ---------------- 근무 등록/수정 ---------------- */
@@ -1201,6 +1603,23 @@
     if (saveBtn) { saveBtn.hidden = !!readonly; saveBtn.textContent = sh ? '저장' : '등록'; }
     var delBtn = $('shiftDeleteBtn');
     if (delBtn) delBtn.hidden = !sh || !!readonly;
+    var reqBtn = $('shiftReqBtn');
+    if (reqBtn) reqBtn.hidden = !(sh && readonly);
+    var reqNote = $('shiftReqStatus');
+    if (reqNote) {
+      var mineReq = sh ? latestShiftRequest(sh.id, isOwner() ? '' : myStaffId()) : null;
+      if (mineReq) {
+        reqNote.hidden = false;
+        reqNote.textContent = '🙋 변경 요청 · ' + (mineReq.status === 'pending' ? '사장님 승인 대기 중'
+          : mineReq.status === 'approved' ? '승인됨 (근무가 바뀌었어요)' : '거절됨')
+          + (mineReq.reqStart || mineReq.reqEnd ? ' · 희망 ' + (mineReq.reqStart || '?') + '~' + (mineReq.reqEnd || '?') : '')
+          + (mineReq.wantStaffName ? ' · 대타 ' + mineReq.wantStaffName : '')
+          + (mineReq.reason ? ' · ' + mineReq.reason : '');
+      } else {
+        reqNote.hidden = true;
+        reqNote.textContent = '';
+      }
+    }
     var vBox = $('shiftVoiceBtn');
     if (vBox && vBox.parentNode) vBox.parentNode.hidden = !!readonly;
     var err = $('shiftError');
@@ -1319,6 +1738,15 @@
       status: status,
       memo: getVal('shiftMemo').trim()
     };
+    /* 출퇴근 기록은 근무를 수정해도 지우지 않습니다. */
+    if (S.shiftEditingId) {
+      var before = null;
+      S.shifts.forEach(function (s) { if (s.id === S.shiftEditingId) before = s; });
+      if (before) {
+        payload.actualStart = before.actualStart || null;
+        payload.actualEnd = before.actualEnd || null;
+      }
+    }
     var btn = $('shiftSaveBtn');
     if (btn) btn.disabled = true;
 
@@ -1347,6 +1775,8 @@
         breakMin: payload.breakMin,
         wage: payload.wage,
         status: payload.status,
+        actualStart: payload.actualStart || null,
+        actualEnd: payload.actualEnd || null,
         memo: payload.memo
       };
       return StoreCloud.saveShift(S.shiftEditingId, p);
@@ -1950,10 +2380,11 @@
     if (!wrap) return;
     var pending = S.joins.filter(function (r) { return r.status === 'pending'; });
     var pendingProf = pendingProfileRequests();
+    var pendingReq = (S.shiftRequests || []).filter(function (r) { return r.status === 'pending'; });
     var count = $('storeApproveModalCount');
-    if (count) count.textContent = String(pending.length + pendingProf.length);
+    if (count) count.textContent = String(pending.length + pendingProf.length + pendingReq.length);
     wrap.innerHTML = '';
-    if (!pending.length && !pendingProf.length) {
+    if (!pending.length && !pendingProf.length && !pendingReq.length) {
       wrap.innerHTML = '<p class="empty">지금은 승인을 기다리는 요청이 없어요.</p>';
       return;
     }
@@ -1993,6 +2424,88 @@
       approveBtn.addEventListener('click', function () { decideProfileChange(r, true, approveBtn); });
       rejectBtn.addEventListener('click', function () { decideProfileChange(r, false, rejectBtn); });
       wrap.appendChild(card);
+    });
+
+    /* 🙋 근무 변경·대타 요청 */
+    pendingReq.forEach(function (r) {
+      wrap.appendChild(buildShiftReqCard(r));
+    });
+  }
+
+  function buildShiftReqCard(r) {
+    var card = document.createElement('div');
+    card.className = 'req-card req-card--pending';
+    var d = parseISO(r.date);
+    var shift = null;
+    S.shifts.forEach(function (s) { if (s.id === r.shiftId) shift = s; });
+    var rows = [];
+    rows.push('<div class="req-card__top"><strong>🙋 근무 변경 · 대타 요청</strong><span class="req-status req-status--pending">대기 중</span></div>');
+    rows.push('<div class="req-card__meta">👤 ' + esc(r.staffName || '알바생') + ' · ' + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEKDAYS[d.getDay()] + ') 근무</div>');
+    rows.push('<div class="req-card__meta">지금: ' + (shift ? esc((shift.start || '--:--') + '~' + (shift.end || '--:--')) : '근무를 찾지 못했어요') + '</div>');
+    if (r.reqStart || r.reqEnd) {
+      rows.push('<div class="req-card__meta">희망 시간: <b>' + esc((r.reqStart || '?') + '~' + (r.reqEnd || '?')) + '</b></div>');
+    }
+    if (r.wantStaffName) {
+      rows.push('<div class="req-card__meta">희망 대타: <b>' + esc(r.wantStaffName) + '</b></div>');
+    }
+    if (r.reason) rows.push('<div class="req-card__memo">' + esc(r.reason) + '</div>');
+    rows.push('<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>');
+    card.innerHTML = rows.join('');
+    var approveBtn = card.querySelector('[data-act="approve"]');
+    var rejectBtn = card.querySelector('[data-act="reject"]');
+    approveBtn.addEventListener('click', function () { approveShiftReq(r, approveBtn); });
+    rejectBtn.addEventListener('click', function () { rejectShiftReq(r, rejectBtn); });
+    return card;
+  }
+
+  function approveShiftReq(r, btn) {
+    if (!isOwner()) return;
+    var shift = null;
+    S.shifts.forEach(function (s) { if (s.id === r.shiftId) shift = s; });
+    if (!shift) {
+      window.alert('그 근무를 찾지 못했어요. 이미 지워졌을 수 있어요.');
+      return;
+    }
+    var patch = {};
+    var bits = [];
+    if (r.reqStart || r.reqEnd) {
+      patch.start = r.reqStart || shift.start;
+      patch.end = r.reqEnd || shift.end;
+      bits.push('시간 ' + patch.start + '~' + patch.end);
+    }
+    var target = r.wantStaffId ? staffById(r.wantStaffId) : null;
+    if (target) {
+      patch.staffId = target.id;
+      patch.staffName = target.name;
+      if (target.hourly) patch.wage = target.hourly;
+      bits.push('대타 ' + target.name);
+    }
+    if (!bits.length) bits.push('바꿀 내용 없음');
+    if (!window.confirm(r.staffName + ' 님 요청을 승인할까요?\n' + bits.join(' · ') + '\n\n승인하면 근무가 바로 바뀝니다.')) return;
+    if (btn) btn.disabled = true;
+    StoreCloud.decideShiftRequest(r, true, { ownerName: '사장님', shiftPatch: patch }).then(function () {
+      toast('승인했어요 · 근무를 바꿨어요');
+      renderApprovalCards();
+      renderAll();
+    }).catch(function (err) {
+      window.alert('승인하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  function rejectShiftReq(r, btn) {
+    if (!isOwner()) return;
+    if (!window.confirm(r.staffName + ' 님의 변경 요청을 거절할까요?\n기존 근무는 그대로 유지돼요.')) return;
+    if (btn) btn.disabled = true;
+    StoreCloud.decideShiftRequest(r, false, { ownerName: '사장님' }).then(function () {
+      toast('거절했어요 · 기존 근무는 그대로예요');
+      renderApprovalCards();
+      renderAll();
+    }).catch(function (err) {
+      window.alert('처리하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
     });
   }
 
@@ -2216,7 +2729,15 @@
     shouldSkipFamily: function () { return isLocked(); },
     open: function () { activate('api'); },
     render: function () { renderAll(); },
-    applyVoice: function (text) { applyVoiceShift(text); }
+    applyVoice: function (text) { applyVoiceShift(text); },
+    /* 읽기 전용 상태 (검증·디버깅용) */
+    role: function () { return S.role; },
+    code: function () { return S.code; },
+    staff: function () { return S.staff; },
+    shifts: function () { return S.shifts; },
+    handovers: function () { return S.handovers; },
+    shiftRequests: function () { return S.shiftRequests; },
+    summary: function (scope) { return buildStoreKakaoText(scope); }
   };
 
   document.addEventListener('DOMContentLoaded', function () {

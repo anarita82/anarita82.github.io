@@ -947,3 +947,64 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 0; flex: 0 0 auto;
 }
 .admin-member__photo-clear:active { color: #dc2626; background: #fee2e2; }
+
+/* ---------- ☑️ 준비물 체크리스트 (2026-11-16) ---------- */
+.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.checklist--event { margin-top: 6px; padding: 5px 0 0 26px; border-top: 1px dashed #eceef5; }
+.checklist--detail { margin: 5px 0 2px; }
+.checklist__empty { font-size: 11.5px; color: #9aa1ad; font-weight: 600; padding: 2px 0; }
+.check-row {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; border: 0; background: transparent;
+  padding: 4px 2px; border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: #3b4252;
+  text-align: left; cursor: pointer;
+}
+.check-row:active { background: #f4f5fa; }
+.check-row__box {
+  width: 18px; height: 18px; border-radius: 6px;
+  border: 1.5px solid #cbd2de; background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff; flex: 0 0 auto;
+  box-sizing: border-box; padding: 0; line-height: 1;
+}
+.check-row.is-done .check-row__box { background: #10b981; border-color: #10b981; }
+.check-row__text { flex: 1; line-height: 1.35; word-break: break-word; }
+.check-row.is-done .check-row__text { text-decoration: line-through; color: #9aa1ad; }
+.check-row--edit { gap: 6px; }
+.check-row__input {
+  flex: 1; min-width: 0;
+  border: 1px solid #e3e5ec; background: #fbfbfd; border-radius: 9px;
+  padding: 7px 9px; font-family: inherit; font-size: 13px; color: #2b3040; outline: none;
+}
+.check-row__input:focus { border-color: #a5a3f5; background: #fff; }
+.check-row__del {
+  border: 0; background: transparent; color: #b6bcc8;
+  font-size: 13px; padding: 4px 6px; cursor: pointer; flex: 0 0 auto;
+}
+.check-row__del:active { color: #dc2626; }
+.checklist-add { display: flex; gap: 6px; margin-top: 6px; }
+.checklist-add input {
+  flex: 1; min-width: 0;
+  border: 1px solid #e3e5ec; background: #fbfbfd; border-radius: 10px;
+  padding: 9px 11px; font-family: inherit; font-size: 13.5px; color: #2b3040; outline: none;
+}
+.checklist-add input:focus { border-color: #a5a3f5; background: #fff; }
+.detail-check { margin-top: 10px; padding-top: 8px; border-top: 1px solid #f2f3f7; }
+.detail-check__head { font-size: 11.5px; font-weight: 800; color: #5b6273; margin-bottom: 2px; }
+
+/* 매주 반복 요일 */
+.weekday-pick { margin-top: 8px; }
+.weekday-pick__k { display: block; font-size: 11px; font-weight: 800; color: #9aa1ad; margin-bottom: 5px; }
+.weekday-pick__btns button { padding: 8px 0; font-size: 12px; }
+.weekday-btn.is-sun.is-active { color: #dc2626; }
+.weekday-btn.is-sat.is-active { color: #2563eb; }
+
+/* ---------- 💬 카톡 요약 복사 ---------- */
+.kakao-card .kakao-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kakao-preview {
+  margin: 10px 0 0; padding: 10px 11px;
+  background: #f7f8fc; border: 1px solid #e8eaf2; border-radius: 11px;
+  font-family: inherit; font-size: 12px; line-height: 1.55; color: #3b4252;
+  white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
+}

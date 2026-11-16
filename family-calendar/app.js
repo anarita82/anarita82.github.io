@@ -46,6 +46,9 @@
     member: 'all',
     editingId: null,
     repeat: 'none',
+    weekday: 0,
+    weekdayTouched: false,
+    checklist: [],
     saving: false,
     profile: '',
     roomPins: {},
@@ -197,16 +200,99 @@
     return (s.getMonth() + 1) + '.' + s.getDate() + ' ~ ' + (e.getMonth() + 1) + '.' + e.getDate();
   }
 
-  function eventsOn(dateISO) {
+  /* ---------------- 반복 일정 계산 (매주·매월 포함) ---------------- */
+  function addDaysISO(baseISO, n) {
+    var d = parseISO(baseISO);
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    return isoOfDate(x);
+  }
+
+  /* 매월 반복: 그 달에 같은 일자가 없으면 말일로 계산합니다 (예: 31일 → 2월은 28/29일). */
+  function monthlyStart(ev, year, month) {
+    var y = year + Math.floor(month / 12);
+    var m = ((month % 12) + 12) % 12;
+    var base = parseISO(ev.date);
+    var dim = new Date(y, m + 1, 0).getDate();
+    var day = Math.min(base.getDate(), dim);
+    var start = iso(y, m + 1, day);
+    return start < ev.date ? null : start;
+  }
+
+  /* 그 날짜가 어떤 반복 발생(기간 포함)에 들어가는지 → {start, end} 또는 null */
+  function occurrenceCovering(ev, dateISO) {
+    var repeat = ev.repeat || 'none';
+    var span = rangeSpanDays(ev);
+    if (repeat === 'weekly') {
+      var d0 = parseISO(ev.date), d = parseISO(dateISO);
+      var diff = Math.round((d - d0) / 86400000);
+      if (diff < 0) return null;
+      var k = Math.floor(diff / 7);
+      var cands = [addDaysISO(ev.date, 7 * k)];
+      if (k > 0) cands.push(addDaysISO(ev.date, 7 * (k - 1)));
+      for (var i = 0; i < cands.length; i++) {
+        var end = addDaysISO(cands[i], span);
+        if (dateISO >= cands[i] && dateISO <= end) return { start: cands[i], end: end };
+      }
+      return null;
+    }
+    if (repeat === 'monthly') {
+      var dt = parseISO(dateISO);
+      for (var off = 0; off >= -2; off--) {
+        var start2 = monthlyStart(ev, dt.getFullYear(), dt.getMonth() + off);
+        if (!start2) continue;
+        var end2 = addDaysISO(start2, span);
+        if (dateISO >= start2 && dateISO <= end2) return { start: start2, end: end2 };
+      }
+      return null;
+    }
     var y = Number(dateISO.slice(0, 4));
+    var r = occurrenceRange(ev, y);
+    if (r && dateISO >= r.start && dateISO <= r.end) return r;
+    /* 12월 말~1월 초처럼 해를 넘기는 기간 */
+    var prev = occurrenceRange(ev, y - 1);
+    if (prev && dateISO >= prev.start && dateISO <= prev.end) return prev;
+    return null;
+  }
+
+  /* fromISO ~ toISO 사이에 시작하는 반복 발생 목록 */
+  function occurrenceStarts(ev, fromISO, toISO) {
+    var out = [];
+    var repeat = ev.repeat || 'none';
+    var span = rangeSpanDays(ev);
+    if (repeat === 'weekly') {
+      var d0 = parseISO(ev.date);
+      var diff = Math.round((parseISO(fromISO) - d0) / 86400000);
+      var k = Math.max(0, Math.ceil(diff / 7));
+      for (var i = 0; i < 400; i++) {
+        var s = addDaysISO(ev.date, 7 * (k + i));
+        if (s > toISO) break;
+        out.push({ start: s, end: addDaysISO(s, span) });
+      }
+      return out;
+    }
+    if (repeat === 'monthly') {
+      var f = parseISO(fromISO), t = parseISO(toISO);
+      var y = f.getFullYear(), m = f.getMonth();
+      while (y < t.getFullYear() || (y === t.getFullYear() && m <= t.getMonth())) {
+        var s2 = monthlyStart(ev, y, m);
+        if (s2 && s2 >= fromISO && s2 <= toISO) out.push({ start: s2, end: addDaysISO(s2, span) });
+        m++;
+        if (m > 11) { m = 0; y++; }
+      }
+      return out;
+    }
+    var y0 = parseISO(fromISO).getFullYear();
+    for (var yy = y0 - 1; yy <= y0 + 2; yy++) {
+      var r = occurrenceRange(ev, yy);
+      if (r && r.start >= fromISO && r.start <= toISO) out.push({ start: r.start, end: r.end });
+    }
+    return out;
+  }
+
+  function eventsOn(dateISO) {
     return events.filter(function (ev) {
       if (!passesMemberFilter(ev)) return false;
-      var r = occurrenceRange(ev, y);
-      if (r && dateISO >= r.start && dateISO <= r.end) return true;
-      /* 12월 말~1월 초처럼 해를 넘기는 기간 */
-      var prev = occurrenceRange(ev, y - 1);
-      if (prev && dateISO >= prev.start && dateISO <= prev.end) return true;
-      return false;
+      return !!occurrenceCovering(ev, dateISO);
     }).sort(compareEvents);
   }
 
@@ -253,6 +339,14 @@
     el.fMemo = document.getElementById('fMemo');
     el.fRepeat = document.getElementById('fRepeat');
     el.fRemind = document.getElementById('fRemind');
+    el.fWeekdays = document.getElementById('fWeekdays');
+    el.fWeekdayField = document.getElementById('fWeekdayField');
+    el.fChecklist = document.getElementById('fChecklist');
+    el.fCheckItem = document.getElementById('fCheckItem');
+    el.fCheckAddBtn = document.getElementById('fCheckAddBtn');
+    el.kakaoTodayBtn = document.getElementById('kakaoTodayBtn');
+    el.kakaoWeekBtn = document.getElementById('kakaoWeekBtn');
+    el.kakaoPreview = document.getElementById('kakaoPreview');
     el.photoCard = document.getElementById('photoCard');
     el.remindBanner = document.getElementById('remindBanner');
     el.notifyBtn = document.getElementById('notifyBtn');
@@ -536,6 +630,14 @@
         setRemind(btn.getAttribute('data-remind'));
       });
     }
+    if (el.fCheckAddBtn) el.fCheckAddBtn.addEventListener('click', addChecklistItem);
+    if (el.fCheckItem) {
+      el.fCheckItem.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(); }
+      });
+    }
+    if (el.kakaoTodayBtn) el.kakaoTodayBtn.addEventListener('click', function () { copyKakaoSummary('today'); });
+    if (el.kakaoWeekBtn) el.kakaoWeekBtn.addEventListener('click', function () { copyKakaoSummary('week'); });
     if (el.notifyBtn) el.notifyBtn.addEventListener('click', askNotify);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !el.modal.hidden) closeModal();
@@ -949,12 +1051,11 @@
   function checkReminders() {
     if (!events.length) return;
     var now = new Date();
-    var y = now.getFullYear();
+    var from = addDaysISO(todayISO(), -1);
+    var to = addDaysISO(todayISO(), 2);
     events.forEach(function (ev) {
       if (ev.remind === null || ev.remind === undefined || isNaN(Number(ev.remind))) return;
-      [y, y + 1].forEach(function (yy) {
-        var r = occurrenceRange(ev, yy);
-        if (!r) return;
+      occurrenceStarts(ev, from, to).forEach(function (r) {
         var t = reminderAt(ev, r.start);
         var key = ev.id + '|' + r.start;
         if (firedReminders[key]) return;
@@ -1058,7 +1159,8 @@
     timeEl.textContent = ev.time ? ev.time : '종일';
     meta.appendChild(timeEl);
 
-    var period = occurrenceLabel(ev, year) || periodLabel(ev);
+    var occ = occurrenceCovering(ev, state.selected);
+    var period = occ && occ.start !== occ.end ? fmtRange(occ.start, occ.end) : '';
     if (period) {
       var pEl = document.createElement('span');
       pEl.className = 'event__period';
@@ -1078,11 +1180,13 @@
       lEl.className = 'event__lunar';
       lEl.textContent = lunarText;
       meta.appendChild(lEl);
-    }    if (ev.repeat === 'yearly-solar') {
-      var rEl = document.createElement('span');
-      rEl.className = 'event__repeat';
-      rEl.textContent = '매년';
-      meta.appendChild(rEl);
+    }
+    var rep = repeatLabel(ev);
+    if (rep) {
+      var repEl = document.createElement('span');
+      repEl.className = 'event__repeat';
+      repEl.textContent = rep;
+      meta.appendChild(repEl);
     }
 
     var badges = document.createElement('span');
@@ -1115,24 +1219,91 @@
       else openDetail(ev);
     });
     li.appendChild(btn);
+    if (ev.checklist && ev.checklist.length) {
+      li.appendChild(buildChecklistNode(ev, 'event'));
+    }
     return li;
+  }
+
+  /* ---------------- ☑️ 준비물 체크리스트 ---------------- */
+  function newCheckId() {
+    return 'ck' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  function checklistDone(ev) {
+    var list = (ev && ev.checklist) || [];
+    var n = list.filter(function (i) { return i && i.done; }).length;
+    return { done: n, total: list.length };
+  }
+
+  function buildChecklistNode(ev, variant) {
+    var list = ev.checklist || [];
+    var ul = document.createElement('ul');
+    ul.className = 'checklist' + (variant ? ' checklist--' + variant : '');
+    list.forEach(function (item) {
+      if (!item || !item.text) return;
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'check-row' + (item.done ? ' is-done' : '');
+      b.setAttribute('aria-pressed', item.done ? 'true' : 'false');
+      var box = document.createElement('span');
+      box.className = 'check-row__box';
+      box.textContent = item.done ? '✓' : '';
+      b.appendChild(box);
+      var tx = document.createElement('span');
+      tx.className = 'check-row__text';
+      tx.textContent = item.text;
+      b.appendChild(tx);
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleCheck(ev, item.id);
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  /* 체크 토글 — 가족 모두의 폰에 바로 저장됩니다. */
+  function toggleCheck(ev, itemId) {
+    if (!ev || !ev.id) return;
+    var list = (ev.checklist || []).map(function (i) {
+      return { id: i.id, text: i.text, done: !!i.done };
+    });
+    var hit = false;
+    list.forEach(function (i) {
+      if (i.id === itemId) { i.done = !i.done; hit = true; }
+    });
+    if (!hit) return;
+    ev.checklist = list;
+    if (el.dayCard) renderDayCard();
+    if (el.detailModal && !el.detailModal.hidden) openDetail(ev);
+    var c = checklistDone({ checklist: list });
+    if (FamilyCloud.saveChecklist) {
+      FamilyCloud.saveChecklist(ev.id, list).then(function () {
+        toast(c.total && c.done === c.total ? '준비물을 다 챙겼어요' : '준비물 ' + c.done + '/' + c.total + ' 체크');
+      }).catch(function (err) {
+        window.alert('체크를 저장하지 못했어요 · ' + errorHint(err));
+      });
+    }
   }
 
   function renderDDay() {
     var today = new Date();
+    var todayStr = todayISO();
+    var horizon = addDaysISO(todayStr, 365);
     var limit = 6;
     var items = [];
 
     events.forEach(function (ev) {
       if (!passesMemberFilter(ev)) return;
-      [today.getFullYear(), today.getFullYear() + 1].forEach(function (y) {
-        var r = occurrenceRange(ev, y);
-        if (!r) return;
-        var ds = dayDiff(today, parseISO(r.start));
-        var de = dayDiff(today, parseISO(r.end));
-        if (de < 0 || ds > 365) return;
-        var ongoing = ds < 0 && de >= 0;
-        items.push({ ev: ev, date: r.start, end: r.end, diff: ongoing ? 0 : ds, ongoing: ongoing });
+      var cov = occurrenceCovering(ev, todayStr);
+      if (cov) {
+        items.push({ ev: ev, date: cov.start, end: cov.end, diff: 0, ongoing: cov.start < todayStr });
+      }
+      occurrenceStarts(ev, addDaysISO(todayStr, 1), horizon).slice(0, 1).forEach(function (r) {
+        items.push({ ev: ev, date: r.start, end: r.end, diff: dayDiff(today, parseISO(r.start)), ongoing: false });
       });
     });
 
@@ -1222,6 +1393,126 @@
     });
   }
 
+  function fmtMD(dateISO) {
+    var d = parseISO(dateISO);
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+  }
+
+  function fmtRange(aISO, bISO) {
+    var s = parseISO(aISO), e = parseISO(bISO);
+    return (s.getMonth() + 1) + '.' + s.getDate() + ' ~ ' + (e.getMonth() + 1) + '.' + e.getDate();
+  }
+
+  function weekdayOf(ev) {
+    var w = Number(ev && ev.weekday);
+    if (!isFinite(w) || w < 0 || w > 6 || ev.weekday === null || ev.weekday === undefined) {
+      return parseISO(ev.date).getDay();
+    }
+    return w;
+  }
+
+  function repeatLabel(ev) {
+    var r = (ev && ev.repeat) || 'none';
+    if (r === 'weekly') return '매주 ' + WEEKDAYS[weekdayOf(ev)];
+    if (r === 'monthly') return '매월 ' + parseISO(ev.date).getDate() + '일';
+    if (r === 'yearly-solar') return '매년';
+    if (r === 'yearly-lunar') return '매년 음력';
+    return '';
+  }
+
+  /* ---------------- 💬 카톡 요약 복사 ---------------- */
+  function weekStartISO(dateISO, startDay) {
+    var d = parseISO(dateISO);
+    var wd = (d.getDay() - (startDay || 0) + 7) % 7;
+    return addDaysISO(dateISO, -wd);
+  }
+
+  function summaryLine(ev) {
+    var cat = categoryById(ev.category);
+    var names = (ev.members || []).map(function (id) {
+      var m = memberById(id);
+      return m ? m.name : '';
+    }).filter(Boolean);
+    var line = '· ' + (ev.time ? ev.time + ' ' : '종일 ') + cat.emoji + ' ' + ev.title;
+    if (names.length) line += ' — ' + names.join('·');
+    var c = checklistDone(ev);
+    if (c.total) line += ' (준비물 ' + c.done + '/' + c.total + ')';
+    return line;
+  }
+
+  function daySummaryBlock(dateISO) {
+    var list = eventsOn(dateISO);
+    if (!list.length) return '';
+    var dt = parseISO(dateISO);
+    var out = ['[' + (dt.getMonth() + 1) + '/' + dt.getDate() + '(' + WEEKDAYS[dt.getDay()] + ')]'];
+    list.forEach(function (ev) { out.push(summaryLine(ev)); });
+    return out.join('\n');
+  }
+
+  function buildKakaoText(scope) {
+    var lines = [];
+    if (scope === 'today') {
+      var t = todayISO();
+      var dt = parseISO(t);
+      var block = daySummaryBlock(t);
+      lines.push('📅 우리 가족 달력 · ' + (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일(' + WEEKDAYS[dt.getDay()] + ')');
+      if (block) {
+        lines.push(block.split('\n').slice(1).join('\n'));
+      } else {
+        lines.push('오늘은 일정이 없어요.');
+      }
+      return lines.join('\n').trim();
+    }
+    var start = weekStartISO(todayISO(), 0);
+    var end = addDaysISO(start, 6);
+    var s = parseISO(start), e = parseISO(end);
+    lines.push('📅 우리 가족 이번 주 · ' + (s.getMonth() + 1) + '/' + s.getDate() + '(' + WEEKDAYS[s.getDay()] + ') ~ ' + (e.getMonth() + 1) + '/' + e.getDate() + '(' + WEEKDAYS[e.getDay()] + ')');
+    var any = false;
+    for (var i = 0; i < 7; i++) {
+      var b = daySummaryBlock(addDaysISO(start, i));
+      if (!b) continue;
+      any = true;
+      lines.push(b);
+    }
+    if (!any) lines.push('이번 주는 일정이 없어요.');
+    return lines.join('\n').trim();
+  }
+
+  function fallbackCopyText(text, okMsg) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) toast(okMsg);
+      else window.prompt('아래 내용을 복사해 주세요.', text);
+    } catch (e) {
+      window.prompt('아래 내용을 복사해 주세요.', text);
+    }
+  }
+
+  function copyText(text, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg); }, function () { fallbackCopyText(text, okMsg); });
+    } else {
+      fallbackCopyText(text, okMsg);
+    }
+  }
+
+  function copyKakaoSummary(scope) {
+    var text = buildKakaoText(scope);
+    if (el.kakaoPreview) {
+      el.kakaoPreview.textContent = text;
+      el.kakaoPreview.hidden = false;
+    }
+    copyText(text, scope === 'today' ? '오늘 일정을 복사했어요 · 카톡에 붙여넣으세요' : '이번 주 일정을 복사했어요 · 카톡에 붙여넣으세요');
+  }
+
   /* ---------------- 모달 ---------------- */
   function openModal(ev, presetDate) {
     state.editingId = ev ? ev.id : null;
@@ -1237,6 +1528,9 @@
     el.fEndDate.value = ev && ev.endDate ? ev.endDate : '';
     el.fMemo.value = ev ? (ev.memo || '') : '';
     resetVoiceBox();
+    state.weekday = ev ? weekdayOf(ev) : parseISO(el.fDate.value || state.selected).getDay();
+    state.weekdayTouched = !!ev;
+    renderChecklistEditor(ev ? (ev.checklist || []) : []);
 
     if (ev && ev.time) {
       el.fAllDay.checked = false;
@@ -1308,7 +1602,100 @@
     Array.prototype.forEach.call(el.fRepeat.children, function (btn) {
       btn.classList.toggle('is-active', btn.getAttribute('data-repeat') === state.repeat);
     });
+    renderWeekdays();
     updateRepeatHint();
+  }
+
+  /* 매주 반복 요일 선택 단추 */
+  function renderWeekdays() {
+    if (!el.fWeekdays) return;
+    el.fWeekdays.innerHTML = '';
+    WEEKDAYS.forEach(function (name, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'weekday-btn' + (Number(state.weekday) === i ? ' is-active' : '');
+      if (i === 0) b.classList.add('is-sun');
+      if (i === 6) b.classList.add('is-sat');
+      b.textContent = name;
+      b.addEventListener('click', function () {
+        state.weekday = i;
+        state.weekdayTouched = true;
+        Array.prototype.forEach.call(el.fWeekdays.children, function (c) { c.classList.remove('is-active'); });
+        b.classList.add('is-active');
+        updateRepeatHint();
+      });
+      el.fWeekdays.appendChild(b);
+    });
+  }
+
+  /* 준비물 체크리스트 편집기(추가·수정 화면) */
+  function renderChecklistEditor(items) {
+    state.checklist = (items || []).map(function (i) {
+      return { id: i.id || newCheckId(), text: String(i.text || '').slice(0, 40), done: !!i.done };
+    });
+    paintChecklistEditor();
+  }
+
+  function paintChecklistEditor() {
+    if (!el.fChecklist) return;
+    el.fChecklist.innerHTML = '';
+    if (!state.checklist.length) {
+      var empty = document.createElement('li');
+      empty.className = 'checklist__empty';
+      empty.textContent = '준비물을 넣어 두면 일정 상세에서 체크할 수 있어요.';
+      el.fChecklist.appendChild(empty);
+      return;
+    }
+    state.checklist.forEach(function (item, idx) {
+      var li = document.createElement('li');
+      li.className = 'check-row check-row--edit' + (item.done ? ' is-done' : '');
+      var box = document.createElement('button');
+      box.type = 'button';
+      box.className = 'check-row__box';
+      box.textContent = item.done ? '✓' : '';
+      box.setAttribute('aria-label', '완료 표시');
+      box.addEventListener('click', function () {
+        item.done = !item.done;
+        paintChecklistEditor();
+      });
+      var tx = document.createElement('input');
+      tx.type = 'text';
+      tx.className = 'check-row__input';
+      tx.maxLength = 40;
+      tx.value = item.text;
+      tx.setAttribute('placeholder', '준비물');
+      tx.addEventListener('input', function () { item.text = tx.value.slice(0, 40); });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'check-row__del';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', '준비물 삭제');
+      del.addEventListener('click', function () {
+        state.checklist.splice(idx, 1);
+        paintChecklistEditor();
+      });
+      li.appendChild(box);
+      li.appendChild(tx);
+      li.appendChild(del);
+      el.fChecklist.appendChild(li);
+    });
+  }
+
+  function addChecklistItem() {
+    var input = el.fCheckItem;
+    var text = String(input ? input.value : '').trim().slice(0, 40);
+    if (!text) { if (input) input.focus(); return; }
+    if (state.checklist.length >= 30) { toast('준비물은 30개까지 넣을 수 있어요'); return; }
+    state.checklist.push({ id: newCheckId(), text: text, done: false });
+    if (input) input.value = '';
+    paintChecklistEditor();
+    if (input) input.focus();
+  }
+
+  function currentChecklist() {
+    return (state.checklist || []).map(function (i) {
+      return { id: i.id, text: String(i.text || '').trim().slice(0, 40), done: !!i.done };
+    }).filter(function (i) { return i.text; });
   }
 
   function setRemind(value) {
@@ -1345,10 +1732,33 @@
     else parts.push('음력 변환 범위(2022~2040) 밖이에요');
     if (holiday) parts.push('🎉 ' + holiday);
     el.dateLunarHint.textContent = parts.join(' · ');
+    if (state.repeat === 'weekly' && !state.weekdayTouched) {
+      state.weekday = parseISO(val).getDay();
+      renderWeekdays();
+    }
     updateRepeatHint();
   }
 
   function updateRepeatHint() {
+    if (el.fWeekdayField) el.fWeekdayField.hidden = state.repeat !== 'weekly';
+    if (state.repeat === 'weekly') {
+      var wv = el.fDate.value;
+      var wd = Number(state.weekday);
+      if (!isFinite(wd) || wd < 0 || wd > 6) wd = 0;
+      var extra = '';
+      if (wv && /^\d{4}-\d{2}-\d{2}$/.test(wv)) {
+        var shift = (wd - parseISO(wv).getDay() + 7) % 7;
+        if (shift) extra = ' 시작일은 첫 ' + WEEKDAYS[wd] + '요일인 ' + fmtMD(addDaysISO(wv, shift)) + '로 맞춰 저장해요.';
+      }
+      el.repeatHint.textContent = '매주 ' + WEEKDAYS[wd] + '요일마다 반복해요.' + extra;
+      return;
+    }
+    if (state.repeat === 'monthly') {
+      var mv = el.fDate.value;
+      var day = mv && /^\d{4}-\d{2}-\d{2}$/.test(mv) ? parseISO(mv).getDate() : 1;
+      el.repeatHint.textContent = '매월 ' + day + '일마다 반복해요.' + (day > 28 ? ' 그 일자가 없는 달은 말일로 계산해요.' : '');
+      return;
+    }
     if (state.repeat === 'yearly-lunar') {
       var val = el.fDate.value;
       var p = val && /^\d{4}-\d{2}-\d{2}$/.test(val) ? val.split('-').map(Number) : null;
@@ -1440,6 +1850,17 @@
       showFormError('날짜를 선택해 주세요.');
       return;
     }
+    var weekday = null;
+    if (state.repeat === 'weekly') {
+      var wd = Number(state.weekday);
+      if (!isFinite(wd) || wd < 0 || wd > 6) wd = parseISO(date).getDay();
+      var shiftDays = (wd - parseISO(date).getDay() + 7) % 7;
+      if (shiftDays) {
+        date = addDaysISO(date, shiftDays);
+        el.fDate.value = date;
+      }
+      weekday = wd;
+    }
     var memberIds = currentMembers();
     if (!memberIds.length) {
       showFormError('담당 가족을 한 명 이상 선택해 주세요.');
@@ -1474,6 +1895,8 @@
       category: currentCategory(),
       memo: el.fMemo.value.trim(),
       repeat: state.repeat,
+      weekday: weekday,
+      checklist: currentChecklist(),
       lunar: lunar
     };
 
@@ -1744,6 +2167,13 @@
       memo.className = 'req-card__memo';
       memo.textContent = r.memo;
       li.appendChild(memo);
+    }
+    var ck = checklistDone({ checklist: r.checklist || [] });
+    if (ck.total) {
+      var ckEl = document.createElement('div');
+      ckEl.className = 'req-card__meta';
+      ckEl.textContent = '☑️ 준비물 ' + ck.total + '개';
+      li.appendChild(ckEl);
     }
 
     var by = document.createElement('div');
@@ -2449,8 +2879,8 @@
     if (names.length) rows.push(['담당', names.join(' · ')]);
     var lunarText = lunarTextFor(ev, y);
     if (lunarText) rows.push(['음력', lunarText]);
-    if (ev.repeat === 'yearly-solar') rows.push(['반복', '매년 양력']);
-    if (ev.repeat === 'yearly-lunar') rows.push(['반복', '매년 음력']);
+    var repLabel = repeatLabel(ev);
+    if (repLabel) rows.push(['반복', repLabel]);
     if (ev.remind !== null && ev.remind !== undefined) rows.push(['알림', '🔔 ' + remindLabel(ev.remind)]);
     if (ev.memo) rows.push(['메모', ev.memo]);
     rows.forEach(function (r) {
@@ -2468,7 +2898,18 @@
     });
     var note = document.createElement('p');
     note.className = 'field-hint';
-    note.textContent = '일정 수정·삭제는 아빠·엄마만 할 수 있어요.';
+    note.textContent = '일정 수정·삭제는 아빠·엄마만 할 수 있어요. 준비물 체크는 누구나 할 수 있어요.';
+    if (ev.checklist && ev.checklist.length) {
+      var wrap = document.createElement('div');
+      wrap.className = 'detail-check';
+      var h = document.createElement('div');
+      h.className = 'detail-check__head';
+      var c = checklistDone(ev);
+      h.textContent = '☑️ 준비물 ' + c.done + '/' + c.total;
+      wrap.appendChild(h);
+      wrap.appendChild(buildChecklistNode(ev, 'detail'));
+      el.detailBody.appendChild(wrap);
+    }
     el.detailBody.appendChild(note);
     el.detailModal.hidden = false;
   }
@@ -2536,7 +2977,10 @@
     get requests() { return requests; },
     occurrenceForYear: occurrenceForYear,
     occurrenceRange: occurrenceRange,
+    occurrenceCovering: occurrenceCovering,
+    occurrenceStarts: occurrenceStarts,
     eventsOn: eventsOn,
+    buildKakaoText: buildKakaoText,
     seedSamples: seedSamples,
     inviteLink: inviteLink,
     isReady: function () { return cloudReady; },

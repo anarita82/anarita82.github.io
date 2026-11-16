@@ -378,3 +378,40 @@ body.store-mode .btn-primary:active { background: #0f766e; }
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- 🕒 출퇴근 체크 (2026-11-16) ---------- */
+.shift__actual { margin-top: 3px; font-size: 11.5px; font-weight: 800; color: #0f766e; font-variant-numeric: tabular-nums; }
+.shift__req { margin-top: 3px; font-size: 11px; font-weight: 800; }
+.shift__req--pending { color: #b45309; }
+.shift__req--approved { color: #047857; }
+.shift__req--rejected { color: #b91c1c; }
+.att-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 5px 0 0; padding: 0 2px; }
+.att-btn {
+  border: 1px solid #cfe9e4; background: #e6fffb; color: #0f766e;
+  border-radius: 9px; padding: 6px 11px;
+  font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.att-btn.is-start { background: #0d9488; border-color: #0d9488; color: #fff; }
+.att-btn.is-end { background: #fff; color: #0f766e; }
+.att-btn.is-ghost { background: #fff; border-color: #e3e5ec; color: #8b93a1; font-weight: 700; }
+.att-btn:active { opacity: .75; }
+.att-state { font-size: 11.5px; font-weight: 800; color: #0f766e; font-variant-numeric: tabular-nums; }
+
+/* ---------- 📝 교대 인수인계 ---------- */
+.handover-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.handover-item { position: relative; padding: 6px 8px 6px 6px; border: 1px solid #eef0f6; border-radius: 10px; background: #fbfcfe; }
+.handover-item.is-done { background: #f6fbf8; border-color: #d9f0e4; }
+.handover-item .check-row { padding: 2px; }
+.handover-item__by { font-size: 10.5px; color: #9aa1ad; margin-left: 25px; }
+.handover-item__del { position: absolute; top: 4px; right: 4px; border: 0; background: transparent; color: #c3c9d4; font-size: 12px; cursor: pointer; padding: 2px 4px; }
+.handover-add { display: flex; gap: 6px; }
+.handover-add input {
+  flex: 1; min-width: 0; border: 1px solid #e3e5ec; background: #fbfbfd;
+  border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; outline: none;
+}
+.handover-add input:focus { border-color: #5eead4; background: #fff; }
+.shift-req-status {
+  margin: 0 0 10px; padding: 8px 10px; border-radius: 9px;
+  background: #fffaf3; border: 1px solid #fde3c7;
+  font-size: 11.5px; font-weight: 700; color: #92400e; line-height: 1.45;
+}

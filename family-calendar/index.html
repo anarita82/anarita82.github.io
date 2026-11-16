@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261116x" />
-<link rel="stylesheet" href="store.css?v=20261116x" />
+<link rel="stylesheet" href="styles.css?v=20261117a" />
+<link rel="stylesheet" href="store.css?v=20261117a" />
 </head>
 <body>
 <div class="app">
@@ -69,6 +69,18 @@
       </section>
 
       <section class="card day-card" id="dayCard" aria-live="polite"></section>
+
+      <section class="card kakao-card">
+        <div class="card-head">
+          <h2>💬 카톡 요약 복사</h2>
+          <span class="card-head__hint">붙여넣기만 하면 돼요</span>
+        </div>
+        <div class="kakao-actions">
+          <button type="button" class="btn-primary btn-small" id="kakaoTodayBtn">오늘 요약 복사</button>
+          <button type="button" class="btn-ghost btn-small" id="kakaoWeekBtn">이번 주 요약 복사</button>
+        </div>
+        <pre class="kakao-preview" id="kakaoPreview" hidden></pre>
+      </section>
 
       <section class="card photo-card" id="photoCard"></section>
 
@@ -223,6 +235,31 @@
 
       <section class="card day-card" id="storeDayCard" aria-live="polite"></section>
 
+      <section class="card handover-card" id="storeHandoverCard">
+        <div class="card-head">
+          <h2>📝 교대 인수인계</h2>
+          <span class="card-head__hint" id="storeHandoverHint">특이사항 남기기</span>
+        </div>
+        <ul class="handover-list" id="storeHandoverList"></ul>
+        <div class="handover-add">
+          <input id="storeHandoverInput" type="text" maxlength="80" placeholder="예) 음료 재고 부족, 32번 자리 점검" autocomplete="off" />
+          <button type="button" class="btn-primary btn-small" id="storeHandoverAddBtn">남기기</button>
+        </div>
+        <p class="field-hint">같은 날 근무하는 알바생·사장님이 함께 보고, 확인했으면 체크해 두세요.</p>
+      </section>
+
+      <section class="card kakao-card">
+        <div class="card-head">
+          <h2>💬 카톡 요약 복사</h2>
+          <span class="card-head__hint">붙여넣기만 하면 돼요</span>
+        </div>
+        <div class="kakao-actions">
+          <button type="button" class="btn-primary btn-small" id="storeKakaoTodayBtn">오늘 근무 복사</button>
+          <button type="button" class="btn-ghost btn-small" id="storeKakaoWeekBtn">이번 주 근무 복사</button>
+        </div>
+        <pre class="kakao-preview" id="storeKakaoPreview" hidden></pre>
+      </section>
+
       <section class="card" id="storePayrollCard">
         <div class="card-head">
           <h2>🧾 급여명세서</h2>
@@ -318,11 +355,27 @@
     </div>
 
     <div class="field">
+      <label>☑️ 준비물 체크리스트</label>
+      <ul class="checklist checklist--edit" id="fChecklist"></ul>
+      <div class="checklist-add">
+        <input id="fCheckItem" type="text" maxlength="40" placeholder="예) 여권, 체험학습 신청서" autocomplete="off" />
+        <button type="button" class="btn-ghost btn-small" id="fCheckAddBtn">＋ 추가</button>
+      </div>
+      <p class="field-hint">일정 상세에서 체크하면 가족 모두의 폰에 바로 저장돼요.</p>
+    </div>
+
+    <div class="field">
       <label>반복</label>
-      <div class="segmented" id="fRepeat" role="group" aria-label="반복 설정">
+      <div class="segmented segmented--wrap" id="fRepeat" role="group" aria-label="반복 설정">
         <button type="button" data-repeat="none" class="is-active">없음</button>
+        <button type="button" data-repeat="weekly">매주</button>
+        <button type="button" data-repeat="monthly">매월</button>
         <button type="button" data-repeat="yearly-solar">매년 양력</button>
         <button type="button" data-repeat="yearly-lunar">매년 음력</button>
+      </div>
+      <div class="weekday-pick" id="fWeekdayField" hidden>
+        <span class="weekday-pick__k">반복 요일</span>
+        <div class="segmented weekday-pick__btns" id="fWeekdays" role="group" aria-label="반복 요일"></div>
       </div>
       <p class="field-hint" id="repeatHint"></p>
     </div>
@@ -417,11 +470,48 @@
       <textarea id="shiftMemo" rows="2" maxlength="200" placeholder="예) 대타, 마감"></textarea>
     </div>
 
+    <p class="shift-req-status" id="shiftReqStatus" hidden></p>
     <p class="form-error" id="shiftError" hidden></p>
 
     <div class="sheet-actions">
       <button type="submit" class="btn-primary" id="shiftSaveBtn">등록</button>
+      <button type="button" class="btn-primary" id="shiftReqBtn" hidden>🙋 근무 변경 · 대타 요청</button>
       <button type="button" class="btn-ghost btn-danger" id="shiftDeleteBtn" hidden>삭제</button>
+    </div>
+  </form>
+</div>
+
+<!-- 🏪 근무 변경·대타 요청 -->
+<div class="modal" id="shiftReqModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="shiftReqForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🙋 근무 변경 · 대타 요청</h2>
+      <button class="sheet-close" id="shiftReqClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro" id="shiftReqIntro">바꾸고 싶은 내용을 적어 보내면 사장님이 <b>승인</b>한 뒤 근무가 바뀌어요.</p>
+    <div class="field">
+      <label>희망 시간 <span class="field-hint--inline">바꿀 때만</span></label>
+      <div class="time-range">
+        <input id="reqStart" type="time" />
+        <span class="time-range__sep">~</span>
+        <input id="reqEnd" type="time" />
+      </div>
+      <p class="field-hint">비워 두면 지금 근무 시간 그대로 둬요.</p>
+    </div>
+    <div class="field">
+      <label>희망 대타 직원 <span class="field-hint--inline">선택</span></label>
+      <div class="picker" id="reqStaffPicker"></div>
+      <p class="field-hint">고르면 그 알바생에게 근무가 넘어가요.</p>
+    </div>
+    <div class="field">
+      <label for="reqReason">사유</label>
+      <textarea id="reqReason" rows="2" maxlength="120" placeholder="예) 학교 시험, 병원 진료"></textarea>
+    </div>
+    <p class="form-error" id="reqError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary" id="reqSaveBtn">요청 보내기</button>
     </div>
   </form>
 </div>
@@ -452,7 +542,7 @@
       <h2>🔔 입장·승인 관리 <span id="storeApproveModalCount">0</span>건</h2>
       <button class="sheet-close" id="storeApproveClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>과 <b>신상정보 변경 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(입장은 그 폰 화면이 매장 캘린더로 바뀜), <b>거절</b>하면 바뀌지 않아요.</p>
+    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>·<b>신상정보 변경 요청</b>·<b>근무 변경·대타 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(입장은 그 폰 화면이 매장 캘린더로 바뀜), <b>거절</b>하면 바뀌지 않아요.</p>
     <div class="req-cards" id="storeApprovalCards"></div>
   </div>
 </div>
@@ -715,15 +805,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261116x"></script>
-<script src="firebase-auth-compat.js?v=20261116x"></script>
-<script src="firebase-firestore-compat.js?v=20261116x"></script>
-<script src="lunar.js?v=20261116x"></script>
-<script src="cloud.js?v=20261116x"></script>
-<script src="app.js?v=20261116x"></script>
-<script src="voice.js?v=20261116x"></script>
-<script src="media.js?v=20261116x"></script>
-<script src="store-cloud.js?v=20261116x"></script>
-<script src="store.js?v=20261116x"></script>
+<script src="firebase-app-compat.js?v=20261117a"></script>
+<script src="firebase-auth-compat.js?v=20261117a"></script>
+<script src="firebase-firestore-compat.js?v=20261117a"></script>
+<script src="lunar.js?v=20261117a"></script>
+<script src="cloud.js?v=20261117a"></script>
+<script src="app.js?v=20261117a"></script>
+<script src="voice.js?v=20261117a"></script>
+<script src="media.js?v=20261117a"></script>
+<script src="store-cloud.js?v=20261117a"></script>
+<script src="store.js?v=20261117a"></script>
 </body>
 </html>

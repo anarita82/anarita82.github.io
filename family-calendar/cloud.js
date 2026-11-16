@@ -279,8 +279,38 @@
       category: String(data.category || 'etc'),
       memo: String(data.memo || '').slice(0, 300),
       repeat: String(data.repeat || 'none'),
+      weekday: cleanWeekday(data.weekday, date),
+      checklist: cleanChecklist(data.checklist),
       lunar: data.lunar || null
     };
+  }
+
+  /* 매주 반복 요일 (0=일 ~ 6=토). 없으면 날짜 요일로 채웁니다. */
+  function cleanWeekday(value, date) {
+    var w = Number(value);
+    if (isFinite(w) && w >= 0 && w <= 6 && value !== null && value !== '' && value !== undefined) return Math.round(w);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) {
+      var p = String(date).split('-').map(Number);
+      return new Date(p[0], p[1] - 1, p[2]).getDay();
+    }
+    return null;
+  }
+
+  /* ☑️ 준비물 체크리스트 — 항목 1개 {id, text, done}, 최대 30개 */
+  function cleanChecklist(list) {
+    if (!Array.isArray(list)) return [];
+    var out = [];
+    list.slice(0, 30).forEach(function (i) {
+      if (!i || typeof i !== 'object') return;
+      var text = String(i.text == null ? '' : i.text).trim().slice(0, 40);
+      if (!text) return;
+      out.push({
+        id: String(i.id || '').slice(0, 24) || ('ck' + out.length),
+        text: text,
+        done: i.done === true
+      });
+    });
+    return out;
   }
 
   function cleanPayload(data) {
@@ -322,6 +352,8 @@
           category: data.category || 'etc',
           memo: data.memo || '',
           repeat: data.repeat || 'none',
+          weekday: (data.weekday === 0 || data.weekday > 0) ? Number(data.weekday) : null,
+          checklist: cleanChecklist(data.checklist),
           lunar: data.lunar || null
         });
       });
@@ -362,6 +394,17 @@
   function deleteEvent(id) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     return eventCollection().doc(id).delete();
+  }
+
+  /* ☑️ 준비물 체크만 저장 — 다른 칸(제목·날짜·메모)은 건드리지 않습니다.
+     일반 구성원도 체크할 수 있고, 가족 모두의 폰에 바로 반영됩니다. */
+  function saveChecklist(id, list) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    if (!id) return Promise.reject(new Error('no-event'));
+    return eventCollection().doc(id).set({
+      checklist: cleanChecklist(list),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
   }
 
   function savePhoto(data) {
@@ -425,6 +468,8 @@
           category: String(r.category || 'etc'),
           memo: String(r.memo || ''),
           repeat: String(r.repeat || 'none'),
+          weekday: (r.weekday === 0 || r.weekday > 0) ? Number(r.weekday) : null,
+          checklist: cleanChecklist(r.checklist),
           lunar: r.lunar || null,
           createdAt: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0,
           decidedBy: String(r.decidedBy || ''),
@@ -669,6 +714,7 @@
     stop: stop,
     saveEvent: saveEvent,
     deleteEvent: deleteEvent,
+    saveChecklist: saveChecklist,
     savePhoto: savePhoto,
     deletePhoto: deletePhoto,
     deleteSamples: deleteSamples,
