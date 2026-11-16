@@ -1226,6 +1226,7 @@
       renderAdminMembers();
       renderPinTargets();
     }
+    if (el.profileModal && !el.profileModal.hidden) renderProfileList();
   }
 
   function formatReqDate(iso) {
