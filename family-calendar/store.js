@@ -1103,8 +1103,13 @@
           bar.style.background = st ? st.color : '#94a3b8';
           row.appendChild(bar);
           var tx = document.createElement('span');
-          tx.textContent = (s.staffName || (st ? st.name : '알바')) + ' ' + compactShiftTime(s);
+          tx.className = 'day__ev-t';
+          tx.textContent = s.staffName || (st ? st.name : '알바');
           row.appendChild(tx);
+          var tm = document.createElement('span');
+          tm.className = 'day__ev-h';
+          tm.textContent = compactShiftTime(s);
+          row.appendChild(tm);
           evs.appendChild(row);
         });
         if (dayShifts.length > 2) {
@@ -1269,7 +1274,7 @@
     if (!list.length) {
       var empty = document.createElement('li');
       empty.className = 'sheet-empty';
-      empty.innerHTML = '이 날은 등록된 근무가 없어요.' + (isOwner() ? '<br><b>＋ 근무 등록</b>으로 알바 스케줃을 넣어 보세요.' : '');
+      empty.innerHTML = '이 날은 등록된 근무가 없어요.' + (isOwner() ? '<br><b>＋ 근무 등록</b>으로 알바 스케줄을 넣어 보세요.' : '');
       ul.appendChild(empty);
       return;
     }

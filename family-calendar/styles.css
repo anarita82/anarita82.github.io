@@ -260,15 +260,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .day__ev i { flex: 0 0 2.5px; height: 8px; border-radius: 2px; }
 .day__ev > span {
   flex: 1 1 auto; min-width: 0;
-  font-size: 8.5px; font-weight: 700; line-height: 1.25;
-  letter-spacing: -.4px; color: #4b5160;
+  font-size: 9px; font-weight: 700; line-height: 1.2;
+  letter-spacing: -.5px; color: #4b5160;
   text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .day__more {
   align-self: flex-end;
-  font-size: 8px; font-weight: 800; line-height: 1.1;
-  letter-spacing: -.3px; color: var(--ink-faint);
+  font-size: 8.5px; font-weight: 800; line-height: 1.1;
+  letter-spacing: -.3px; color: #6b7280;
 }
 .day--selected .day__ev > span { color: rgba(255, 255, 255, .95); }
 .day--selected .day__ev i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .75); }
@@ -614,7 +614,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .day { min-height: 66px; }
   .day__num { font-size: 14.5px; }
   .day__hol { font-size: 9px; }
-  .day__ev > span { font-size: 9.5px; }
+  .day__ev > span { font-size: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
