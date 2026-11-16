@@ -34,6 +34,7 @@
   /* ---------------- 저장소 (Firebase 공유) ---------------- */
   var events = [];
   var requests = [];
+  var photos = [];
   var cloudReady = false;
   var connectTimer = null;
   var toastTimer = null;
@@ -110,6 +111,23 @@
   function memberById(id) {
     for (var i = 0; i < MEMBERS.length; i++) if (MEMBERS[i].id === id) return MEMBERS[i];
     return null;
+  }
+
+  /* 사진이 있으면 동그란 사진, 없으면 색 점 */
+  function avatarNode(m, size) {
+    var el;
+    if (m && m.photoDataUrl) {
+      el = document.createElement('img');
+      el.src = m.photoDataUrl;
+      el.alt = '';
+      el.className = 'avatar';
+    } else {
+      el = document.createElement('span');
+      el.className = 'avatar avatar--dot';
+      el.style.background = m ? m.color : '#94a3b8';
+    }
+    if (size) { el.style.width = size + 'px'; el.style.height = size + 'px'; }
+    return el;
   }
   function categoryById(id) {
     for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i];
@@ -233,6 +251,10 @@
     el.fCategories = document.getElementById('fCategories');
     el.fMemo = document.getElementById('fMemo');
     el.fRepeat = document.getElementById('fRepeat');
+    el.fRemind = document.getElementById('fRemind');
+    el.photoCard = document.getElementById('photoCard');
+    el.remindBanner = document.getElementById('remindBanner');
+    el.notifyBtn = document.getElementById('notifyBtn');
     el.dateLunarHint = document.getElementById('dateLunarHint');
     el.repeatHint = document.getElementById('repeatHint');
     el.formError = document.getElementById('formError');
@@ -306,6 +328,9 @@
     bindRoles();
     renderAll();
     startCloud();
+    updateNotifyBtn();
+    setInterval(checkReminders, 30000);
+    setTimeout(checkReminders, 4000);
   }
 
   /* ---------------- 공유 연결 ---------------- */
@@ -379,6 +404,7 @@
           return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
         },
         onData: function (list) { events = list; cloudReady = true; clearTimeout(connectTimer); renderAll(); },
+        onPhotos: function (list) { photos = list; renderAlbum(); },
         onRoom: function (info) { applyRoomMeta(info); },
         onRoomError: function (err) {
           var code = (err && err.code) || '';
@@ -493,6 +519,14 @@
       if (!btn) return;
       setRepeat(btn.getAttribute('data-repeat'));
     });
+    if (el.fRemind) {
+      el.fRemind.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-remind]');
+        if (!btn) return;
+        setRemind(btn.getAttribute('data-remind'));
+      });
+    }
+    if (el.notifyBtn) el.notifyBtn.addEventListener('click', askNotify);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !el.modal.hidden) closeModal();
     });
@@ -540,6 +574,7 @@
     renderFilters();
     renderCalendar();
     renderDayCard();
+    renderAlbum();
     renderDDay();
     renderRoleUI();
   }
@@ -564,11 +599,9 @@
       btn.className = 'chip' + (state.member === mb.id ? ' is-active' : '');
       btn.setAttribute('aria-pressed', String(state.member === mb.id));
       if (state.member === mb.id) btn.style.background = mb.color;
-      var d = document.createElement('span');
-      d.className = 'chip__dot';
-      d.style.background = mb.color;
-      if (state.member === mb.id) d.style.background = '#fff';
-      btn.appendChild(d);
+      var av = avatarNode(mb, 18);
+      av.classList.add('chip__av');
+      btn.appendChild(av);
       btn.appendChild(document.createTextNode(mb.name));
       btn.addEventListener('click', function () { setMember(mb.id); });
       el.memberFilter.appendChild(btn);
@@ -750,6 +783,243 @@
     el.dayCard.appendChild(list);
   }
 
+  /* ---------------- 📷 날짜 사진 앨범 ---------------- */
+  var REMIND_LABEL = { '0': '정시', '10': '10분 전', '30': '30분 전', '60': '1시간 전', '1440': '전날' };
+
+  function remindLabel(v) {
+    if (v === null || v === undefined || v === '') return '';
+    return REMIND_LABEL[String(v)] || (v + '분 전');
+  }
+
+  function photosOn(dateISO) {
+    return photos.filter(function (p) { return p.date === dateISO; });
+  }
+
+  function renderAlbum() {
+    var card = el.photoCard;
+    if (!card) return;
+    var dateISO = state.selected;
+    var all = photosOn(dateISO);
+    var folders = [];
+    all.forEach(function (p) { if (folders.indexOf(p.folder) === -1) folders.push(p.folder); });
+    folders.sort();
+    if (state.photoFolder !== 'all' && folders.indexOf(state.photoFolder) === -1) state.photoFolder = 'all';
+    var shown = state.photoFolder === 'all' ? all : all.filter(function (p) { return p.folder === state.photoFolder; });
+
+    card.innerHTML = '';
+    var head = document.createElement('div');
+    head.className = 'card-head';
+    var h2 = document.createElement('h2');
+    h2.textContent = '📷 ' + (parseISO(dateISO).getMonth() + 1) + '월 ' + parseISO(dateISO).getDate() + '일 사진';
+    head.appendChild(h2);
+    var hint = document.createElement('span');
+    hint.className = 'card-head__hint';
+    hint.textContent = all.length ? all.length + '장 · 폴더 ' + folders.length + '개' : '아직 없음';
+    head.appendChild(hint);
+    card.appendChild(head);
+
+    var chips = document.createElement('div');
+    chips.className = 'folder-chips';
+    function chip(label, key) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip chip--sm' + (state.photoFolder === key ? ' is-active' : '');
+      b.textContent = label;
+      b.addEventListener('click', function () {
+        state.photoFolder = key;
+        renderAlbum();
+      });
+      chips.appendChild(b);
+    }
+    chip('전체', 'all');
+    folders.forEach(function (f) { chip(f, f); });
+    var addFolder = document.createElement('button');
+    addFolder.type = 'button';
+    addFolder.className = 'chip chip--sm chip--ghost';
+    addFolder.textContent = '＋ 폴더';
+    addFolder.addEventListener('click', function () {
+      var name = window.prompt('새 폴더 이름 (예: 첫날, 온천, 먹거리)', '');
+      if (!name) return;
+      state.photoFolder = name.trim().slice(0, 24) || '기본';
+      addPhotos(dateISO);
+    });
+    chips.appendChild(addFolder);
+    card.appendChild(chips);
+
+    if (!shown.length) {
+      var empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.innerHTML = '이 날 사진이 없어요.<br><b>＋ 사진 추가</b>로 폴더별로 모아 두면 가족 모두의 폰에 같이 보여요.';
+      card.appendChild(empty);
+    } else {
+      var grid = document.createElement('div');
+      grid.className = 'photo-grid';
+      shown.forEach(function (p, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'photo-thumb';
+        var img = document.createElement('img');
+        img.src = p.photo;
+        img.alt = p.folder + ' 사진';
+        img.loading = 'lazy';
+        b.appendChild(img);
+        var tag = document.createElement('span');
+        tag.className = 'photo-thumb__folder';
+        tag.textContent = p.folder;
+        b.appendChild(tag);
+        b.addEventListener('click', function () {
+          var items = shown.map(function (x) {
+            return { id: x.id, src: x.photo, caption: x.folder + ' · ' + x.date };
+          });
+          CalendarMedia.openLightbox(items, i, {
+            onDelete: function (item) {
+              FamilyCloud.deletePhoto(item.id).then(function () {
+                CalendarMedia.closeLightbox();
+                toast('사진을 지웠어요');
+              }).catch(function (err) {
+                window.alert('지우지 못했어요 · ' + errorHint(err));
+              });
+            }
+          });
+        });
+        grid.appendChild(b);
+      });
+      card.appendChild(grid);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'guide-actions';
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-primary btn-small';
+    addBtn.textContent = '＋ 사진 추가' + (state.photoFolder !== 'all' ? ' (' + state.photoFolder + ')' : '');
+    addBtn.addEventListener('click', function () { addPhotos(dateISO); });
+    actions.appendChild(addBtn);
+    card.appendChild(actions);
+    var note = document.createElement('p');
+    note.className = 'field-hint';
+    note.textContent = '사진은 올릴 때 자동으로 줄여서(긴 변 900px) 저장돼요. 가족 모두의 폰에서 바로 보이고, 눌러서 크게 볼 수 있어요.';
+    card.appendChild(note);
+  }
+
+  function addPhotos(dateISO) {
+    if (!state.profile) { openProfileModal(); return; }
+    var folder = state.photoFolder === 'all' ? '기본' : state.photoFolder;
+    CalendarMedia.pickFiles(true).then(function (files) {
+      if (!files || !files.length) return;
+      var picks = files.slice(0, 10);
+      toast(picks.length + '장 올리는 중…');
+      var chain = Promise.resolve(), ok = 0, fail = 0;
+      picks.forEach(function (f) {
+        chain = chain.then(function () {
+          return CalendarMedia.fit(f, 900, 0.72).then(function (url) {
+            return FamilyCloud.savePhoto({ date: dateISO, folder: folder, photoDataUrl: url });
+          }).then(function () { ok++; }).catch(function () { fail++; });
+        });
+      });
+      chain.then(function () {
+        toast(ok + '장 저장했어요' + (fail ? ' · ' + fail + '장 실패' : ''));
+        state.photoFolder = folder;
+        renderAlbum();
+      });
+    });
+  }
+
+  /* ---------------- 🔔 일정 미리 알림 ---------------- */
+  var firedReminders = {};
+
+  function reminderAt(ev, occurrenceStart) {
+    var t = ev.time ? ev.time.split(':').map(Number) : [9, 0];
+    var start = parseISO(occurrenceStart);
+    var when = new Date(start.getFullYear(), start.getMonth(), start.getDate(), t[0] || 0, t[1] || 0, 0, 0);
+    return { when: when, fire: new Date(when.getTime() - (Number(ev.remind) || 0) * 60000) };
+  }
+
+  function checkReminders() {
+    if (!events.length) return;
+    var now = new Date();
+    var y = now.getFullYear();
+    events.forEach(function (ev) {
+      if (!ev.remind) return;
+      [y, y + 1].forEach(function (yy) {
+        var r = occurrenceRange(ev, yy);
+        if (!r) return;
+        var t = reminderAt(ev, r.start);
+        var key = ev.id + '|' + r.start;
+        if (firedReminders[key]) return;
+        var diff = now.getTime() - t.fire.getTime();
+        if (diff >= 0 && diff < 90000) {
+          firedReminders[key] = true;
+          showReminder(ev, t.when);
+        }
+      });
+    });
+  }
+
+  function showReminder(ev, when) {
+    var hh = ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
+    var text = '🔔 ' + (ev.title || '일정') + ' · ' + (when.getMonth() + 1) + '/' + when.getDate() + ' ' + hh + (ev.time ? '' : ' (종일)');
+    var banner = el.remindBanner;
+    if (banner) {
+      banner.innerHTML = '';
+      var span = document.createElement('span');
+      span.textContent = text;
+      banner.appendChild(span);
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'remind-banner__close';
+      close.textContent = '✕';
+      close.addEventListener('click', function () { banner.hidden = true; });
+      banner.appendChild(close);
+      banner.hidden = false;
+      clearTimeout(banner._timer);
+      banner._timer = setTimeout(function () { banner.hidden = true; }, 25000);
+    }
+    try {
+      if (window.AndroidApp && typeof window.AndroidApp.notify === 'function') {
+        window.AndroidApp.notify('🔔 ' + (ev.title || '일정'), (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + hh + (ev.memo ? '\n' + ev.memo : ''));
+      } else if (window.Notification && Notification.permission === 'granted') {
+        var n = new Notification('🔔 ' + (ev.title || '일정'), { body: (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + hh + (ev.memo ? '\n' + ev.memo : ''), tag: 'family-calendar-' + ev.id });
+        n.onclick = function () { window.focus(); };
+      }
+    } catch (e) { /* 알림 못 띄워도 배너는 보임 */ }
+  }
+
+  function updateNotifyBtn() {
+    var btn = el.notifyBtn;
+    if (!btn) return;
+    if (window.AndroidApp && typeof window.AndroidApp.notify === 'function') {
+      btn.textContent = '🔔 알림 켜짐';
+      btn.classList.add('is-on');
+      btn.hidden = false;
+      return;
+    }
+    var ok = window.Notification && Notification.permission === 'granted';
+    btn.textContent = ok ? '🔔 알림 켜짐' : '🔔 알림 켜기';
+    btn.classList.toggle('is-on', !!ok);
+    btn.hidden = !window.Notification;
+  }
+
+  function askNotify() {
+    if (!window.Notification) {
+      toast('이 브라우저는 알림을 지원하지 않아요. 앱을 열어 두면 화면 위 배너로 알려드려요.');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      toast('알림이 켜져 있어요 · 앱이 열려 있을 때 알려드려요');
+      updateNotifyBtn();
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      toast('브라우저 설정에서 알림을 허용해 주세요');
+      return;
+    }
+    Notification.requestPermission().then(function (p) {
+      updateNotifyBtn();
+      toast(p === 'granted' ? '알림을 켰어요 · 앱이 열려 있을 때 알려드려요' : '알림이 꺼져 있어요 · 앱 화면 배너로는 알려드려요');
+    });
+  }
+
   function buildEventItem(ev, year) {
     var cat = categoryById(ev.category);
     var li = document.createElement('li');
@@ -783,6 +1053,12 @@
       pEl.className = 'event__period';
       pEl.textContent = '📅 ' + period;
       meta.appendChild(pEl);
+    }
+    if (ev.remind) {
+      var rEl = document.createElement('span');
+      rEl.className = 'event__remind';
+      rEl.textContent = '🔔 ' + remindLabel(ev.remind);
+      meta.appendChild(rEl);
     }
 
     var lunarText = lunarTextFor(ev, year);
@@ -998,6 +1274,7 @@
     });
 
     setRepeat(ev ? ev.repeat : 'none');
+    setRemind(ev && ev.remind ? String(ev.remind) : 'none');
     updateDateHint();
 
     el.modal.hidden = false;
@@ -1021,6 +1298,14 @@
       btn.classList.toggle('is-active', btn.getAttribute('data-repeat') === state.repeat);
     });
     updateRepeatHint();
+  }
+
+  function setRemind(value) {
+    state.remind = value || 'none';
+    if (!el.fRemind) return;
+    Array.prototype.forEach.call(el.fRemind.children, function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-remind') === state.remind);
+    });
   }
 
   function currentCategory() {
@@ -1173,6 +1458,7 @@
       date: date,
       endDate: endDate || null,
       time: time,
+      remind: state.remind && state.remind !== 'none' ? Number(state.remind) : null,
       members: memberIds,
       category: currentCategory(),
       memo: el.fMemo.value.trim(),
@@ -1301,7 +1587,9 @@
   }
 
   function plainMember(m) {
-    return { id: m.id, name: m.name, color: m.color, bg: m.bg, role: m.role || 'member' };
+    var out = { id: m.id, name: m.name, color: m.color, bg: m.bg, role: m.role || 'member' };
+    if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
+    return out;
   }
 
   /* 방 문서에서 구성원·PIN 해시·등록 요청을 받아 화면 상태에 반영합니다. */
@@ -1318,7 +1606,8 @@
         name: m.name.slice(0, 12),
         color: color,
         bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : (color + '1f'),
-        role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member'
+        role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member',
+        photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl : ''
       });
     });
     MEMBERS = next.length ? next : DEFAULT_MEMBERS.slice();
@@ -1355,6 +1644,13 @@
       el.profileRole.textContent = me ? ROLE_LABEL[me.role || 'member'] : '';
       el.profileRole.hidden = !me || (me.role || 'member') === 'member';
       el.profileDot.style.background = me ? me.color : '#ffffff';
+      if (me && me.photoDataUrl) {
+        el.profileDot.style.backgroundImage = 'url("' + me.photoDataUrl + '")';
+        el.profileDot.style.backgroundSize = 'cover';
+        el.profileDot.style.backgroundPosition = 'center';
+      } else {
+        el.profileDot.style.backgroundImage = '';
+      }
     }
     var manage = canManage();
     var pending = requests.filter(function (r) { return r.status === 'pending'; });
@@ -1539,10 +1835,9 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'profile-item' + (m.id === state.profile ? ' is-me' : '');
-      var dot = document.createElement('span');
-      dot.className = 'profile-item__dot';
-      dot.style.background = m.color;
-      btn.appendChild(dot);
+      var av = avatarNode(m, 26);
+      av.classList.add('profile-item__dot');
+      btn.appendChild(av);
       var name = document.createElement('span');
       name.className = 'profile-item__name';
       name.textContent = m.name;
@@ -1638,14 +1933,27 @@
       var role = m.role || 'member';
       var li = document.createElement('li');
       li.className = 'admin-member';
-      var dot = document.createElement('span');
-      dot.className = 'admin-member__dot';
-      dot.style.background = m.color;
-      li.appendChild(dot);
-      var name = document.createElement('span');
+
+      var photoBtn = document.createElement('button');
+      photoBtn.type = 'button';
+      photoBtn.className = 'admin-member__photo';
+      photoBtn.setAttribute('aria-label', m.name + ' 사진 바꾸기');
+      photoBtn.title = '사진 바꾸기';
+      var av = avatarNode(m, 30);
+      photoBtn.appendChild(av);
+      photoBtn.addEventListener('click', function () { pickMemberPhoto(m); });
+      li.appendChild(photoBtn);
+
+      var name = document.createElement('input');
+      name.type = 'text';
       name.className = 'admin-member__name';
-      name.textContent = m.name;
+      name.value = m.name;
+      name.maxLength = 12;
+      name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
+      name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
+      name.addEventListener('change', function () { changeMemberName(m, name.value); });
       li.appendChild(name);
+
       var select = document.createElement('select');
       select.className = 'admin-member__role';
       ['admin', 'manager', 'member'].forEach(function (r) {
@@ -1660,6 +1968,37 @@
       select.addEventListener('change', function () { changeRole(m, select.value); });
       li.appendChild(select);
       el.adminMemberList.appendChild(li);
+    });
+  }
+
+  /* 구성원 이름 변경 — 달력 칩·일정·프로필에 바로 반영 */
+  function changeMemberName(m, raw) {
+    if (!canManage()) return;
+    var name = String(raw || '').trim().slice(0, 12);
+    if (!name) { toast('이름을 넣어 주세요'); renderAdminMembers(); return; }
+    if (name === m.name) return;
+    if (MEMBERS.some(function (x) { return x.id !== m.id && x.name === name; })) {
+      toast('같은 이름이 이미 있어요');
+      renderAdminMembers();
+      return;
+    }
+    var next = MEMBERS.map(plainMember);
+    next.forEach(function (x) { if (x.id === m.id) x.name = name; });
+    saveMemberList(next, (m.name || '구성원') + ' → ' + name + ' 으로 바꿨어요');
+  }
+
+  /* 구성원 사진 — 160×160으로 줄여 방 문서에 저장 */
+  function pickMemberPhoto(m) {
+    if (!canManage()) return;
+    CalendarMedia.pickFiles(false).then(function (files) {
+      if (!files || !files.length) return;
+      CalendarMedia.square(files[0], 160, 0.82).then(function (url) {
+        var next = MEMBERS.map(plainMember);
+        next.forEach(function (x) { if (x.id === m.id) x.photoDataUrl = url; });
+        saveMemberList(next, m.name + ' 님 사진을 저장했어요');
+      }).catch(function () {
+        toast('사진을 읽지 못했어요');
+      });
     });
   }
 
@@ -1814,6 +2153,7 @@
     if (lunarText) rows.push(['음력', lunarText]);
     if (ev.repeat === 'yearly-solar') rows.push(['반복', '매년 양력']);
     if (ev.repeat === 'yearly-lunar') rows.push(['반복', '매년 음력']);
+    if (ev.remind) rows.push(['알림', '🔔 ' + remindLabel(ev.remind)]);
     if (ev.memo) rows.push(['메모', ev.memo]);
     rows.forEach(function (r) {
       var row = document.createElement('div');

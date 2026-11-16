@@ -1,17 +1,29 @@
 package com.anarita82.familycalendar;
 
 import android.annotation.SuppressLint;
+import android.Manifest;
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -24,6 +36,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 우리 가족 달력 — 가족 공유 웹앱(https://anarita82.github.io/family-calendar/)을 띄우는 앱.
  * - 인터넷 권한만 사용하고 개인정보를 기기 밖으로 보내지 않습니다(웹앱 자체가 Firebase로 동기화).
@@ -33,11 +48,16 @@ public class MainActivity extends Activity {
 
     private static final String HOME_URL = "https://anarita82.github.io/family-calendar/";
     private static final String HOME_HOST_SUFFIX = "anarita82.github.io";
+    private static final int REQ_FILE_CHOOSER = 1001;
+    private static final int REQ_PERMISSIONS = 1002;
+    private static final String CHANNEL_ID = "family-calendar-reminder";
 
     private WebView webView;
     private View errorView;
     private ProgressBar progressBar;
     private long lastBackPressed = 0L;
+    private ValueCallback<Uri[]> filePathCallback;
+    private PermissionRequest pendingWebPermission;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -120,6 +140,46 @@ public class MainActivity extends Activity {
             }
         });
 
+        webView.setWebChromeClient(new WebChromeClient() {
+            /* 사진·파일 선택기: 인물 사진, 날짜별 사진 업로드에 필요 */
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                try {
+                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("image/*");
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    startActivityForResult(Intent.createChooser(intent, "사진 선택"), REQ_FILE_CHOOSER);
+                    return true;
+                } catch (Exception e) {
+                    filePathCallback = null;
+                    Toast.makeText(MainActivity.this, "사진 선택기를 열 수 없어요", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+            }
+
+            /* 마이크(음성 입력)·카메라 권한 요청을 웹페이지에 허용 */
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                boolean wantsAudio = false;
+                for (String r : request.getResources()) {
+                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsAudio = true;
+                }
+                if (wantsAudio && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    pendingWebPermission = request;
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_PERMISSIONS);
+                    return;
+                }
+                request.grant(request.getResources());
+            }
+        });
+
+        webView.addJavascriptInterface(new NotifierBridge(), "AndroidApp");
+
         root.addView(webView);
 
         progressBar = new ProgressBar(this);
@@ -134,6 +194,7 @@ public class MainActivity extends Activity {
         root.addView(errorView);
 
         setContentView(root);
+        requestNotificationPermissionIfNeeded();
 
         if (savedInstanceState == null) {
             webView.loadUrl(HOME_URL);
@@ -187,6 +248,96 @@ public class MainActivity extends Activity {
 
     private void hideError() {
         if (errorView != null) errorView.setVisibility(View.GONE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_FILE_CHOOSER) {
+            if (filePathCallback == null) return;
+            Uri[] results = null;
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                if (data.getClipData() != null) {
+                    ClipData clip = data.getClipData();
+                    List<Uri> uris = new ArrayList<>();
+                    for (int i = 0; i < clip.getItemCount(); i++) {
+                        Uri uri = clip.getItemAt(i).getUri();
+                        if (uri != null) uris.add(uri);
+                    }
+                    if (!uris.isEmpty()) results = uris.toArray(new Uri[0]);
+                } else if (data.getData() != null) {
+                    results = new Uri[]{data.getData()};
+                }
+            }
+            filePathCallback.onReceiveValue(results);
+            filePathCallback = null;
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQ_PERMISSIONS && pendingWebPermission != null) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) pendingWebPermission.grant(pendingWebPermission.getResources());
+            else {
+                pendingWebPermission.deny();
+                Toast.makeText(this, "마이크 권한을 허용해야 음성 입력을 쓸 수 있어요", Toast.LENGTH_SHORT).show();
+            }
+            pendingWebPermission = null;
+            return;
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    /* 일정 미리 알림 — 앱이 열려 있을 때 네이티브 알림으로 띄웁니다. */
+    private class NotifierBridge {
+        @JavascriptInterface
+        public String platform() { return "android"; }
+
+        @JavascriptInterface
+        public void notify(String title, String body) {
+            showNotification(title == null ? "일정 알림" : title, body == null ? "" : body);
+        }
+    }
+
+    private void showNotification(String title, String body) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("가족 달력 일정 미리 알림");
+                nm.createNotificationChannel(channel);
+            }
+            Intent open = new Intent(this, MainActivity.class);
+            open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
+            PendingIntent pi = PendingIntent.getActivity(this, 0, open, flags);
+
+            Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? new Notification.Builder(this, CHANNEL_ID)
+                    : new Notification.Builder(this);
+            builder.setContentTitle(title)
+                    .setContentText(body)
+                    .setStyle(new Notification.BigTextStyle().bigText(body))
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setAutoCancel(true)
+                    .setContentIntent(pi);
+            nm.notify((int) (System.currentTimeMillis() % 100000), builder.build());
+        } catch (Exception e) {
+            /* 알림 실패는 앱 동작에 영향 없음 */
+        }
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                try {
+                    requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1003);
+                } catch (Exception e) { /* 무시 */ }
+            }
+        }
     }
 
     @Override

@@ -235,7 +235,8 @@
             bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : '#e6fffb',
             hourly: Math.max(0, Math.round(Number(m.hourly) || 0)),
             joinedAt: m.joinedAt && m.joinedAt.toMillis ? m.joinedAt.toMillis() : 0,
-            active: m.active === false ? false : true
+            active: m.active === false ? false : true,
+            photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl.slice(0, 90000) : ''
           });
         });
       }

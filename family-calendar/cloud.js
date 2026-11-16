@@ -230,11 +230,13 @@
   function eventPayload(data) {
     var date = String(data.date || '');
     var endDate = String(data.endDate || '');
+    var remind = Number(data.remind);
     return {
       title: String(data.title || '').slice(0, 80),
       date: date,
       endDate: /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate > date ? endDate : null,
       time: data.time || null,
+      remind: remind > 0 ? remind : null,
       members: Array.isArray(data.members) ? data.members.slice(0, 20) : [],
       category: String(data.category || 'etc'),
       memo: String(data.memo || '').slice(0, 300),
@@ -253,8 +255,22 @@
     if (state.unsub) { state.unsub(); state.unsub = null; }
     state.unsub = eventCollection().onSnapshot({ includeMetadataChanges: true }, function (snap) {
       var list = [];
+      var photos = [];
       snap.forEach(function (doc) {
         var data = doc.data() || {};
+        if (data.kind === 'photo') {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date || '')) return;
+          if (typeof data.photoDataUrl !== 'string' || data.photoDataUrl.indexOf('data:image/') !== 0) return;
+          photos.push({
+            id: doc.id,
+            date: data.date,
+            folder: String(data.folder || '기본').slice(0, 24),
+            photo: data.photoDataUrl,
+            memo: String(data.memo || '').slice(0, 120),
+            createdAt: data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0
+          });
+          return;
+        }
         if (typeof data.title !== 'string') return;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date || '')) return;
         list.push({
@@ -263,6 +279,7 @@
           date: data.date,
           endDate: /^\d{4}-\d{2}-\d{2}$/.test(data.endDate || '') ? data.endDate : null,
           time: data.time || null,
+          remind: Number(data.remind) > 0 ? Number(data.remind) : null,
           members: Array.isArray(data.members) ? data.members : [],
           category: data.category || 'etc',
           memo: data.memo || '',
@@ -275,9 +292,10 @@
       } else if (snap.metadata.hasPendingWrites) {
         emit('onStatus', { kind: 'pending', text: '저장하는 중…' });
       } else {
-        emit('onStatus', { kind: 'online', text: '가족 실시간 공유 중 · ' + list.length + '건' });
+        emit('onStatus', { kind: 'online', text: '가족 실시간 공유 중 · 일정 ' + list.length + '건' + (photos.length ? ' · 사진 ' + photos.length + '장' : '') });
       }
       emit('onData', list);
+      emit('onPhotos', photos);
     }, function (err) {
       var code = (err && err.code) || '';
       if (code === 'permission-denied') {
@@ -304,6 +322,26 @@
   }
 
   function deleteEvent(id) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    return eventCollection().doc(id).delete();
+  }
+
+  function savePhoto(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var url = String(data.photoDataUrl || '');
+    if (url.indexOf('data:image/') !== 0) return Promise.reject(new Error('bad-photo'));
+    var ref = eventCollection().doc();
+    return ref.set({
+      kind: 'photo',
+      date: String(data.date || ''),
+      folder: String(data.folder || '기본').slice(0, 24),
+      photoDataUrl: url,
+      memo: String(data.memo || '').slice(0, 120),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () { return ref.id; });
+  }
+
+  function deletePhoto(id) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     return eventCollection().doc(id).delete();
   }
@@ -344,6 +382,7 @@
           date: String(r.date || ''),
           endDate: /^\d{4}-\d{2}-\d{2}$/.test(r.endDate || '') ? r.endDate : null,
           time: r.time || null,
+          remind: Number(r.remind) > 0 ? Number(r.remind) : null,
           members: Array.isArray(r.members) ? r.members : [],
           category: String(r.category || 'etc'),
           memo: String(r.memo || ''),
@@ -370,13 +409,17 @@
   }
 
   function cleanMember(m) {
-    return {
+    var photo = typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0
+      ? m.photoDataUrl.slice(0, 90000) : '';
+    var out = {
       id: String(m.id || '').slice(0, 40),
       name: String(m.name || '').slice(0, 12),
       color: String(m.color || '#64748b').slice(0, 9),
       bg: String(m.bg || '').slice(0, 9),
       role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member'
     };
+    if (photo) out.photoDataUrl = photo;
+    return out;
   }
 
   function saveRoomMeta(patch) {
@@ -463,6 +506,8 @@
     stop: stop,
     saveEvent: saveEvent,
     deleteEvent: deleteEvent,
+    savePhoto: savePhoto,
+    deletePhoto: deletePhoto,
     deleteSamples: deleteSamples,
     saveMembers: saveMembers,
     setPin: setPin,

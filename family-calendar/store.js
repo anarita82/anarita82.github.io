@@ -809,17 +809,23 @@
     if (!wrap) return;
     wrap.innerHTML = '';
     var list = isOwner() ? S.staff : S.staff.filter(function (m) { return m.id === myStaffId(); });
-    function chip(id, name, color, active) {
+    function chip(id, name, color, active, member) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'chip' + (active ? ' is-active' : '');
       b.setAttribute('aria-pressed', String(active));
       if (active) b.style.background = color || '#0d9488';
-      var d = document.createElement('span');
-      d.className = 'chip__dot';
-      d.style.background = color || '#94a3b8';
-      if (active) d.style.background = '#fff';
-      b.appendChild(d);
+      if (member) {
+        var av = storeAvatar(member, 18);
+        av.classList.add('chip__av');
+        b.appendChild(av);
+      } else {
+        var d = document.createElement('span');
+        d.className = 'chip__dot';
+        d.style.background = color || '#94a3b8';
+        if (active) d.style.background = '#fff';
+        b.appendChild(d);
+      }
       b.appendChild(document.createTextNode(name));
       b.addEventListener('click', function () {
         if (!isOwner()) return;
@@ -830,7 +836,7 @@
     }
     if (isOwner()) chip('all', '전체', '#0d9488', S.filter === 'all');
     list.forEach(function (m) {
-      chip(m.id, m.name, m.color, S.filter === m.id);
+      chip(m.id, m.name, m.color, S.filter === m.id, m);
     });
     if (!list.length && !isOwner()) wrap.innerHTML = '<span class="field-hint">등록된 알바생이 없어요.</span>';
   }
@@ -1001,6 +1007,9 @@
 
     var top = document.createElement('div');
     top.className = 'shift__top';
+    var av = storeAvatar(st, 20);
+    av.style.marginRight = '2px';
+    top.appendChild(av);
     var name = document.createElement('span');
     name.className = 'shift__name';
     name.textContent = sh.staffName || (st ? st.name : '알바');
@@ -1574,14 +1583,25 @@
     S.staff.forEach(function (m) {
       var li = document.createElement('li');
       li.className = 'staff-row';
-      var dot = document.createElement('span');
-      dot.className = 'staff-row__dot';
-      dot.style.background = m.color;
-      li.appendChild(dot);
-      var name = document.createElement('span');
+
+      var photoBtn = document.createElement('button');
+      photoBtn.type = 'button';
+      photoBtn.className = 'staff-row__photo';
+      photoBtn.setAttribute('aria-label', m.name + ' 사진 바꾸기');
+      photoBtn.appendChild(storeAvatar(m, 30));
+      photoBtn.addEventListener('click', function () { pickStaffPhoto(m); });
+      li.appendChild(photoBtn);
+
+      var name = document.createElement('input');
+      name.type = 'text';
       name.className = 'staff-row__name';
-      name.textContent = m.name;
+      name.value = m.name;
+      name.maxLength = 12;
+      name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
+      name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
+      name.addEventListener('change', function () { saveStaffName(m, name.value); });
       li.appendChild(name);
+
       if (m.active === false) {
         var off = document.createElement('span');
         off.className = 'staff-row__off';
@@ -1609,11 +1629,75 @@
     });
   }
 
+  function storeAvatar(m, size) {
+    var el;
+    if (m && m.photoDataUrl) {
+      el = document.createElement('img');
+      el.src = m.photoDataUrl;
+      el.alt = '';
+      el.className = 'avatar';
+    } else {
+      el = document.createElement('span');
+      el.className = 'avatar avatar--dot';
+      el.style.background = m ? m.color : '#94a3b8';
+    }
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    return el;
+  }
+
+  function staffPlain(m) {
+    var out = {
+      id: m.id, name: m.name, color: m.color, bg: m.bg,
+      hourly: m.hourly, joinedAt: m.joinedAt || null, active: m.active !== false
+    };
+    if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
+    return out;
+  }
+
+  function saveStaffName(m, raw) {
+    if (!isOwner()) return;
+    var name = String(raw || '').trim().slice(0, 12);
+    if (!name) { toast('이름을 넣어 주세요'); renderStaffList(); return; }
+    if (name === m.name) return;
+    if (S.staff.some(function (x) { return x.id !== m.id && x.name === name; })) {
+      toast('같은 이름이 이미 있어요');
+      renderStaffList();
+      return;
+    }
+    var next = S.staff.map(staffPlain);
+    next.forEach(function (x) { if (x.id === m.id) x.name = name; });
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      toast((m.name || '알바생') + ' → ' + name + ' 으로 바꿨어요');
+    }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function pickStaffPhoto(m) {
+    if (!isOwner()) return;
+    if (!window.CalendarMedia) return;
+    CalendarMedia.pickFiles(false).then(function (files) {
+      if (!files || !files.length) return;
+      CalendarMedia.square(files[0], 160, 0.82).then(function (url) {
+        var next = S.staff.map(staffPlain);
+        next.forEach(function (x) { if (x.id === m.id) x.photoDataUrl = url; });
+        return StoreCloud.saveRoom({ staff: next }).then(function () {
+          toast(m.name + ' 님 사진을 저장했어요');
+        });
+      }).catch(function () {
+        toast('사진을 읽지 못했어요');
+      });
+    });
+  }
+
   function saveStaffHourly(staffId, value) {
     if (!isOwner()) return;
     var hourly = Math.max(0, Math.round(Number(value) || 0));
     var next = S.staff.map(function (m) {
-      return { id: m.id, name: m.name, color: m.color, bg: m.bg, hourly: m.id === staffId ? hourly : m.hourly, joinedAt: m.joinedAt || null, active: m.active !== false };
+      var out = staffPlain(m);
+      out.hourly = m.id === staffId ? hourly : m.hourly;
+      return out;
     });
     StoreCloud.saveRoom({ staff: next }).then(function () {
       toast('기본 시급을 저장했어요');
@@ -1681,7 +1765,7 @@
     var staffId = 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     var palette = STAFF_COLORS[S.staff.length % STAFF_COLORS.length];
     var next = S.staff.map(function (m) {
-      return { id: m.id, name: m.name, color: m.color, bg: m.bg, hourly: m.hourly, joinedAt: m.joinedAt || null, active: m.active !== false };
+      return staffPlain(m);
     });
     next.push({ id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true });
     if (btn) btn.disabled = true;

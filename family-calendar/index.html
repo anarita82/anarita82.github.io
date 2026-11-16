@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261116h" />
-<link rel="stylesheet" href="store.css?v=20261116h" />
+<link rel="stylesheet" href="styles.css?v=20261116i" />
+<link rel="stylesheet" href="store.css?v=20261116i" />
 </head>
 <body>
 <div class="app">
@@ -33,6 +33,7 @@
         <span class="profile-badge__role" id="profileRole" hidden></span>
       </button>
       <button class="approve-pill" id="approveBtn" type="button" hidden>🔔 승인 대기 <b id="approveCount">0</b>건</button>
+      <button class="approve-pill" id="notifyBtn" type="button">🔔 알림 켜기</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="storeSubRow" hidden>
       <span class="profile-badge" id="storeWhoBadge">🏪 <span id="storeWhoName">사장님</span></span>
@@ -68,6 +69,8 @@
       </section>
 
       <section class="card day-card" id="dayCard" aria-live="polite"></section>
+
+      <section class="card photo-card" id="photoCard"></section>
 
       <section class="card dday-card">
         <div class="card-head">
@@ -299,6 +302,19 @@
         <button type="button" data-repeat="yearly-lunar">매년 음력</button>
       </div>
       <p class="field-hint" id="repeatHint"></p>
+    </div>
+
+    <div class="field">
+      <label>🔔 미리 알림</label>
+      <div class="segmented segmented--wrap" id="fRemind" role="group" aria-label="미리 알림">
+        <button type="button" data-remind="none" class="is-active">없음</button>
+        <button type="button" data-remind="0">정시</button>
+        <button type="button" data-remind="10">10분 전</button>
+        <button type="button" data-remind="30">30분 전</button>
+        <button type="button" data-remind="60">1시간 전</button>
+        <button type="button" data-remind="1440">전날</button>
+      </div>
+      <p class="field-hint">앱이 열려 있을 때 화면 배너와 휴대폰 알림으로 알려드려요. 앱을 완전히 꺼 두면 울리지 않아요.</p>
     </div>
 
     <p class="request-note" id="requestNote" hidden>보내면 <b>아빠·엄마</b>가 승인한 뒤 달력에 올라가요.</p>
@@ -642,16 +658,18 @@
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261116h"></script>
-<script src="firebase-auth-compat.js?v=20261116h"></script>
-<script src="firebase-firestore-compat.js?v=20261116h"></script>
-<script src="lunar.js?v=20261116h"></script>
-<script src="cloud.js?v=20261116h"></script>
-<script src="app.js?v=20261116h"></script>
-<script src="voice.js?v=20261116h"></script>
-<script src="store-cloud.js?v=20261116h"></script>
-<script src="store.js?v=20261116h"></script>
+<script src="firebase-app-compat.js?v=20261116i"></script>
+<script src="firebase-auth-compat.js?v=20261116i"></script>
+<script src="firebase-firestore-compat.js?v=20261116i"></script>
+<script src="lunar.js?v=20261116i"></script>
+<script src="cloud.js?v=20261116i"></script>
+<script src="app.js?v=20261116i"></script>
+<script src="voice.js?v=20261116i"></script>
+<script src="media.js?v=20261116i"></script>
+<script src="store-cloud.js?v=20261116i"></script>
+<script src="store.js?v=20261116i"></script>
 </body>
 </html>

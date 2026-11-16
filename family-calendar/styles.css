@@ -771,3 +771,125 @@ button, input, select, textarea { font: inherit; color: inherit; }
   box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .5);
   text-align: center;
 }
+
+/* ---------- 사진(아바타·앨범·라이트박스) ---------- */
+.avatar {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  flex: 0 0 auto;
+  background: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, .65);
+}
+.avatar--dot { border: 0; }
+.chip__av { width: 18px; height: 18px; margin-right: -1px; }
+.profile-item__dot { width: 26px; height: 26px; }
+
+.photo-card { padding-bottom: 12px; }
+.folder-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.folder-chips::-webkit-scrollbar { display: none; }
+.chip--sm { padding: 5px 10px; font-size: 11.5px; }
+.chip--ghost { border-style: dashed; color: var(--ink-soft); }
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 4px 0 10px;
+}
+.photo-thumb {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  background: #eef1f6;
+  aspect-ratio: 1 / 1;
+  cursor: pointer;
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb__folder {
+  position: absolute;
+  left: 4px; bottom: 4px;
+  font-size: 9px; font-weight: 800;
+  color: #fff;
+  background: rgba(17, 20, 28, .55);
+  border-radius: 6px;
+  padding: 1px 5px;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lightbox {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(8, 10, 14, .96);
+  display: flex; flex-direction: column;
+  padding: calc(10px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom));
+}
+.lightbox__bar { display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 12px; }
+.lightbox__actions { display: flex; gap: 6px; }
+.lightbox__btn {
+  border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(255, 255, 255, .12);
+  color: #fff; font-size: 12px; font-weight: 700;
+  padding: 6px 10px; border-radius: 9px; cursor: pointer;
+  font-family: inherit;
+}
+.lightbox__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.lightbox__img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+.lightbox__nav {
+  flex: 0 0 auto;
+  width: 34px; height: 60px;
+  border: 0; border-radius: 10px;
+  background: rgba(255, 255, 255, .16);
+  color: #fff; font-size: 24px; line-height: 1; cursor: pointer;
+}
+.lightbox__cap { margin: 8px 0 0; text-align: center; color: rgba(255, 255, 255, .82); font-size: 12px; }
+
+/* ---------- 미리 알림 ---------- */
+.segmented--wrap { flex-wrap: wrap; }
+.segmented--wrap button { flex: 1 1 28%; font-size: 11.5px; }
+.event__remind { color: #b45309; font-weight: 700; }
+.approve-pill.is-on { background: #34d399; color: #053a2b; border-color: #34d399; }
+.remind-banner {
+  position: fixed;
+  left: 50%;
+  top: calc(10px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 110;
+  width: min(94vw, 480px);
+  display: flex; align-items: center; gap: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  padding: 11px 12px;
+  border-radius: 13px;
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .7);
+}
+.remind-banner span { flex: 1; }
+.remind-banner__close {
+  border: 0; background: rgba(255, 255, 255, .16); color: #fff;
+  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  font-size: 11px;
+}
+
+/* ---------- 관리자: 이름·사진 ---------- */
+.admin-member__photo {
+  border: 0; background: transparent; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.admin-member__name {
+  flex: 1; min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px; font-weight: 700;
+  padding: 4px 6px;
+  font-family: inherit;
+}
+.admin-member__name:focus { border-color: #a5a3f5; background: #fff; outline: none; }
