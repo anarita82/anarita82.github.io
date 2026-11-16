@@ -1,7 +1,7 @@
 {
-  "name": "우리 가족 달력 (테스트)",
+  "name": "우리 가족 달력",
   "short_name": "가족 달력",
-  "description": "가족 6명이 함께 쓰는 음력 지원 가족 달력 - 테스트 버전",
+  "description": "가족끼리 실시간으로 함께 쓰는 음력 지원 가족 달력",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./",

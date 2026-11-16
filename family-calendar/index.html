@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>우리 가족 달력</title>
-<meta name="description" content="가족 6명이 함께 쓰는 음력 지원 가족 달력 (테스트 버전)" />
+<meta name="description" content="가족 6명이 함께 쓰는 음력 지원 가족 달력 (가족 공유판)" />
 <meta name="theme-color" content="#4f46e5" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" type="image/png" />
@@ -19,9 +19,9 @@
   <header class="app-bar">
     <div class="app-bar__row">
       <h1 class="app-bar__title">📅 우리 가족 달력</h1>
-      <span class="app-bar__ver">TEST</span>
+      <span class="app-bar__status app-bar__status--pending" id="statusPill">연결 중</span>
     </div>
-    <p class="app-bar__note">테스트 모드 · 현재 이 기기에만 저장돼요 (확인 후 가족 공유 DB 연결 예정)</p>
+    <p class="app-bar__note" id="appBarNote">가족 방에 연결하는 중…</p>
   </header>
 
   <nav class="member-filter" id="memberFilter" aria-label="가족 구성원 필터"></nav>
@@ -60,18 +60,22 @@
     </section>
 
     <section class="card guide-card">
-      <div class="card-head"><h2>🧪 테스트 안내</h2></div>
+      <div class="card-head"><h2>👨‍👩‍👧‍👦 가족 공유 안내</h2></div>
       <ul class="guide-list">
-        <li>일정은 이 브라우저에만 저장돼요. 다른 기기·가족과는 아직 공유되지 않습니다.</li>
+        <li>일정은 <b>가족 공유 서버</b>에 저장돼서, 한 사람이 넣거나 고치면 <b>가족 모든 폰에 바로</b> 나타나요.</li>
+        <li>처음 한 번만 <b>가족 코드</b>를 넣으면 이 폰에 기억돼요. 코드를 아는 사람만 볼 수 있어요.</li>
         <li>반복을 <b>매년 음력</b>으로 고르면 음력 날짜를 저장해 두고, 보는 해의 양력 날짜로 자동 계산해요 (2022~2040년 지원).</li>
-        <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 확인이 끝나면 초기화하고 실제 일정을 넣어 주세요.</li>
+        <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 실제 일정을 넣기 전에 지워 주세요.</li>
       </ul>
+      <p class="room-code-now" id="roomCodeNow" hidden></p>
       <div class="guide-actions">
-        <button class="btn-ghost btn-danger" id="resetBtn" type="button">테스트 데이터 초기화</button>
+        <button class="btn-primary btn-small" id="inviteBtn" type="button">가족 초대 링크 복사</button>
+        <button class="btn-ghost btn-small" id="codeBtn" type="button">가족 코드 변경</button>
+        <button class="btn-ghost btn-small btn-danger" id="resetBtn" type="button">샘플 일정 지우기</button>
       </div>
     </section>
 
-    <p class="footnote">우리 가족 달력 · 테스트 버전 · 음력/공휴일은 내장 계산값이라 실제와 다를 수 있어요</p>
+    <p class="footnote">우리 가족 달력 · 가족 공유판 · 음력/공휴일은 내장 계산값이라 실제와 다를 수 있어요</p>
   </main>
 
   <button class="fab" id="addBtn" type="button">＋ 일정 추가</button>
@@ -143,7 +147,32 @@
   </form>
 </div>
 
+<div class="modal" id="roomModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="roomForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>가족 방 연결</h2>
+      <button class="sheet-close" id="roomClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">가족끼리 정한 <b>가족 코드</b>를 넣으면 같은 가족 달력을 함께 봐요.<br />처음 한 번만 넣으면 이 폰에 기억됩니다.</p>
+    <div class="field">
+      <label for="roomCode">가족 코드</label>
+      <input id="roomCode" type="text" placeholder="예) 우리집2026" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <p class="field-hint">가족 모두 같은 코드를 써야 같은 달력이 보여요.</p>
+    </div>
+    <p class="form-error" id="roomError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary">시작하기</button>
+    </div>
+  </form>
+</div>
+
+<script src="firebase-app-compat.js"></script>
+<script src="firebase-auth-compat.js"></script>
+<script src="firebase-firestore-compat.js"></script>
 <script src="lunar.js"></script>
+<script src="cloud.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

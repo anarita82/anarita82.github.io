@@ -1,4 +1,4 @@
-/* 우리 가족 달력 — 테스트 버전 (localStorage 저장) */
+/* 우리 가족 달력 — 가족 공유판 (Firebase Cloud Firestore 실시간 동기화) */
 (function () {
   'use strict';
 
@@ -22,43 +22,25 @@
   ];
 
   var WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-  var STORE_KEY = 'family-calendar.events.v1';
   var NAV_MIN_YEAR = 2024;
   var NAV_MAX_YEAR = 2037;
+  var SAMPLE_PREFIX = '[샘플]';
 
-  /* ---------------- 저장소 ---------------- */
+  /* ---------------- 저장소 (Firebase 공유) ---------------- */
   var events = [];
+  var cloudReady = false;
   var state = {
     year: 0,
     month: 0,
     selected: '',
     member: 'all',
     editingId: null,
-    repeat: 'none'
+    repeat: 'none',
+    saving: false
   };
-
-  function loadEvents() {
-    try {
-      var raw = localStorage.getItem(STORE_KEY);
-      if (raw) {
-        var data = JSON.parse(raw);
-        if (Array.isArray(data)) return data.filter(isEventLike);
-      }
-    } catch (err) { /* 저장소를 못 읽으면 샘플로 시작 */ }
-    return seedSamples();
-  }
 
   function isEventLike(ev) {
     return ev && typeof ev === 'object' && typeof ev.title === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ev.date || '');
-  }
-
-  function persist() {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(events));
-      return true;
-    } catch (err) {
-      return false;
-    }
   }
 
   function seedSamples() {
@@ -202,8 +184,17 @@
     el.formError = document.getElementById('formError');
     el.modalTitle = document.getElementById('modalTitle');
     el.deleteBtn = document.getElementById('deleteBtn');
+    el.saveBtn = document.getElementById('saveBtn');
 
-    events = loadEvents();
+    el.statusPill = document.getElementById('statusPill');
+    el.appBarNote = document.getElementById('appBarNote');
+    el.roomModal = document.getElementById('roomModal');
+    el.roomForm = document.getElementById('roomForm');
+    el.roomCode = document.getElementById('roomCode');
+    el.roomError = document.getElementById('roomError');
+    el.roomClose = document.getElementById('roomClose');
+    el.roomCodeNow = document.getElementById('roomCodeNow');
+
     var today = new Date();
     state.year = today.getFullYear();
     state.month = today.getMonth();
@@ -211,6 +202,115 @@
 
     bind();
     renderAll();
+    startCloud();
+  }
+
+  /* ---------------- 공유 연결 ---------------- */
+  function setStatus(kind, text) {
+    if (!el.statusPill) return;
+    el.statusPill.textContent = kind === 'online' ? '공유 중' : (kind === 'offline' ? '오프라인' : (kind === 'error' ? '오류' : '연결 중'));
+    el.statusPill.className = 'app-bar__status app-bar__status--' + (kind || 'pending');
+    if (el.appBarNote) el.appBarNote.textContent = text || '';
+  }
+
+  function errorHint(err) {
+    if (!err) return '알 수 없는 오류';
+    if (err.code === 'permission-denied') return '가족 방에 쓸 권한이 없어요. 가족 코드를 확인해 주세요.';
+    if (err.code === 'unavailable') return '인터넷 연결을 확인해 주세요.';
+    if (err.code === 'auth/operation-not-allowed') return '익명 로그인이 꺼져 있어요.';
+    if (err.code === 'auth/network-request-failed') return '인터넷 연결을 확인해 주세요.';
+    if (err.message === 'firebase-sdk-missing') return '공유 모듈을 불러오지 못했어요.';
+    if (err.message === 'empty-code') return '가족 코드를 입력해 주세요.';
+    if (err.code) return err.code;
+    return err.message || '알 수 없는 오류';
+  }
+
+  function seedPayloads() {
+    return seedSamples().map(function (ev) {
+      return {
+        title: ev.title, date: ev.date, time: ev.time, members: ev.members,
+        category: ev.category, memo: ev.memo, repeat: ev.repeat, lunar: ev.lunar
+      };
+    });
+  }
+
+  function startCloud() {
+    if (!window.FamilyCloud) {
+      setStatus('error', '공유 모듈을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
+      return;
+    }
+    var code = FamilyCloud.initialCode();
+    if (!code) {
+      setStatus('pending', '가족 코드를 넣으면 가족과 함께 쓰는 달력이 열려요');
+      openRoomModal(true);
+      return;
+    }
+    connectToRoom(code);
+  }
+
+  function connectToRoom(code) {
+    setStatus('pending', '가족 방에 연결하는 중…');
+    FamilyCloud.start(code, {
+      seedEvents: seedPayloads,
+      confirmCreate: function (clean) {
+        return window.confirm('"' + clean + '" 코드의 가족 방을 찾지 못했어요.\n\n새로 만들면 지금까지의 일정은 보이지 않아요.\n코드를 다시 확인하고, 처음 만드는 방이 맞으면 확인을 눌러 주세요.');
+      },
+      onData: function (list) { events = list; cloudReady = true; renderAll(); },
+      onStatus: function (s) { setStatus(s.kind, s.text); }
+    }).then(function (info) {
+      cloudReady = true;
+      updateRoomInfo();
+      closeRoomModal();
+      if (info && info.created) {
+        setStatus('online', '새 가족 방을 만들었어요 · 이 코드를 가족에게 알려 주세요');
+      }
+    }).catch(function (err) {
+      if (err && err.message === 'cancelled') {
+        setStatus('pending', '가족 코드를 다시 확인해 주세요');
+        openRoomModal(false);
+        showRoomError('새 방을 만들지 않았어요. 가족 코드를 다시 확인해 주세요.');
+        return;
+      }
+      setStatus('error', '연결하지 못했어요 · ' + errorHint(err));
+      openRoomModal(false);
+      showRoomError('연결하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function updateRoomInfo() {
+    if (!el.roomCodeNow) return;
+    var code = FamilyCloud.storedCode();
+    el.roomCodeNow.textContent = code ? '가족 코드: ' + code : '';
+    el.roomCodeNow.hidden = !code;
+  }
+
+  function openRoomModal(firstRun) {
+    el.roomError.hidden = true;
+    el.roomError.textContent = '';
+    el.roomCode.value = FamilyCloud.initialCode() || '';
+    el.roomClose.hidden = !!firstRun;
+    el.roomModal.hidden = false;
+    try { el.roomCode.focus(); } catch (e) { /* 무시 */ }
+  }
+
+  function closeRoomModal() {
+    if (el.roomModal) el.roomModal.hidden = true;
+  }
+
+  function showRoomError(msg) {
+    el.roomError.textContent = msg;
+    el.roomError.hidden = false;
+  }
+
+  function submitRoomCode(e) {
+    if (e) e.preventDefault();
+    var code = FamilyCloud.normalizeCode(el.roomCode.value);
+    if (!code) { showRoomError('가족 코드를 입력해 주세요.'); return; }
+    FamilyCloud.stop();
+    events = [];
+    state.selected = todayISO();
+    renderAll();
+    connectToRoom(code);
   }
 
   function bind() {
@@ -218,7 +318,13 @@
     document.getElementById('nextMonth').addEventListener('click', function () { shiftMonth(1); });
     document.getElementById('todayBtn').addEventListener('click', goToday);
     document.getElementById('addBtn').addEventListener('click', function () { openModal(null, state.selected); });
-    document.getElementById('resetBtn').addEventListener('click', resetData);
+    document.getElementById('resetBtn').addEventListener('click', deleteSamples);
+    document.getElementById('inviteBtn').addEventListener('click', copyInviteLink);
+    document.getElementById('codeBtn').addEventListener('click', function () { openRoomModal(false); });
+    el.roomForm.addEventListener('submit', submitRoomCode);
+    el.roomClose.addEventListener('click', closeRoomModal);
+    var roomBackdrop = el.roomModal.querySelector('[data-close]');
+    if (roomBackdrop) roomBackdrop.addEventListener('click', function () { if (!el.roomClose.hidden) closeRoomModal(); });
     document.getElementById('modalClose').addEventListener('click', closeModal);
     var backdrop = el.modal.querySelector('[data-close]');
     if (backdrop) backdrop.addEventListener('click', closeModal);
@@ -827,25 +933,27 @@
       lunar: lunar
     };
 
-    if (state.editingId) {
-      var idx = -1;
-      for (var i = 0; i < events.length; i++) if (events[i].id === state.editingId) idx = i;
-      if (idx >= 0) events[idx] = Object.assign({}, events[idx], payload);
-    } else {
-      payload.id = uid();
-      events.push(payload);
+    if (!cloudReady) {
+      showFormError('아직 가족 방에 연결되지 않았어요. 잠시 후 다시 저장해 주세요.');
+      return;
     }
+    if (state.saving) return;
+    state.saving = true;
+    el.saveBtn.disabled = true;
 
-    var saved = persist();
-    state.selected = date;
-    var dt = parseISO(date);
-    state.year = dt.getFullYear();
-    state.month = dt.getMonth();
-    closeModal();
-    renderAll();
-    if (!saved) {
-      window.alert('이 브라우저에 저장하지 못했어요. 저장 공간을 확인해 주세요.');
-    }
+    FamilyCloud.saveEvent(state.editingId, payload).then(function () {
+      state.selected = date;
+      var dt = parseISO(date);
+      state.year = dt.getFullYear();
+      state.month = dt.getMonth();
+      closeModal();
+      renderAll();
+    }).catch(function (err) {
+      showFormError('저장하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      state.saving = false;
+      el.saveBtn.disabled = false;
+    });
   }
 
   function deleteEvent() {
@@ -853,23 +961,45 @@
     var target = null;
     for (var i = 0; i < events.length; i++) if (events[i].id === state.editingId) target = events[i];
     if (!target) return;
-    if (!window.confirm('"' + target.title + '" 일정을 삭제할까요?')) return;
-    events = events.filter(function (ev) { return ev.id !== state.editingId; });
-    persist();
+    if (!window.confirm('"' + target.title + '" 일정을 삭제할까요?\n가족 모두의 달력에서 지워집니다.')) return;
+    var id = state.editingId;
     closeModal();
-    renderAll();
+    FamilyCloud.deleteEvent(id).catch(function (err) {
+      window.alert('삭제하지 못했어요 · ' + errorHint(err));
+    });
   }
 
-  function resetData() {
-    if (!window.confirm('테스트 데이터를 초기화할까요?\n저장된 일정이 모두 지워지고 샘플 일정으로 돌아갑니다.')) return;
-    events = seedSamples();
-    persist();
-    var today = new Date();
-    state.year = today.getFullYear();
-    state.month = today.getMonth();
-    state.selected = todayISO();
-    state.member = 'all';
-    renderAll();
+  function deleteSamples() {
+    if (!cloudReady) {
+      window.alert('아직 가족 방에 연결되지 않았어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    if (!window.confirm('샘플 일정을 모두 지울까요?\n가족이 실제로 넣은 일정은 그대로 남습니다.')) return;
+    FamilyCloud.deleteSamples().then(function (n) {
+      window.alert(n ? n + '개의 샘플 일정을 지웠어요.' : '지울 샘플 일정이 없어요.');
+    }).catch(function (err) {
+      window.alert('지우지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function inviteLink() {
+    var code = FamilyCloud.storedCode();
+    if (!code) return '';
+    return location.origin + location.pathname + '?code=' + encodeURIComponent(code);
+  }
+
+  function copyInviteLink() {
+    var link = inviteLink();
+    if (!link) {
+      window.alert('아직 가족 방에 연결되지 않았어요.');
+      return;
+    }
+    var done = function () { window.alert('가족 초대 링크를 복사했어요.\n카카오톡으로 보내면 가족은 링크만 누르면 돼요.\n\n' + link); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done, function () { window.prompt('이 링크를 복사해 주세요.', link); });
+    } else {
+      window.prompt('이 링크를 복사해 주세요.', link);
+    }
   }
 
   /* ---------------- PWA ---------------- */
@@ -890,6 +1020,8 @@
     get events() { return events; },
     occurrenceForYear: occurrenceForYear,
     eventsOn: eventsOn,
-    seedSamples: seedSamples
+    seedSamples: seedSamples,
+    inviteLink: inviteLink,
+    isReady: function () { return cloudReady; }
   };
 })();

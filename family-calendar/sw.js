@@ -1,6 +1,6 @@
 /* 우리 가족 달력 — /family-calendar/ 범위에서만 동작하는 오프라인 캐시 */
-const CACHE = 'family-calendar-v2';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'lunar.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'family-calendar-v3';
+const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'lunar.js', 'cloud.js', 'firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
