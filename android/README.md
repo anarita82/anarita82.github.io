@@ -8,9 +8,9 @@
 | --- | --- |
 | 앱 이름 | 우리 가족 달력 |
 | 패키지 | `com.anarita82.familycalendar` |
-| 버전 | 1.0 (versionCode 1) |
+| 버전 | 1.2 (versionCode 3) |
 | minSdk / targetSdk | 24 (Android 7.0) / 34 |
-| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE` |
+| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, 사진 읽기 |
 | 진입 화면 | `MainActivity` → `https://anarita82.github.io/family-calendar/` |
 
 ## 동작
@@ -20,6 +20,15 @@
 - `anarita82.github.io` 밖의 링크는 기본 브라우저로 엽니다.
 - 페이지를 못 불러오면 "연결할 수 없어요 / 다시 시도" 화면을 보여 줍니다.
 - 개인정보를 기기에서 꺼내 쓰지 않습니다(로그인·저장은 웹앱의 Firebase 익명 인증이 담당).
+
+## 🎤 음성 입력 (1.2에서 추가)
+
+- 안드로이드 **WebView에는 Web Speech API가 없어서** 1.1까지는 `🎤 말로 입력하기`가 동작하지 않았습니다.
+- 1.2부터는 `AndroidApp.startVoiceInput()` JS 브리지가 `RecognizerIntent`(ko-KR, 무료 형식)를 띄우고,
+  인식 결과를 `window.onAndroidVoiceResult(text)`, 취소·오류를 `window.onAndroidVoiceError("cancelled"|"permission"|"no-recognizer"|"empty")`로
+  웹앱에 돌려줍니다. 웹앱(`voice.js`)은 이 콜백의 문장을 기존 한국어 자연어 해석기에 넣어 칸을 채웁니다.
+- 마이크 권한이 없으면 먼저 권한을 요청하고, 거부하면 웹앱에 `permission`을 보내 안내 문구를 띄웁니다.
+- 인식 액티비티를 찾지 못하는 기기(음성인식 앱 없음)는 `no-recognizer`로 안내합니다.
 
 ## 빌드
 

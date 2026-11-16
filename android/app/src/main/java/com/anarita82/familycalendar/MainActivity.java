@@ -7,6 +7,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -16,6 +17,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.speech.RecognizerIntent;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +38,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,6 +54,8 @@ public class MainActivity extends Activity {
     private static final String HOME_HOST_SUFFIX = "anarita82.github.io";
     private static final int REQ_FILE_CHOOSER = 1001;
     private static final int REQ_PERMISSIONS = 1002;
+    private static final int REQ_SPEECH = 1004;
+    private static final int REQ_SPEECH_PERMISSION = 1005;
     private static final String CHANNEL_ID = "family-calendar-reminder";
 
     private WebView webView;
@@ -252,6 +258,21 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_SPEECH) {
+            /* 네이티브 음성인식 결과 → 웹앱 window.onAndroidVoiceResult(문자열) */
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                String text = (results != null && !results.isEmpty()) ? results.get(0) : "";
+                if (text != null && !text.trim().isEmpty()) {
+                    callJs("onAndroidVoiceResult", text.trim());
+                } else {
+                    callJs("onAndroidVoiceError", "empty");
+                }
+            } else {
+                callJs("onAndroidVoiceError", "cancelled");
+            }
+            return;
+        }
         if (requestCode == REQ_FILE_CHOOSER) {
             if (filePathCallback == null) return;
             Uri[] results = null;
@@ -277,6 +298,16 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQ_SPEECH_PERMISSION) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                openSpeechRecognizer();
+            } else {
+                callJs("onAndroidVoiceError", "permission");
+                Toast.makeText(this, "마이크 권한을 허용해야 음성 입력을 쓸 수 있어요", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
         if (requestCode == REQ_PERMISSIONS && pendingWebPermission != null) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (granted) pendingWebPermission.grant(pendingWebPermission.getResources());
@@ -299,6 +330,56 @@ public class MainActivity extends Activity {
         public void notify(String title, String body) {
             showNotification(title == null ? "일정 알림" : title, body == null ? "" : body);
         }
+
+        /* 🎤 음성 입력 — WebView에는 Web Speech API가 없어 네이티브 음성인식 창을 띄웁니다.
+           결과는 window.onAndroidVoiceResult(text), 취소·오류는 window.onAndroidVoiceError(reason). */
+        @JavascriptInterface
+        public void startVoiceInput() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    openSpeechRecognizer();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean hasVoiceInput() { return true; }
+    }
+
+    /* 음성인식 액티비티를 엽니다. 마이크 권한이 없으면 먼저 요청합니다. */
+    private void openSpeechRecognizer() {
+        if (webView == null) return;
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_SPEECH_PERMISSION);
+            return;
+        }
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ko-KR");
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "일정을 말씀해 주세요");
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        try {
+            startActivityForResult(intent, REQ_SPEECH);
+        } catch (ActivityNotFoundException e) {
+            callJs("onAndroidVoiceError", "no-recognizer");
+            Toast.makeText(this, "음성인식 앱을 찾지 못했어요. Google 앱을 설치해 주세요", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            callJs("onAndroidVoiceError", "error");
+        }
+    }
+
+    /* 웹앱의 전역 함수(window.onAndroidVoiceResult 등)를 문자열 인자와 함께 호출합니다. */
+    private void callJs(String fnName, String arg) {
+        if (webView == null) return;
+        final String js = "window." + fnName + " && window." + fnName + "(" + JSONObject.quote(arg == null ? "" : arg) + ");";
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (webView != null) webView.evaluateJavascript(js, null);
+            }
+        });
     }
 
     private void showNotification(String title, String body) {

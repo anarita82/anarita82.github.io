@@ -352,9 +352,15 @@
 
   /* ---------------- 음성 인식 ---------------- */
   var active = null;
+  var pendingNative = null;
+
+  /* 안드로이드 앱(WebView)은 Web Speech API가 없어 네이티브 음성인식(AndroidApp.startVoiceInput)을 씁니다. */
+  function hasNative() {
+    return !!(window.AndroidApp && typeof window.AndroidApp.startVoiceInput === 'function');
+  }
 
   function supported() {
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    return hasNative() || !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }
 
   function stop() {
@@ -362,7 +368,75 @@
       try { active.stop(); } catch (e) { /* 무시 */ }
       active = null;
     }
+    if (pendingNative) {
+      var p = pendingNative;
+      pendingNative = null;
+      if (p.btn) {
+        p.btn.classList.remove('is-listening');
+        p.btn.textContent = (p.opts && p.opts.idleLabel) || '🎤 말로 입력하기';
+      }
+    }
   }
+
+  function resetBtn(btn, opts) {
+    if (!btn) return;
+    btn.classList.remove('is-listening');
+    btn.textContent = (opts && opts.idleLabel) || '🎤 말로 입력하기';
+  }
+
+  /* 네이티브 음성인식 시작 — 결과는 window.onAndroidVoiceResult 로 돌아옵니다. */
+  function startNative(btn, opts) {
+    pendingNative = { btn: btn, opts: opts };
+    btn.classList.add('is-listening');
+    btn.textContent = '🎙️ 듣는 중…';
+    if (opts.statusEl) {
+      opts.statusEl.hidden = false;
+      opts.statusEl.textContent = '말씀하세요… (마이크 창에서 말한 뒤 확인을 누르세요)';
+    }
+    try {
+      window.AndroidApp.startVoiceInput();
+    } catch (e) {
+      pendingNative = null;
+      resetBtn(btn, opts);
+      if (opts.statusEl) {
+        opts.statusEl.hidden = false;
+        opts.statusEl.textContent = '음성 인식을 열지 못했어요. 다시 눌러 주세요.';
+      }
+    }
+  }
+
+  function finishNative(text, errorText) {
+    var p = pendingNative;
+    pendingNative = null;
+    var btn = p && p.btn;
+    var opts = (p && p.opts) || {};
+    resetBtn(btn, opts);
+    var status = opts.statusEl;
+    if (errorText) {
+      if (status) { status.hidden = false; status.textContent = errorText; }
+      return;
+    }
+    var t = String(text == null ? '' : text).trim();
+    if (!t) {
+      if (status) { status.hidden = false; status.textContent = '말소리를 듣지 못했어요. 다시 눌러 말씀해 주세요.'; }
+      return;
+    }
+    if (status) { status.hidden = false; status.textContent = '말한 내용: ' + t; }
+    if (typeof opts.onText === 'function') opts.onText(t);
+  }
+
+  /* 안드로이드 앱이 결과·오류를 돌려줄 때 부르는 함수 */
+  window.onAndroidVoiceResult = function (text) {
+    finishNative(text);
+  };
+  window.onAndroidVoiceError = function (message) {
+    var msg = String(message == null ? '' : message);
+    if (msg === 'cancelled' || msg === 'cancel') finishNative('', '음성 입력을 취소했어요. 다시 누르면 말할 수 있어요.');
+    else if (msg === 'permission') finishNative('', '마이크 권한이 필요해요. 설정 → 애플리케이션 → 우리 가족 달력 → 권한에서 마이크를 허용해 주세요.');
+    else if (msg === 'no-recognizer') finishNative('', '이 폰에서 쓸 수 있는 음성인식 앱을 찾지 못했어요. Google 앱을 설치하거나 키보드의 마이크 버튼을 눌러 주세요.');
+    else if (msg === 'empty') finishNative('', '말소리를 듣지 못했어요. 다시 눌러 말씀해 주세요.');
+    else finishNative('', '음성을 듣지 못했어요. 다시 눌러 말씀해 주세요.');
+  };
 
   /* 버튼 하나에 인식 기능을 붙입니다. */
   function attach(btn, opts) {
@@ -370,10 +444,24 @@
     opts = opts || {};
     btn.addEventListener('click', function () {
       var status = opts.statusEl;
+      /* 1) 안드로이드 앱: 네이티브 음성인식 */
+      if (hasNative()) {
+        if (pendingNative) {
+          if (status) {
+            status.hidden = false;
+            status.textContent = '이미 듣고 있어요. 마이크 창에서 말한 뒤 확인을 눌러 주세요.';
+          }
+          return;
+        }
+        if (active) { stop(); }
+        startNative(btn, opts);
+        return;
+      }
+      /* 2) 웹 브라우저: Web Speech API */
       if (!supported()) {
         if (status) {
           status.hidden = false;
-          status.textContent = '이 환경에서는 키보드의 마이크 버튼을 눌러 말씀하시면 바로 입력돼요. (크롬·삼성 인터넷 앱에서 🎤 말로 입력하기가 열려요)';
+          status.textContent = '이 환경에서는 음성 입력을 쓸 수 없어요. 키보드의 마이크 버튼으로 말하거나, 안드로이드 앱 1.2 이상으로 업데이트해 주세요.';
         }
         if (typeof opts.onUnsupported === 'function') opts.onUnsupported();
         return;
@@ -410,9 +498,10 @@
         btn.textContent = opts.idleLabel || '🎤 말로 입력하기';
         active = null;
         var msg = '음성을 듣지 못했어요. 다시 눌러 말씀해 주세요.';
-        if (ev && ev.error === 'not-allowed') msg = '마이크 사용이 막혀 있어요. 브라우저 설정에서 마이크를 허용해 주세요.';
+        if (ev && ev.error === 'not-allowed') msg = '마이크가 막혀 있어요. 주소창 왼쪽 자물쇠(ⓘ) → 권한 → 마이크 → 허용으로 바꾼 뒤 다시 눌러 주세요. (안드로이드 앱은 앱 설정 → 권한 → 마이크)';
         else if (ev && ev.error === 'no-speech') msg = '말소리를 듣지 못했어요. 다시 눌러 주세요.';
         else if (ev && ev.error === 'network') msg = '음성 인식 서버에 연결하지 못했어요. 인터넷을 확인해 주세요.';
+        else if (ev && ev.error === 'service-not-allowed') msg = '이 브라우저에서 음성 인식 서비스가 막혀 있어요. 크롬에서 열거나 안드로이드 앱 1.2 이상을 써 주세요.';
         if (status) { status.hidden = false; status.textContent = msg; }
       };
       rec.onend = function () {
@@ -439,6 +528,7 @@
 
   window.CalendarVoice = {
     supported: supported,
+    hasNative: hasNative,
     stop: stop,
     attach: attach,
     parse: parse
