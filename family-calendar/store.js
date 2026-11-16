@@ -816,8 +816,7 @@
   /* ---------------- 렌더 ---------------- */
   function renderAll() {
     if (!S.active) return;
-    if (S.role === 'none') { paintStoreStatus(); return; }
-    if (!S.connected) {
+    if (S.role === 'none') { paintStoreStatus(); return; }    if (!S.connected) {
       // 방 문서는 받았지만 근무 목록을 아직 못 받은 경우
       if (!S.shifts.length) showLoading();
     }
@@ -831,6 +830,8 @@
     renderPayroll();
     renderStaffList();
     renderGuide();
+    var apModal = $('storeApproveModal');
+    if (apModal && !apModal.hidden) renderApprovalCards();
     paintStoreStatus();
   }
 
