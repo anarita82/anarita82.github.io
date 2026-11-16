@@ -185,10 +185,230 @@
     return state.db;
   }
 
+  /* ---------------- 계정(로그인) ----------------
+     로그인 없이(익명) 쓰던 기존 흐름은 그대로 두고, 이메일·구글 계정을 더합니다.
+     Firestore 규칙은 `request.auth != null` 만 보므로 익명·이메일·구글 사용자가 같은 방을 씁니다. */
+
+  var METHOD_LABEL = { google: '구글 로그인', email: '이메일 로그인', anonymous: '익명 기기' };
+
+  var authStore = {
+    ready: false,
+    promise: null,
+    info: null,
+    listeners: []
+  };
+
+  function describeUser(u) {
+    if (!u || u.isAnonymous) {
+      return {
+        signedIn: false, anonymous: true,
+        uid: u ? (u.uid || '') : '',
+        email: '', name: '', method: 'anonymous', methodLabel: METHOD_LABEL.anonymous, providerId: ''
+      };
+    }
+    var pid = '';
+    var list = u.providerData || [];
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && list[i].providerId) { pid = list[i].providerId; break; }
+    }
+    var method = pid === 'google.com' ? 'google' : (pid === 'password' ? 'email' : (pid ? pid.split('.')[0] : 'email'));
+    return {
+      signedIn: true, anonymous: false,
+      uid: u.uid || '',
+      email: u.email || '',
+      name: u.displayName || '',
+      method: method,
+      methodLabel: METHOD_LABEL[method] || '로그인',
+      providerId: pid
+    };
+  }
+
+  function notifyAuth() {
+    var user = state.auth ? state.auth.currentUser : null;
+    authStore.info = describeUser(user);
+    var list = authStore.listeners.slice();
+    var i;
+    for (i = 0; i < list.length; i++) {
+      try { list[i](authStore.info); } catch (e) { /* 화면 오류가 인증을 막지 않게 */ }
+    }
+  }
+
+  /* 로그인 상태 복원이 끝날 때까지 기다립니다. 이때 `start()` 가 익명으로 먼저 들어가
+     이메일·구글 세션을 덮어쓰는 일을 막습니다. */
+  function initAuth() {
+    ensureApp();
+    if (authStore.ready) return authStore.promise;
+    authStore.ready = true;
+    authStore.info = describeUser(state.auth.currentUser);
+    authStore.promise = new Promise(function (resolve) {
+      var settled = false;
+      state.auth.onAuthStateChanged(function (u) {
+        if (!settled) { settled = true; resolve(u || null); }
+        notifyAuth();
+      }, function () {
+        if (!settled) { settled = true; resolve(null); }
+        notifyAuth();
+      });
+    });
+    return authStore.promise;
+  }
+
+  function authReady() {
+    try { ensureApp(); } catch (e) { return Promise.resolve(null); }
+    return initAuth();
+  }
+
   function signIn() {
     ensureApp();
-    if (state.auth.currentUser) return Promise.resolve(state.auth.currentUser);
-    return state.auth.signInAnonymously().then(function (cred) { return cred.user; });
+    return authReady().then(function (u) {
+      if (u) return u;
+      if (state.auth.currentUser) return state.auth.currentUser;
+      return state.auth.signInAnonymously().then(function (cred) { return cred.user; });
+    });
+  }
+
+  function accountInfo() {
+    try {
+      ensureApp();
+      return describeUser(state.auth.currentUser);
+    } catch (e) {
+      return describeUser(null);
+    }
+  }
+
+  function onAuth(cb) {
+    if (typeof cb !== 'function') return function () {};
+    authStore.listeners.push(cb);
+    authReady().then(function () {
+      try { cb(accountInfo()); } catch (e) { /* 무시 */ }
+    });
+    return function () {
+      var i = authStore.listeners.indexOf(cb);
+      if (i >= 0) authStore.listeners.splice(i, 1);
+    };
+  }
+
+  function emailValue(v) { return String(v == null ? '' : v).trim(); }
+
+  function signUpWithEmail(email, password, name) {
+    ensureApp();
+    var display = String(name == null ? '' : name).trim().slice(0, 20);
+    return authReady().then(function () {
+      return state.auth.createUserWithEmailAndPassword(emailValue(email), String(password == null ? '' : password));
+    }).then(function (cred) {
+      var user = cred && cred.user ? cred.user : state.auth.currentUser;
+      if (!display || !user || typeof user.updateProfile !== 'function') return user;
+      return user.updateProfile({ displayName: display }).then(function () { return user; });
+    }).then(function (user) {
+      notifyAuth();
+      return describeUser(user);
+    });
+  }
+
+  function signInWithEmail(email, password) {
+    ensureApp();
+    return authReady().then(function () {
+      return state.auth.signInWithEmailAndPassword(emailValue(email), String(password == null ? '' : password));
+    }).then(function (cred) {
+      notifyAuth();
+      return describeUser(cred && cred.user ? cred.user : state.auth.currentUser);
+    });
+  }
+
+  function googleProvider() {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    try { provider.setCustomParameters({ prompt: 'select_account' }); } catch (e) { /* 무시 */ }
+    return provider;
+  }
+
+  /* 팝업 → 막히면 리디렉션. 안드로이드 앱(WebView)에서는 구글이 403 으로 막으므로
+     앱에서는 이 함수를 부르지 않고 브라우저로 안내합니다(app.js). */
+  function signInWithGoogle() {
+    ensureApp();
+    return authReady().then(function () {
+      return state.auth.signInWithPopup(googleProvider());
+    }).then(function (cred) {
+      notifyAuth();
+      return describeUser(cred && cred.user ? cred.user : state.auth.currentUser);
+    });
+  }
+
+  function signInWithGoogleRedirect() {
+    ensureApp();
+    return authReady().then(function () {
+      return state.auth.signInWithRedirect(googleProvider());
+    });
+  }
+
+  /* 리디렉션으로 다녀온 로그인 결과를 마무리합니다. 없으면 null. */
+  function finishRedirectSignIn() {
+    try { ensureApp(); } catch (e) { return Promise.resolve(null); }
+    if (typeof state.auth.getRedirectResult !== 'function') return Promise.resolve(null);
+    return authReady().then(function () {
+      return state.auth.getRedirectResult();
+    }).then(function (result) {
+      notifyAuth();
+      return result && result.user ? describeUser(result.user) : null;
+    }).catch(function () { return null; });
+  }
+
+  function sendPasswordReset(email) {
+    ensureApp();
+    return authReady().then(function () {
+      return state.auth.sendPasswordResetEmail(emailValue(email));
+    });
+  }
+
+  function signOutAccount() {
+    ensureApp();
+    if (!state.auth.currentUser) return Promise.resolve(true);
+    return state.auth.signOut().then(function () {
+      notifyAuth();
+      return true;
+    });
+  }
+
+  function setAccountName(name) {
+    ensureApp();
+    var user = state.auth.currentUser;
+    if (!user) return Promise.reject(new Error('not-signed-in'));
+    return user.updateProfile({ displayName: String(name == null ? '' : name).trim().slice(0, 20) }).then(function () {
+      notifyAuth();
+      return describeUser(state.auth.currentUser);
+    });
+  }
+
+  /* 로그인 오류를 화면에 보여줄 한국어 문구로 */
+  function authErrorHint(err) {
+    var code = String((err && err.code) || '');
+    var map = {
+      'auth/invalid-email': '이메일 주소를 다시 확인해 주세요.',
+      'auth/missing-email': '이메일 주소를 넣어 주세요.',
+      'auth/user-not-found': '가입된 이메일이 없어요. 회원가입을 해 주세요.',
+      'auth/wrong-password': '비밀번호가 맞지 않아요.',
+      'auth/invalid-credential': '이메일 또는 비밀번호가 맞지 않아요.',
+      'auth/invalid-login-credentials': '이메일 또는 비밀번호가 맞지 않아요.',
+      'auth/email-already-in-use': '이미 가입된 이메일이에요. 로그인해 주세요.',
+      'auth/weak-password': '비밀번호는 6자 이상으로 정해 주세요.',
+      'auth/missing-password': '비밀번호를 넣어 주세요.',
+      'auth/too-many-requests': '시도가 너무 많았어요. 잠시 뒤에 다시 해 주세요.',
+      'auth/network-request-failed': '인터넷 연결을 확인해 주세요.',
+      'auth/operation-not-allowed': '지금은 이 로그인 방식이 꺼져 있어요.',
+      'auth/popup-blocked': '팝업이 막혀 있어요. 다시 한 번 눌러 주세요.',
+      'auth/popup-closed-by-user': '로그인 창을 닫았어요.',
+      'auth/cancelled-popup-request': '로그인 창을 닫았어요.',
+      'auth/redirect-cancelled-by-user': '로그인을 취소했어요.',
+      'auth/account-exists-with-different-credential': '같은 이메일로 다른 방식의 계정이 있어요. 그 방식으로 로그인해 주세요.',
+      'auth/unauthorized-domain': '이 사이트 주소가 로그인 허용 목록에 없어요.',
+      'auth/requires-recent-login': '보안을 위해 다시 로그인한 뒤에 해 주세요.',
+      'auth/user-disabled': '사용할 수 없는 계정이에요.',
+      'auth/internal-error': '잠시 뒤에 다시 시도해 주세요.',
+      'auth/operation-not-supported-in-this-environment': '이 환경에서는 그 로그인을 쓸 수 없어요. 이메일 로그인을 써 주세요.'
+    };
+    if (map[code]) return map[code];
+    if (code) return code.replace('auth/', '') + ' 오류가 났어요.';
+    return (err && err.message) || '알 수 없는 오류가 났어요.';
   }
 
   function start(code, handlers) {
@@ -706,6 +926,18 @@
 
   window.FamilyCloud = {
     CONFIG: CONFIG,
+    ensureSignedIn: signIn,
+    accountInfo: accountInfo,
+    onAuth: onAuth,
+    signUpWithEmail: signUpWithEmail,
+    signInWithEmail: signInWithEmail,
+    signInWithGoogle: signInWithGoogle,
+    signInWithGoogleRedirect: signInWithGoogleRedirect,
+    finishRedirectSignIn: finishRedirectSignIn,
+    sendPasswordReset: sendPasswordReset,
+    signOutAccount: signOutAccount,
+    setAccountName: setAccountName,
+    authErrorHint: authErrorHint,
     normalizeCode: normalizeCode,
     roomIdForCode: roomIdForCode,
     initialCode: initialCode,

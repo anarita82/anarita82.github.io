@@ -99,6 +99,9 @@
 
   function signIn() {
     ensureApp();
+    if (window.FamilyCloud && typeof window.FamilyCloud.ensureSignedIn === 'function') {
+      return window.FamilyCloud.ensureSignedIn();
+    }
     if (state.auth.currentUser) return Promise.resolve(state.auth.currentUser);
     return state.auth.signInAnonymously().then(function (cred) { return cred.user; });
   }

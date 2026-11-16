@@ -345,6 +345,29 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean hasVoiceInput() { return true; }
+
+        /* 🔐 구글 로그인처럼 WebView 안에서 막히는 화면은 기본 브라우저(크롬)로 엽니다.
+           웹앱은 window.AndroidApp.openExternal(url) 을 부를 수 있으면 부르고, 없으면 주소를 복사하도록 안내합니다. */
+        @JavascriptInterface
+        public void openExternal(final String url) {
+            final String target = url == null ? "" : url.trim();
+            if (!(target.startsWith("https://") || target.startsWith("http://"))) return;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(target));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, "브라우저를 열 수 없어요. 크롬에서 주소를 열어 주세요.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean hasOpenExternal() { return true; }
     }
 
     /* 음성인식 액티비티를 엽니다. 마이크 권한이 없으면 먼저 요청합니다. */

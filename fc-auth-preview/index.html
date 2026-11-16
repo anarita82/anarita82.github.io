@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>우리 가족 달력 · 매장 달력</title>
+<meta name="description" content="가족 6명이 함께 쓰는 음력 지원 가족 달력 + 매장 알바 스케줄·인건비·급여명세서" />
+<meta name="theme-color" content="#4f46e5" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="가족 달력" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<link rel="stylesheet" href="styles.css?v=20261117g" />
+<link rel="stylesheet" href="store.css?v=20261117g" />
+</head>
+<body>
+<div class="app">
+  <header class="app-bar">
+    <div class="app-bar__row">
+      <h1 class="app-bar__title" id="appTitle">📅 우리 가족 달력</h1>
+      <span class="app-bar__status app-bar__status--pending" id="statusPill">연결 중</span>
+    </div>
+    <div class="mode-tabs" id="modeTabs" hidden>
+      <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족 캘린더</button>
+      <button type="button" class="mode-tab" id="tabStore">🏪 매장 캘린더</button>
+    </div>
+    <div class="app-bar__row app-bar__row--sub" id="familySubRow">
+      <button class="profile-badge" id="profileBtn" type="button">
+        <span class="profile-badge__dot" id="profileDot"></span>
+        <span id="profileName">사용자 선택</span>
+        <span class="profile-badge__role" id="profileRole" hidden></span>
+      </button>
+      <button class="approve-pill" id="approveBtn" type="button" hidden>🔔 승인 대기 <b id="approveCount">0</b>건</button>
+      <button class="approve-pill" id="notifyBtn" type="button">🔔 알림 켜기</button>
+      <button class="approve-pill account-pill" id="accountPill" type="button">🔐 로그인</button>
+    </div>
+    <div class="app-bar__row app-bar__row--sub" id="storeSubRow" hidden>
+      <span class="profile-badge" id="storeWhoBadge">🏪 <span id="storeWhoName">사장님</span></span>
+      <button class="approve-pill" id="storeApproveBtn" type="button" hidden>🔔 입장·승인 <b id="storeApproveCount">0</b>건</button>
+      <button class="approve-pill account-pill" id="storeAccountPill" type="button">🔐 로그인</button>
+    </div>
+    <p class="app-bar__note" id="appBarNote">가족 방에 연결하는 중…</p>
+  </header>
+
+  <div id="familyView">
+    <nav class="member-filter" id="memberFilter" aria-label="가족 구성원 필터"></nav>
+
+    <main class="content">
+      <section class="card calendar" aria-label="월간 달력">
+        <div class="cal-head">
+          <div class="cal-head__side">
+            <button class="btn-today" id="todayBtn" type="button">오늘</button>
+          </div>
+          <div class="cal-title">
+            <strong id="calTitle">2026년 11월</strong>
+            <span id="calSub" class="cal-sub">음력 10월</span>
+          </div>
+          <div class="cal-head__side">
+            <button class="cal-nav" id="prevMonth" type="button" aria-label="이전 달">‹</button>
+            <button class="cal-nav" id="nextMonth" type="button" aria-label="다음 달">›</button>
+          </div>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span class="wd wd--sun">일</span><span class="wd">월</span><span class="wd">화</span>
+          <span class="wd">수</span><span class="wd">목</span><span class="wd">금</span><span class="wd wd--sat">토</span>
+        </div>
+        <div class="grid" id="grid"></div>
+        <div class="cal-legend" id="legend" aria-hidden="true"></div>
+      </section>
+
+      <section class="card day-card" id="dayCard" aria-live="polite"></section>
+
+      <section class="card kakao-card">
+        <div class="card-head">
+          <h2>💬 카톡 요약 복사</h2>
+          <span class="card-head__hint">붙여넣기만 하면 돼요</span>
+        </div>
+        <div class="kakao-actions">
+          <button type="button" class="btn-primary btn-small" id="kakaoTodayBtn">오늘 요약 복사</button>
+          <button type="button" class="btn-ghost btn-small" id="kakaoWeekBtn">이번 주 요약 복사</button>
+        </div>
+        <pre class="kakao-preview" id="kakaoPreview" hidden></pre>
+      </section>
+
+      <section class="card photo-card" id="photoCard"></section>
+
+      <section class="card dday-card">
+        <div class="card-head">
+          <h2>⏰ 다가오는 일정</h2>
+          <span class="card-head__hint">오늘부터 1년</span>
+        </div>
+        <ul class="dday-list" id="ddayList"></ul>
+      </section>
+
+      <section class="card requests-card" id="myRequestsCard" hidden>
+        <div class="card-head">
+          <h2>📨 내 요청 현황</h2>
+          <span class="card-head__hint" id="myRequestsHint"></span>
+        </div>
+        <ul class="req-list" id="myRequestsList"></ul>
+      </section>
+
+      <section class="card guide-card">
+        <div class="card-head"><h2>👨‍👩‍👧‍👦 가족 공유 안내</h2></div>
+        <ul class="guide-list">
+          <li>일정은 <b>가족 공유 서버</b>에 저장돼서, 한 사람이 넣거나 고치면 <b>가족 모든 폰에 바로</b> 나타나요.</li>
+          <li>처음 한 번만 <b>가족 코드</b>를 넣으면 이 폰에 기억돼요. 코드를 아는 사람만 볼 수 있어요.</li>
+          <li>위에서 <b>내 이름</b>을 골라 주세요. <b>아빠(메인 관리자)·엄마(부매니저)</b>는 일정이 바로 등록되고, 다른 구성원이 넣은 일정은 <b>승인</b>을 거쳐 달력에 올라가요.</li>
+          <li><b>종료일</b>을 넣으면 기간 일정이 돼요 (예: 11/27~11/30 여행). 기간 중 어느 날을 눌러도 그 일정이 보여요.</li>
+          <li>일정 추가 화면의 <b>🎤 말로 입력하기</b>를 누르고 “내일 오후 3시 첫째 치과”처럼 말하면 칸이 자동으로 채워져요.</li>
+          <li>반복을 <b>매년 음력</b>으로 고르면 음력 날짜를 저장해 두고, 보는 해의 양력 날짜로 자동 계산해요 (2022~2040년 지원).</li>
+          <li>반복에서 <b>매주</b>(요일 선택)·<b>매월</b>을 고르면 학원·정기 점검처럼 되풀이되는 일정이 달력에 자동으로 보여요.</li>
+          <li>일정에 <b>☑️ 준비물</b>을 넣어 두면 일정 상세에서 바로 체크할 수 있고, 체크 상태는 가족 모두의 폰에 바로 저장돼요.</li>
+          <li>달력 아래 <b>💬 카톡 요약 복사</b>로 오늘·이번 주 일정을 카톡에 붙여넣을 수 있게 복사해요.</li>
+          <li>프로필 배지를 누른 뒤 <b>🙋 내 정보</b>에서 내 휴대폰 번호를 넣어 두면, 구성원 목록의 번호를 눌러 바로 전화할 수 있어요. 아빠·엄마는 관리자 설정에서 가족 번호를 한 번에 정리할 수 있어요.</li>
+          <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 실제 일정을 넣기 전에 지워 주세요.</li>
+        </ul>
+        <p class="room-code-now" id="roomCodeNow" hidden></p>
+        <div class="guide-actions">
+          <button class="btn-primary btn-small" id="inviteBtn" type="button">가족 초대 링크 복사</button>
+          <button class="btn-ghost btn-small" id="codeBtn" type="button">가족 코드 변경</button>
+          <button class="btn-ghost btn-small btn-danger" id="resetBtn" type="button">샘플 일정 지우기</button>
+        </div>
+      </section>
+
+      <p class="footnote">우리 가족 달력 · 가족 공유판 · 음력/공휴일은 내장 계산값이라 실제와 다를 수 있어요</p>
+    </main>
+
+    <button class="fab" id="addBtn" type="button">＋ 일정 추가</button>
+  </div>
+
+  <!-- 🏪 매장 캘린더 -->
+  <main class="content store-view" id="storeView" hidden>
+    <section class="card" id="storeSetupCard" hidden>
+      <div class="card-head"><h2>🏪 매장 캘린더 시작</h2></div>
+      <p class="room-intro">알바 스케줄·근무시간·인건비·급여명세서를 <b>가족 달력과 완전히 분리된 매장 방</b>에서 관리해요.<br>가족 일정과는 서버 방 자체가 달라서 절대 섞이지 않아요.</p>
+      <p class="form-error" id="storeSetupMsg" hidden></p>
+      <div class="store-setup">
+        <button class="btn-primary" id="storeCreateBtn" type="button">＋ 새 매장 캘린더 만들기</button>
+        <div class="field">
+          <label for="storeCodeInput">매장 코드 입력</label>
+          <input id="storeCodeInput" type="text" placeholder="예) store-k4mp7" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <p class="field-hint">사장님이 이미 만든 매장이 있으면 그 코드를 넣어 주세요.</p>
+        </div>
+        <button class="btn-ghost btn-small" id="storeOpenCodeBtn" type="button">이 코드로 열기</button>
+        <button class="btn-ghost btn-small" id="storeOpenPinBtn" type="button" hidden>사장님 PIN 입력</button>
+        <p class="field-hint">새로 만들면 <b>사장님 PIN</b>(처음 2026)과 <b>매장 초대 코드</b>가 생겨요. 알바생은 초대 링크로만 들어와 승인을 받아요.</p>
+      </div>
+    </section>
+
+    <section class="card" id="storeLoadingCard" hidden>
+      <p class="empty">매장 방에 연결하는 중…</p>
+    </section>
+
+    <section class="card" id="storeJoinCard" hidden>
+      <div class="card-head"><h2>🏪 매장 입장</h2><span class="card-head__hint" id="storeJoinHint"></span></div>
+      <div id="storeJoinForm">
+        <p class="room-intro">사장님이 보내 준 초대 링크로 들어왔어요.<br><b>이름</b>과 <b>휴대폰 번호</b>를 넣고 요청하면 사장님 승인 뒤 매장 캘린더가 열려요.</p>
+        <div class="field">
+          <label for="storeJoinName">이름(닉네임) <span class="req">*</span></label>
+          <input id="storeJoinName" type="text" maxlength="12" placeholder="예) 오후 알바" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="storeJoinTel">휴대폰 번호 <span class="req">*</span></label>
+          <input id="storeJoinTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
+          <p class="field-hint">사장님이 연락·급여 안내에 쓰는 번호예요. 승인하면 알바생 정보에 저장돼요.</p>
+        </div>
+        <p class="form-error" id="storeJoinError" hidden></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn-primary" id="storeJoinBtn">입장 요청 보내기</button>
+        </div>
+        <button type="button" class="btn-ghost btn-small store-owner-link" id="storeOwnerLinkBtn">사장님이에요 · PIN으로 열기</button>
+      </div>
+      <div id="storePendingBox" hidden>
+        <div class="waiting">
+          <div class="waiting__icon">⏳</div>
+          <p class="waiting__title">입장 승인 대기 중</p>
+          <p class="waiting__desc" id="storePendingDesc">사장님이 <b>승인</b>하면 이 화면이 바로 매장 캘린더로 바뀌어요.<br>화면을 그대로 두세요.</p>
+          <p class="waiting__who" id="storePendingWho" hidden></p>
+          <button type="button" class="btn-ghost btn-small" id="storePendingRejoin">요청 내용 다시 보기</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="storeMain" hidden>
+      <section class="card store-dash">
+        <div class="dash-grid">
+          <div class="dash-box">
+            <span class="dash-box__k">오늘 근무</span>
+            <strong class="dash-box__v" id="dashTodayHours">0시간</strong>
+            <span class="dash-box__s" id="dashTodayCost">0원</span>
+          </div>
+          <div class="dash-box">
+            <span class="dash-box__k" id="dashMonthLabel">이번 달 근무</span>
+            <strong class="dash-box__v" id="dashMonthHours">0시간</strong>
+            <span class="dash-box__s" id="dashMonthCost">0원</span>
+          </div>
+        </div>
+        <div class="member-filter store-filter" id="storeStaffFilter"></div>
+        <p class="dash-person" id="dashPerson" hidden></p>
+      </section>
+
+      <section class="card store-me" id="storeMeCard" hidden>
+        <div class="card-head"><h2>🙋 내 정보</h2><span class="card-head__hint">이름·휴대폰 번호</span></div>
+        <p class="store-me__name" id="storeMeName">-</p>
+        <div class="field">
+          <label for="storeMeNameInput">내 이름</label>
+          <input id="storeMeNameInput" type="text" maxlength="12" placeholder="예) 오후 알바" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="storeMeTel">내 휴대폰 번호</label>
+          <input id="storeMeTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
+          <p class="field-hint" id="storeMeTelHint">저장하면 사장님 승인 뒤에 알바생 정보에 반영돼요.</p>
+        </div>
+        <button type="button" class="btn-primary btn-small" id="storeMeSaveBtn">내 정보 저장</button>
+        <p class="field-hint" id="storeMeNote"></p>
+      </section>
+
+      <section class="card calendar">
+        <div class="cal-head">
+          <div class="cal-head__side"><button class="btn-today" id="storeTodayBtn" type="button">오늘</button></div>
+          <div class="cal-title">
+            <strong id="storeCalTitle">2026년 11월</strong>
+            <span class="cal-sub" id="storeCalSub">알바 근무</span>
+          </div>
+          <div class="cal-head__side">
+            <button class="cal-nav" id="storePrevMonth" type="button" aria-label="이전 달">‹</button>
+            <button class="cal-nav" id="storeNextMonth" type="button" aria-label="다음 달">›</button>
+          </div>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span class="wd wd--sun">일</span><span class="wd">월</span><span class="wd">화</span>
+          <span class="wd">수</span><span class="wd">목</span><span class="wd">금</span><span class="wd wd--sat">토</span>
+        </div>
+        <div class="grid" id="storeGrid"></div>
+        <div class="cal-legend" id="storeLegend" aria-hidden="true"></div>
+      </section>
+
+      <section class="card day-card" id="storeDayCard" aria-live="polite"></section>
+
+      <section class="card handover-card" id="storeHandoverCard">
+        <div class="card-head">
+          <h2>📝 교대 인수인계</h2>
+          <span class="card-head__hint" id="storeHandoverHint">특이사항 남기기</span>
+        </div>
+        <ul class="handover-list" id="storeHandoverList"></ul>
+        <div class="handover-add">
+          <input id="storeHandoverInput" type="text" maxlength="80" placeholder="예) 음료 재고 부족, 32번 자리 점검" autocomplete="off" />
+          <button type="button" class="btn-primary btn-small" id="storeHandoverAddBtn">남기기</button>
+        </div>
+        <p class="field-hint">같은 날 근무하는 알바생·사장님이 함께 보고, 확인했으면 체크해 두세요.</p>
+      </section>
+
+      <section class="card kakao-card">
+        <div class="card-head">
+          <h2>💬 카톡 요약 복사</h2>
+          <span class="card-head__hint">붙여넣기만 하면 돼요</span>
+        </div>
+        <div class="kakao-actions">
+          <button type="button" class="btn-primary btn-small" id="storeKakaoTodayBtn">오늘 근무 복사</button>
+          <button type="button" class="btn-ghost btn-small" id="storeKakaoWeekBtn">이번 주 근무 복사</button>
+        </div>
+        <pre class="kakao-preview" id="storeKakaoPreview" hidden></pre>
+      </section>
+
+      <section class="card" id="storePayrollCard">
+        <div class="card-head">
+          <h2>🧾 급여명세서</h2>
+          <span class="card-head__hint" id="payrollMonthLabel">알바생별 월 급여</span>
+        </div>
+        <div class="month-nav">
+          <button class="cal-nav" id="payrollPrev" type="button" aria-label="이전 달">‹</button>
+          <strong id="payrollMonth">2026년 11월</strong>
+          <button class="cal-nav" id="payrollNext" type="button" aria-label="다음 달">›</button>
+        </div>
+        <ul class="pay-list" id="payList"></ul>
+      </section>
+
+      <section class="card" id="storeStaffCard" hidden>
+        <div class="card-head"><h2>👥 알바생 관리</h2><span class="card-head__hint">기본 시급</span></div>
+        <ul class="staff-list" id="staffList"></ul>
+        <p class="field-hint">초대 링크로 들어온 알바생은 위 <b>🔔 입장·승인</b>에서 승인해요. 시급·휴대폰 번호를 고친 뒤 다른 곳을 누르면 자동 저장돼요.</p>
+      </section>
+
+      <section class="card" id="storeGuideCard" hidden>
+        <div class="card-head"><h2>⚙️ 매장 설정</h2></div>
+        <p class="store-code-line">매장 이름 <b id="storeNameNow">우리 매장</b></p>
+        <p class="store-code-line">매장 코드 <b id="storeCodeNow">-</b></p>
+        <div class="guide-actions">
+          <button class="btn-primary btn-small" id="storeCopyInviteBtn" type="button">초대 링크 복사</button>
+          <button class="btn-ghost btn-small" id="storeCopyCodeBtn" type="button">코드 복사</button>
+          <button class="btn-ghost btn-small" id="storeSettingsBtn" type="button">매장·급여 설정</button>
+        </div>
+        <p class="store-hint-box">알바생은 이 링크로만 들어오고, <b>승인 전에는 매장 달력이 열리지 않아요.</b> 승인된 알바생 화면에는 가족 달력 버튼이 아예 보이지 않아요.</p>
+      </section>
+    </div>
+  </main>
+
+  <button class="fab" id="storeAddBtn" type="button" hidden>＋ 근무 등록</button>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="eventForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="modalTitle">일정 추가</h2>
+      <button class="sheet-close" id="modalClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="voice-box">
+      <button type="button" class="voice-btn" id="eventVoiceBtn">🎤 말로 입력하기</button>
+      <p class="voice-status" id="eventVoiceStatus" hidden></p>
+    </div>
+
+    <div class="field">
+      <label for="fTitle">제목 <span class="req">*</span></label>
+      <input id="fTitle" type="text" placeholder="예) 둘째 치과 검진" maxlength="60" autocomplete="off" required />
+    </div>
+
+    <div class="field">
+      <label for="fDate">시작일 <span class="req">*</span></label>
+      <input id="fDate" type="date" required />
+      <p class="field-hint" id="dateLunarHint"></p>
+    </div>
+
+    <div class="field">
+      <label for="fEndDate">종료일 <span class="field-hint--inline">기간 일정이면</span></label>
+      <input id="fEndDate" type="date" />
+      <p class="field-hint" id="dateRangeHint">비워 두면 하루 일정이에요. 예) 11/27 ~ 11/30 여행</p>
+    </div>
+
+    <div class="field">
+      <label>시간</label>
+      <div class="time-row">
+        <label class="switch">
+          <input type="checkbox" id="fAllDay" checked />
+          <span class="switch__track"><span class="switch__knob"></span></span>
+          <span class="switch__label">종일</span>
+        </label>
+        <input id="fTime" type="time" value="18:00" disabled />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>담당 가족 <span class="field-hint--inline">여러 명 선택 가능</span></label>
+      <div class="picker" id="fMembers"></div>
+    </div>
+
+    <div class="field">
+      <label>카테고리</label>
+      <div class="picker picker--cat" id="fCategories"></div>
+    </div>
+
+    <div class="field">
+      <label for="fMemo">메모</label>
+      <textarea id="fMemo" rows="2" maxlength="200" placeholder="준비물, 장소 등"></textarea>
+    </div>
+
+    <div class="field">
+      <label>☑️ 준비물 체크리스트</label>
+      <ul class="checklist checklist--edit" id="fChecklist"></ul>
+      <div class="checklist-add">
+        <input id="fCheckItem" type="text" maxlength="40" placeholder="예) 여권, 체험학습 신청서" autocomplete="off" />
+        <button type="button" class="btn-ghost btn-small" id="fCheckAddBtn">＋ 추가</button>
+      </div>
+      <p class="field-hint">일정 상세에서 체크하면 가족 모두의 폰에 바로 저장돼요.</p>
+    </div>
+
+    <div class="field">
+      <label>반복</label>
+      <div class="segmented segmented--wrap" id="fRepeat" role="group" aria-label="반복 설정">
+        <button type="button" data-repeat="none" class="is-active">없음</button>
+        <button type="button" data-repeat="weekly">매주</button>
+        <button type="button" data-repeat="monthly">매월</button>
+        <button type="button" data-repeat="yearly-solar">매년 양력</button>
+        <button type="button" data-repeat="yearly-lunar">매년 음력</button>
+      </div>
+      <div class="weekday-pick" id="fWeekdayField" hidden>
+        <span class="weekday-pick__k">반복 요일</span>
+        <div class="segmented weekday-pick__btns" id="fWeekdays" role="group" aria-label="반복 요일"></div>
+      </div>
+      <p class="field-hint" id="repeatHint"></p>
+    </div>
+
+    <div class="field">
+      <label>🔔 미리 알림</label>
+      <div class="segmented segmented--wrap" id="fRemind" role="group" aria-label="미리 알림">
+        <button type="button" data-remind="none" class="is-active">없음</button>
+        <button type="button" data-remind="0">정시</button>
+        <button type="button" data-remind="10">10분 전</button>
+        <button type="button" data-remind="30">30분 전</button>
+        <button type="button" data-remind="60">1시간 전</button>
+        <button type="button" data-remind="1440">전날</button>
+      </div>
+      <p class="field-hint">앱이 열려 있을 때 화면 배너와 휴대폰 알림으로 알려드려요. 앱을 완전히 꺼 두면 울리지 않아요.</p>
+    </div>
+
+    <p class="request-note" id="requestNote" hidden>보내면 <b>아빠·엄마</b>가 승인한 뒤 달력에 올라가요.</p>
+
+    <p class="form-error" id="formError" hidden></p>
+
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary" id="saveBtn">저장</button>
+      <button type="button" class="btn-ghost btn-danger" id="deleteBtn" hidden>이 일정 삭제</button>
+    </div>
+  </form>
+</div>
+
+<!-- 🏪 근무 등록·수정 -->
+<div class="modal" id="shiftModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="shiftForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="shiftTitle">근무 등록</h2>
+      <button class="sheet-close" id="shiftClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="voice-box">
+      <button type="button" class="voice-btn" id="shiftVoiceBtn">🎤 말로 입력하기</button>
+      <p class="voice-status" id="shiftVoiceStatus" hidden></p>
+    </div>
+
+    <div class="field">
+      <label>알바생 <span class="req">*</span></label>
+      <div class="picker" id="shiftStaffPicker"></div>
+    </div>
+
+    <div class="field">
+      <label for="shiftDate">시작일 <span class="req">*</span></label>
+      <input id="shiftDate" type="date" required />
+    </div>
+
+    <div class="field" id="shiftRangeField">
+      <label for="shiftEndDate">종료일 <span class="field-hint--inline">여러 날 연속</span></label>
+      <input id="shiftEndDate" type="date" />
+      <p class="field-hint" id="shiftRangeHint">여러 날 연속 근무면 종료일을 골라 주세요. 같은 날이면 하루만 등록돼요.</p>
+    </div>
+
+    <div class="field">
+      <label>근무 시간 <span class="req">*</span></label>
+      <div class="time-range">
+        <input id="shiftStart" type="time" value="18:00" />
+        <span class="time-range__sep">~</span>
+        <input id="shiftEnd" type="time" value="22:00" />
+      </div>
+      <p class="field-hint" id="shiftHoursHint"></p>
+    </div>
+
+    <div class="field">
+      <label for="shiftBreak">휴게시간(분)</label>
+      <input id="shiftBreak" type="number" min="0" max="240" step="10" value="0" inputmode="numeric" />
+    </div>
+
+    <div class="field">
+      <label for="shiftWage">적용 시급(원)</label>
+      <input id="shiftWage" type="number" min="0" step="100" inputmode="numeric" />
+    </div>
+
+    <div class="field">
+      <label>근무 상태</label>
+      <div class="segmented" id="shiftStatus" role="group" aria-label="근무 상태">
+        <button type="button" data-status="planned" class="is-active">예정</button>
+        <button type="button" data-status="done">근무완료</button>
+        <button type="button" data-status="absent">결근</button>
+        <button type="button" data-status="canceled">취소</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="shiftMemo">메모</label>
+      <textarea id="shiftMemo" rows="2" maxlength="200" placeholder="예) 대타, 마감"></textarea>
+    </div>
+
+    <p class="shift-req-status" id="shiftReqStatus" hidden></p>
+    <p class="form-error" id="shiftError" hidden></p>
+
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary" id="shiftSaveBtn">등록</button>
+      <button type="button" class="btn-primary" id="shiftReqBtn" hidden>🙋 근무 변경 · 대타 요청</button>
+      <button type="button" class="btn-ghost btn-danger" id="shiftDeleteBtn" hidden>삭제</button>
+    </div>
+  </form>
+</div>
+
+<!-- 🏪 근무 변경·대타 요청 -->
+<div class="modal" id="shiftReqModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="shiftReqForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🙋 근무 변경 · 대타 요청</h2>
+      <button class="sheet-close" id="shiftReqClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro" id="shiftReqIntro">바꾸고 싶은 내용을 적어 보내면 사장님이 <b>승인</b>한 뒤 근무가 바뀌어요.</p>
+    <div class="field">
+      <label>희망 시간 <span class="field-hint--inline">바꿀 때만</span></label>
+      <div class="time-range">
+        <input id="reqStart" type="time" />
+        <span class="time-range__sep">~</span>
+        <input id="reqEnd" type="time" />
+      </div>
+      <p class="field-hint">비워 두면 지금 근무 시간 그대로 둬요.</p>
+      <div class="time-quick" id="reqQuick">
+        <button type="button" data-quick="late1">1시간 늦게</button>
+        <button type="button" data-quick="late2">2시간 늦게</button>
+        <button type="button" data-quick="early1">1시간 일찍</button>
+        <button type="button" data-quick="clear">지움</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>희망 대타 직원 <span class="field-hint--inline">선택</span></label>
+      <div class="picker" id="reqStaffPicker"></div>
+      <p class="field-hint">고르면 그 알바생에게 근무가 넘어가요.</p>
+    </div>
+    <div class="field">
+      <label for="reqReason">사유</label>
+      <textarea id="reqReason" rows="2" maxlength="120" placeholder="예) 학교 시험, 병원 진료"></textarea>
+    </div>
+    <p class="form-error" id="reqError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary" id="reqSaveBtn">요청 보내기</button>
+    </div>
+  </form>
+</div>
+
+<!-- 🏪 급여명세서 -->
+<div class="modal" id="payrollModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="payrollTitle">급여명세서</h2>
+      <button class="sheet-close" id="payrollClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div id="payrollBody"></div>
+    <div class="store-modal-actions">
+      <button type="button" class="btn-primary" id="payrollCopyBtn">💬 카톡 전달용 텍스트 복사</button>
+      <button type="button" class="btn-ghost" id="payrollPrintBtn">🖨 인쇄·PDF 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🏪 입장·승인 관리 -->
+<div class="modal" id="storeApproveModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🔔 입장·승인 관리 <span id="storeApproveModalCount">0</span>건</h2>
+      <button class="sheet-close" id="storeApproveClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>·<b>신상정보 변경 요청</b>·<b>근무 변경·대타 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(입장은 그 폰 화면이 매장 캘린더로 바뀜), <b>거절</b>하면 바뀌지 않아요.</p>
+    <div class="req-cards" id="storeApprovalCards"></div>
+  </div>
+</div>
+
+<!-- 🏪 매장 설정 -->
+<div class="modal" id="storeSettingsModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 매장·급여 설정</h2>
+      <button class="sheet-close" id="storeSettingsClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <section class="settings-block">
+      <h3>매장 이름</h3>
+      <div class="settings-inline">
+        <div class="field">
+          <label for="storeNameInput">급여명세서에 들어갈 이름</label>
+          <input id="storeNameInput" type="text" maxlength="30" placeholder="예) 우리 매장" autocomplete="off" />
+        </div>
+        <button type="button" class="btn-ghost btn-small" id="storeNameSaveBtn">저장</button>
+      </div>
+    </section>
+
+    <section class="settings-block">
+      <h3>급여 계산</h3>
+      <div class="field">
+        <label>공제</label>
+        <div class="segmented" id="settingsTax" role="group" aria-label="공제 방식">
+          <button type="button" data-tax="none" class="is-active">없음</button>
+          <button type="button" data-tax="3.3">3.3%</button>
+          <button type="button" data-tax="custom">직접입력</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="settingsTaxRate">공제 요율(%)</label>
+        <input id="settingsTaxRate" type="number" min="0" max="30" step="0.1" inputmode="decimal" />
+      </div>
+      <label class="settings-check"><input type="checkbox" id="settingsWeekly" /> 주휴수당 자동 계산 포함 (주 15시간 이상)</label>
+      <div class="field" style="margin-top:10px">
+        <label for="settingsPayDay">급여 지급일(다음 달 며칠)</label>
+        <input id="settingsPayDay" type="number" min="1" max="31" step="1" inputmode="numeric" />
+      </div>
+      <button type="button" class="btn-ghost btn-small" id="settingsSaveBtn">급여 설정 저장</button>
+    </section>
+
+    <section class="settings-block">
+      <h3>사장님 PIN</h3>
+      <p class="field-hint" id="settingsPinNote">처음 PIN은 2026이에요. 여기서 꼭 바꿔 주세요.</p>
+      <div class="field">
+        <label for="storeNewPin">새 PIN (4자리)</label>
+        <input id="storeNewPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <div class="field">
+        <label for="storeNewPin2">한 번 더</label>
+        <input id="storeNewPin2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <p class="form-error" id="storePinMsg" hidden></p>
+      <button type="button" class="btn-ghost btn-small" id="storePinSaveBtn">PIN 저장</button>
+      <button type="button" class="btn-ghost btn-small" id="storeUnlockBtn" hidden>이 기기를 사장님 기기로 열기</button>
+    </section>
+
+    <section class="settings-block">
+      <h3>이 기기 연결</h3>
+      <p class="field-hint">기기를 바꿀 때 이 폰에서만 매장 연결을 끊을 수 있어요. 매장 데이터(근무·시급·명세서)는 서버에 그대로 남습니다.</p>
+      <button type="button" class="btn-ghost btn-small btn-danger" id="storeLeaveBtn">이 기기에서 매장 연결 해제</button>
+    </section>
+  </div>
+</div>
+
+<!-- 🏪 사장님 PIN -->
+<div class="modal" id="storePinModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="storePinForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🏪 사장님 PIN</h2>
+      <button class="sheet-close" id="storePinClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">매장 설정·승인·급여는 <b>사장님 PIN</b>으로 열려요.</p>
+    <div class="field">
+      <label for="storePinInput">PIN (4자리)</label>
+      <input id="storePinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      <p class="field-hint" id="storePinHint"></p>
+    </div>
+    <p class="form-error" id="storePinError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary">확인</button>
+    </div>
+    <button type="button" class="btn-ghost btn-small store-owner-link" id="storePinStaffLink">알바생이에요 · 입장 요청하기</button>
+  </form>
+</div>
+
+<div class="modal" id="roomModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="roomForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>가족 방 연결</h2>
+      <button class="sheet-close" id="roomClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">가족끼리 정한 <b>가족 코드</b>를 넣으면 같은 가족 달력을 함께 봐요.<br />처음 한 번만 넣으면 이 폰에 기억됩니다.</p>
+    <div class="field">
+      <label for="roomCode">가족 코드</label>
+      <input id="roomCode" type="text" placeholder="예) 우리집2026" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <p class="field-hint">가족 모두 같은 코드를 써야 같은 달력이 보여요.</p>
+    </div>
+    <p class="form-error" id="roomError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary">시작하기</button>
+    </div>
+  </form>
+</div>
+
+<!-- 현재 사용자(프로필) 선택 -->
+<div class="modal" id="profileModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>누구신가요?</h2>
+      <button class="sheet-close" id="profileClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">이 폰을 쓰는 사람을 골라 주세요.<br /><b>아빠(메인 관리자)·엄마(부매니저)</b>는 관리자 PIN을 넣어야 바꿀 수 있어요.</p>
+    <div class="profile-list" id="profileList"></div>
+
+    <section class="my-info" id="myInfoBox" hidden>
+      <h3>🙋 내 정보 · 이름·휴대폰 번호</h3>
+      <div class="my-info__row">
+        <span class="my-info__k">지금</span>
+        <strong id="myInfoName">-</strong>
+        <span class="my-info__role" id="myInfoRole"></span>
+      </div>
+      <div class="field">
+        <label for="myNameInput">내 이름</label>
+        <input id="myNameInput" type="text" maxlength="12" autocomplete="off" placeholder="예) 우리할머니" />
+      </div>
+      <div class="field">
+        <label for="myTelInput">내 휴대폰 번호</label>
+        <input id="myTelInput" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="010-1234-5678" />
+        <p class="field-hint" id="myTelHint"></p>
+      </div>
+      <button type="button" class="btn-primary btn-small" id="myInfoSaveBtn">내 정보 저장</button>
+      <p class="field-hint" id="myInfoNote"></p>
+    </section>
+
+    <button type="button" class="btn-ghost btn-small account-link" id="profileAccountBtn">🔐 계정 · 이메일 / 구글로 로그인</button>
+
+    <div class="sheet-actions" id="profileAdminActions" hidden>
+      <button type="button" class="btn-ghost btn-small" id="adminBtn">⚙️ 관리자 설정</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 PIN 입력 -->
+<div class="modal" id="pinModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet" id="pinForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="pinTitle">관리자 PIN</h2>
+      <button class="sheet-close" id="pinClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro" id="pinIntro">4자리 PIN을 넣어 주세요.</p>
+    <div class="field">
+      <label for="pinInput">PIN (4자리)</label>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      <p class="field-hint" id="pinHint"></p>
+    </div>
+    <p class="form-error" id="pinError" hidden></p>
+    <div class="sheet-actions">
+      <button type="submit" class="btn-primary">확인</button>
+    </div>
+  </form>
+</div>
+
+<!-- 관리자 설정: 구성원 관리 · PIN 변경 -->
+<div class="modal" id="adminModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 관리자 설정</h2>
+      <button class="sheet-close" id="adminClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <section class="admin-block">
+      <h3>구성원 관리</h3>
+      <ul class="admin-members" id="adminMemberList"></ul>
+      <div class="admin-add">
+        <div class="field">
+          <label for="newMemberName">새 구성원 이름</label>
+          <input id="newMemberName" type="text" maxlength="12" placeholder="예) 할아버지" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="newMemberTel">휴대폰 번호 <span class="field-hint--inline">선택</span></label>
+          <input id="newMemberTel" type="tel" inputmode="tel" maxlength="20" placeholder="010-1234-5678" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>색상 배지</label>
+          <div class="picker" id="newMemberColors"></div>
+        </div>
+        <p class="form-error" id="memberError" hidden></p>
+        <button type="button" class="btn-ghost btn-small" id="addMemberBtn">＋ 구성원 추가</button>
+      </div>
+      <p class="field-hint">새로 추가한 구성원은 <b>일반 구성원</b>으로 들어가고, 일정을 넣으면 승인 요청으로 올라가요.</p>
+    </section>
+
+    <section class="admin-block">
+      <h3>관리자 PIN 변경</h3>
+      <p class="field-hint">PIN은 4자리 숫자이고, 서버에는 SHA-256 해시만 저장돼요. 처음에는 <b>2026</b>으로 열리고, 여기서 꼭 바꿔 주세요.</p>
+      <div class="field">
+        <label>누구 PIN을 바꿀까요</label>
+        <div class="picker" id="pinTargets"></div>
+      </div>
+      <div class="field">
+        <label for="newPin">새 PIN (4자리)</label>
+        <input id="newPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <div class="field">
+        <label for="newPin2">한 번 더</label>
+        <input id="newPin2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <p class="form-error" id="pinChangeError" hidden></p>
+      <button type="button" class="btn-ghost btn-small" id="changePinBtn">PIN 저장</button>
+    </section>
+  </div>
+</div>
+
+<!-- 승인 관리 -->
+<div class="modal" id="approveModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🔔 승인 대기 <span id="approveModalCount">0</span>건</h2>
+      <button class="sheet-close" id="approveClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">구성원이 보낸 <b>일정 등록 요청</b>과 <b>신상정보 변경 요청</b>이에요.<br /><b>승인</b>하면 바로 반영되고, <b>거절</b>하면 바뀌지 않아요.</p>
+    <div class="req-cards" id="reqCards"></div>
+  </div>
+</div>
+
+<!-- 일반 구성원용 일정 상세(읽기 전용) -->
+<div class="modal" id="detailModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="detailTitle">일정</h2>
+      <button class="sheet-close" id="detailClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div id="detailBody"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="detailOk">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🔐 계정 · 이메일 / 구글 로그인 -->
+<div class="modal" id="accountModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🔐 계정 · 로그인</h2>
+      <button class="sheet-close" id="accountClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="account-now">
+      <div class="account-now__row">
+        <strong id="accountWho">로그인하지 않았어요</strong>
+        <span class="account-badge" id="accountMethod" hidden>이메일 로그인</span>
+      </div>
+      <p class="account-now__sub" id="accountEmailNow"></p>
+    </div>
+
+    <div id="accountSignedIn" hidden>
+      <div class="account-member" id="accountMemberBox" hidden>
+        <p class="account-member__text" id="accountMemberText"></p>
+        <button type="button" class="btn-ghost btn-small" id="accountMemberBtn">내 프로필로 지정</button>
+      </div>
+      <p class="field-hint">이 기기에는 로그인 상태가 남아 있어요. 가족·매장 달력은 지금처럼 <b>가족 코드·매장 코드</b>로 열려요.</p>
+      <div class="account-actions">
+        <button type="button" class="btn-ghost btn-small" id="accountResetBtn2" hidden>비밀번호 재설정 메일</button>
+        <button type="button" class="btn-ghost btn-small" id="accountNameBtn" hidden>표시 이름 바꾸기</button>
+        <button type="button" class="btn-ghost btn-small btn-danger" id="accountSignOutBtn">로그아웃</button>
+      </div>
+      <div class="account-name-edit" id="accountNameEdit" hidden>
+        <div class="field">
+          <label for="accountName2">표시 이름</label>
+          <input id="accountName2" type="text" maxlength="20" autocomplete="off" placeholder="예) 아빠" />
+        </div>
+        <button type="button" class="btn-primary btn-small" id="accountNameSaveBtn">표시 이름 저장</button>
+      </div>
+    </div>
+
+    <div id="accountSignedOut">
+      <p class="room-intro">로그인하지 않아도 <b>가족 코드</b>로 지금처럼 쓸 수 있어요.<br />로그인해 두면 내 계정으로 이어서 쓰고, 폰을 바꿔도 같은 계정으로 들어올 수 있어요.</p>
+      <div class="segmented" id="accountMode" role="group" aria-label="로그인 방식">
+        <button type="button" data-mode="signin" class="is-active">이메일 로그인</button>
+        <button type="button" data-mode="signup">회원가입</button>
+      </div>
+      <div class="field">
+        <label for="accountEmail">이메일</label>
+        <input id="accountEmail" type="email" inputmode="email" maxlength="80" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="example@email.com" />
+      </div>
+      <div class="field" id="accountNameField" hidden>
+        <label for="accountName">이름(표시명)</label>
+        <input id="accountName" type="text" maxlength="20" autocomplete="name" placeholder="예) 아빠, 엄마" />
+        <p class="field-hint">가족 달력 구성원 이름과 같게 넣으면 내 프로필로 바로 이어 드려요.</p>
+      </div>
+      <div class="field">
+        <label for="accountPassword">비밀번호</label>
+        <input id="accountPassword" type="password" maxlength="60" autocomplete="current-password" placeholder="6자 이상" />
+      </div>
+      <p class="form-error" id="accountError" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-primary" id="accountSubmitBtn">로그인</button>
+      </div>
+      <div class="account-or"><span>또는</span></div>
+      <button type="button" class="btn-google" id="accountGoogleBtn">
+        <span class="btn-google__g">G</span><span id="accountGoogleText">구글로 로그인</span>
+      </button>
+      <p class="account-apk" id="accountApkNote" hidden>📱 앱(APK)에서는 구글 로그인이 막혀 있어요. <b>크롬에서 구글 로그인</b>을 하거나, 앱에서는 <b>이메일 로그인</b>을 써 주세요.</p>
+      <button type="button" class="btn-ghost btn-small account-reset" id="accountResetBtn">비밀번호를 잊었어요 · 재설정 메일 받기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<div class="remind-banner" id="remindBanner" hidden></div>
+<div id="printArea" aria-hidden="true"></div>
+
+<script src="firebase-app-compat.js?v=20261117g"></script>
+<script src="firebase-auth-compat.js?v=20261117g"></script>
+<script src="firebase-firestore-compat.js?v=20261117g"></script>
+<script src="lunar.js?v=20261117g"></script>
+<script src="cloud.js?v=20261117g"></script>
+<script src="app.js?v=20261117g"></script>
+<script src="voice.js?v=20261117g"></script>
+<script src="media.js?v=20261117g"></script>
+<script src="store-cloud.js?v=20261117g"></script>
+<script src="store.js?v=20261117g"></script>
+</body>
+</html>

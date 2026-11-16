@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117f" />
-<link rel="stylesheet" href="store.css?v=20261117f" />
+<link rel="stylesheet" href="styles.css?v=20261117g" />
+<link rel="stylesheet" href="store.css?v=20261117g" />
 </head>
 <body>
 <div class="app">
@@ -34,10 +34,12 @@
       </button>
       <button class="approve-pill" id="approveBtn" type="button" hidden>🔔 승인 대기 <b id="approveCount">0</b>건</button>
       <button class="approve-pill" id="notifyBtn" type="button">🔔 알림 켜기</button>
+      <button class="approve-pill account-pill" id="accountPill" type="button">🔐 로그인</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="storeSubRow" hidden>
       <span class="profile-badge" id="storeWhoBadge">🏪 <span id="storeWhoName">사장님</span></span>
       <button class="approve-pill" id="storeApproveBtn" type="button" hidden>🔔 입장·승인 <b id="storeApproveCount">0</b>건</button>
+      <button class="approve-pill account-pill" id="storeAccountPill" type="button">🔐 로그인</button>
     </div>
     <p class="app-bar__note" id="appBarNote">가족 방에 연결하는 중…</p>
   </header>
@@ -699,6 +701,8 @@
       <p class="field-hint" id="myInfoNote"></p>
     </section>
 
+    <button type="button" class="btn-ghost btn-small account-link" id="profileAccountBtn">🔐 계정 · 이메일 / 구글로 로그인</button>
+
     <div class="sheet-actions" id="profileAdminActions" hidden>
       <button type="button" class="btn-ghost btn-small" id="adminBtn">⚙️ 관리자 설정</button>
     </div>
@@ -810,19 +814,90 @@
   </div>
 </div>
 
+<!-- 🔐 계정 · 이메일 / 구글 로그인 -->
+<div class="modal" id="accountModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🔐 계정 · 로그인</h2>
+      <button class="sheet-close" id="accountClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="account-now">
+      <div class="account-now__row">
+        <strong id="accountWho">로그인하지 않았어요</strong>
+        <span class="account-badge" id="accountMethod" hidden>이메일 로그인</span>
+      </div>
+      <p class="account-now__sub" id="accountEmailNow"></p>
+    </div>
+
+    <div id="accountSignedIn" hidden>
+      <div class="account-member" id="accountMemberBox" hidden>
+        <p class="account-member__text" id="accountMemberText"></p>
+        <button type="button" class="btn-ghost btn-small" id="accountMemberBtn">내 프로필로 지정</button>
+      </div>
+      <p class="field-hint">이 기기에는 로그인 상태가 남아 있어요. 가족·매장 달력은 지금처럼 <b>가족 코드·매장 코드</b>로 열려요.</p>
+      <div class="account-actions">
+        <button type="button" class="btn-ghost btn-small" id="accountResetBtn2" hidden>비밀번호 재설정 메일</button>
+        <button type="button" class="btn-ghost btn-small" id="accountNameBtn" hidden>표시 이름 바꾸기</button>
+        <button type="button" class="btn-ghost btn-small btn-danger" id="accountSignOutBtn">로그아웃</button>
+      </div>
+      <div class="account-name-edit" id="accountNameEdit" hidden>
+        <div class="field">
+          <label for="accountName2">표시 이름</label>
+          <input id="accountName2" type="text" maxlength="20" autocomplete="off" placeholder="예) 아빠" />
+        </div>
+        <button type="button" class="btn-primary btn-small" id="accountNameSaveBtn">표시 이름 저장</button>
+      </div>
+    </div>
+
+    <div id="accountSignedOut">
+      <p class="room-intro">로그인하지 않아도 <b>가족 코드</b>로 지금처럼 쓸 수 있어요.<br />로그인해 두면 내 계정으로 이어서 쓰고, 폰을 바꿔도 같은 계정으로 들어올 수 있어요.</p>
+      <div class="segmented" id="accountMode" role="group" aria-label="로그인 방식">
+        <button type="button" data-mode="signin" class="is-active">이메일 로그인</button>
+        <button type="button" data-mode="signup">회원가입</button>
+      </div>
+      <div class="field">
+        <label for="accountEmail">이메일</label>
+        <input id="accountEmail" type="email" inputmode="email" maxlength="80" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="example@email.com" />
+      </div>
+      <div class="field" id="accountNameField" hidden>
+        <label for="accountName">이름(표시명)</label>
+        <input id="accountName" type="text" maxlength="20" autocomplete="name" placeholder="예) 아빠, 엄마" />
+        <p class="field-hint">가족 달력 구성원 이름과 같게 넣으면 내 프로필로 바로 이어 드려요.</p>
+      </div>
+      <div class="field">
+        <label for="accountPassword">비밀번호</label>
+        <input id="accountPassword" type="password" maxlength="60" autocomplete="current-password" placeholder="6자 이상" />
+      </div>
+      <p class="form-error" id="accountError" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-primary" id="accountSubmitBtn">로그인</button>
+      </div>
+      <div class="account-or"><span>또는</span></div>
+      <button type="button" class="btn-google" id="accountGoogleBtn">
+        <span class="btn-google__g">G</span><span id="accountGoogleText">구글로 로그인</span>
+      </button>
+      <p class="account-apk" id="accountApkNote" hidden>📱 앱(APK)에서는 구글 로그인이 막혀 있어요. <b>크롬에서 구글 로그인</b>을 하거나, 앱에서는 <b>이메일 로그인</b>을 써 주세요.</p>
+      <button type="button" class="btn-ghost btn-small account-reset" id="accountResetBtn">비밀번호를 잊었어요 · 재설정 메일 받기</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117f"></script>
-<script src="firebase-auth-compat.js?v=20261117f"></script>
-<script src="firebase-firestore-compat.js?v=20261117f"></script>
-<script src="lunar.js?v=20261117f"></script>
-<script src="cloud.js?v=20261117f"></script>
-<script src="app.js?v=20261117f"></script>
-<script src="voice.js?v=20261117f"></script>
-<script src="media.js?v=20261117f"></script>
-<script src="store-cloud.js?v=20261117f"></script>
-<script src="store.js?v=20261117f"></script>
+<script src="firebase-app-compat.js?v=20261117g"></script>
+<script src="firebase-auth-compat.js?v=20261117g"></script>
+<script src="firebase-firestore-compat.js?v=20261117g"></script>
+<script src="lunar.js?v=20261117g"></script>
+<script src="cloud.js?v=20261117g"></script>
+<script src="app.js?v=20261117g"></script>
+<script src="voice.js?v=20261117g"></script>
+<script src="media.js?v=20261117g"></script>
+<script src="store-cloud.js?v=20261117g"></script>
+<script src="store.js?v=20261117g"></script>
 </body>
 </html>

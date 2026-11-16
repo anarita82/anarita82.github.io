@@ -481,6 +481,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .field input[type="text"],
 .field input[type="date"],
 .field input[type="time"],
+.field input[type="email"],
+.field input[type="password"],
+.field input[type="tel"],
 .field textarea {
   width: 100%;
   border: 1px solid #e3e5ec;
@@ -1008,3 +1011,74 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-family: inherit; font-size: 12px; line-height: 1.55; color: #3b4252;
   white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
 }
+
+/* ---------- 🔐 계정 · 이메일 / 구글 로그인 ---------- */
+.account-pill { white-space: nowrap; }
+.account-pill.is-signed {
+  background: rgba(255, 255, 255, .92);
+  color: #4338ca;
+  border-color: rgba(255, 255, 255, .92);
+  font-weight: 800;
+}
+.account-now {
+  margin: 0 0 12px;
+  padding: 11px 12px;
+  border: 1px solid #e3e5ec;
+  border-radius: 13px;
+  background: #fafbfe;
+}
+.account-now__row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.account-now__row strong { font-size: 14px; font-weight: 800; letter-spacing: -.2px; color: #2b3040; }
+.account-now__sub { margin: 5px 0 0; font-size: 11.5px; color: var(--ink-faint); word-break: break-all; }
+.account-badge {
+  font-size: 10px; font-weight: 800;
+  border-radius: 6px; padding: 2px 6px;
+  background: #eef0ff; color: #4338ca;
+}
+.account-badge--google { background: #fdeaea; color: #c53030; }
+.account-badge--email { background: #eef0ff; color: #4338ca; }
+.account-or {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0 10px;
+  color: var(--ink-faint); font-size: 11px; font-weight: 700;
+}
+.account-or::before, .account-or::after {
+  content: ''; flex: 1; height: 1px; background: #e8eaf2;
+}
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  border: 1px solid #dadce0;
+  background: #fff;
+  color: #3c4043;
+  padding: 12px 16px;
+  border-radius: 13px;
+  font-family: inherit;
+  font-size: 14.5px; font-weight: 800;
+  cursor: pointer;
+}
+.btn-google:active { background: #f6f7fb; }
+.btn-google[disabled] { opacity: .6; }
+.btn-google__g {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; border-radius: 50%;
+  background: #fff; border: 1px solid #dadce0;
+  font-size: 12px; font-weight: 900; color: #4285f4;
+}
+.account-apk {
+  margin: 10px 0 0; padding: 9px 11px;
+  background: #fff8e6; border: 1px solid #f6e2b3; border-radius: 11px;
+  font-size: 11.5px; line-height: 1.55; color: #7a5c12;
+}
+.account-reset {
+  margin-top: 10px; width: 100%;
+  background: transparent; border-color: #e8eaf2;
+}
+.account-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.account-member {
+  margin: 0 0 10px; padding: 10px 12px;
+  border: 1px solid #dcd9fb; background: #f5f4ff; border-radius: 13px;
+}
+.account-member__text { margin: 0 0 7px; font-size: 12.5px; font-weight: 700; color: #4338ca; }
+.account-name-edit { margin-top: 10px; }
+.account-link { width: 100%; margin: 4px 0 10px; }

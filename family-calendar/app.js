@@ -51,6 +51,10 @@
     checklist: [],
     saving: false,
     profile: '',
+    account: null,
+    accountMode: 'signin',
+    accountMatchId: '',
+    googleIntentStarted: false,
     roomPins: {},
     pendingPin: '',
     pinTarget: '',
@@ -382,6 +386,36 @@
     el.profileModal = document.getElementById('profileModal');
     el.profileList = document.getElementById('profileList');
     el.profileClose = document.getElementById('profileClose');
+    el.profileAccountBtn = document.getElementById('profileAccountBtn');
+    el.accountPill = document.getElementById('accountPill');
+    el.storeAccountPill = document.getElementById('storeAccountPill');
+    el.accountModal = document.getElementById('accountModal');
+    el.accountClose = document.getElementById('accountClose');
+    el.accountWho = document.getElementById('accountWho');
+    el.accountMethod = document.getElementById('accountMethod');
+    el.accountEmailNow = document.getElementById('accountEmailNow');
+    el.accountSignedIn = document.getElementById('accountSignedIn');
+    el.accountSignedOut = document.getElementById('accountSignedOut');
+    el.accountMemberBox = document.getElementById('accountMemberBox');
+    el.accountMemberText = document.getElementById('accountMemberText');
+    el.accountMemberBtn = document.getElementById('accountMemberBtn');
+    el.accountMode = document.getElementById('accountMode');
+    el.accountEmail = document.getElementById('accountEmail');
+    el.accountPassword = document.getElementById('accountPassword');
+    el.accountNameField = document.getElementById('accountNameField');
+    el.accountName = document.getElementById('accountName');
+    el.accountError = document.getElementById('accountError');
+    el.accountSubmitBtn = document.getElementById('accountSubmitBtn');
+    el.accountGoogleBtn = document.getElementById('accountGoogleBtn');
+    el.accountGoogleText = document.getElementById('accountGoogleText');
+    el.accountApkNote = document.getElementById('accountApkNote');
+    el.accountResetBtn = document.getElementById('accountResetBtn');
+    el.accountResetBtn2 = document.getElementById('accountResetBtn2');
+    el.accountSignOutBtn = document.getElementById('accountSignOutBtn');
+    el.accountNameBtn = document.getElementById('accountNameBtn');
+    el.accountNameEdit = document.getElementById('accountNameEdit');
+    el.accountName2 = document.getElementById('accountName2');
+    el.accountNameSaveBtn = document.getElementById('accountNameSaveBtn');
     el.profileAdminActions = document.getElementById('profileAdminActions');
     el.myInfoBox = document.getElementById('myInfoBox');
     el.myInfoName = document.getElementById('myInfoName');
@@ -431,6 +465,7 @@
     bind();
     bindRoles();
     renderAll();
+    initAccount();
     startCloud();
     updateNotifyBtn();
     setInterval(checkReminders, 30000);
@@ -2378,6 +2413,335 @@
     toastTimer = setTimeout(function () { el.toast.hidden = true; }, 2800);
   }
 
+  /* ---------------- 계정(이메일·구글 로그인) ----------------
+     로그인 없이(익명) 시작해도 되고, 하고 싶은 사람만 계정을 더합니다.
+     로그인·로그아웃으로 계정이 바뀌면 연결을 새로 걸도록 화면을 한 번 새로 고칩니다
+     (가족 코드·매장 코드는 이 기기에 남아 있어 그대로 이어집니다). */
+
+  function isAndroidShell() {
+    if (window.AndroidApp && typeof window.AndroidApp.platform === 'function') {
+      try { return window.AndroidApp.platform() === 'android'; } catch (e) { return true; }
+    }
+    var ua = navigator.userAgent || '';
+    return /Android/i.test(ua) && /;\s*wv\)/.test(ua);
+  }
+
+  function accountFallback() {
+    return { signedIn: false, anonymous: true, uid: '', email: '', name: '', method: 'anonymous', methodLabel: '익명 기기', providerId: '' };
+  }
+
+  function accountNow() {
+    if (state.account) return state.account;
+    if (window.FamilyCloud && typeof FamilyCloud.accountInfo === 'function') {
+      try { return FamilyCloud.accountInfo(); } catch (e) { return accountFallback(); }
+    }
+    return accountFallback();
+  }
+
+  function renderAccountPills() {
+    var info = accountNow();
+    var text = info.signedIn ? (info.method === 'google' ? '🔐 구글' : '🔐 이메일') : '🔐 로그인';
+    [el.accountPill, el.storeAccountPill].forEach(function (btn) {
+      if (!btn) return;
+      btn.textContent = text;
+      if (info.signedIn) btn.classList.add('is-signed');
+      else btn.classList.remove('is-signed');
+    });
+  }
+
+  function showAccountError(msg) {
+    if (!el.accountError) return;
+    if (!msg) { el.accountError.hidden = true; el.accountError.textContent = ''; return; }
+    el.accountError.textContent = msg;
+    el.accountError.hidden = false;
+  }
+
+  function setBusy(btn, busy, label) {
+    if (!btn) return;
+    if (busy) {
+      btn.dataset.label = btn.textContent;
+      btn.disabled = true;
+      if (label) btn.textContent = label;
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.label) btn.textContent = btn.dataset.label;
+    }
+  }
+
+  function findMemberByName(name) {
+    var target = String(name == null ? '' : name).trim();
+    if (!target) return null;
+    for (var i = 0; i < MEMBERS.length; i++) {
+      if (MEMBERS[i] && String(MEMBERS[i].name || '').trim() === target) return MEMBERS[i];
+    }
+    return null;
+  }
+
+  function renderAccount() {
+    if (!el.accountModal) return;
+    var info = accountNow();
+    var signedIn = !!info.signedIn;
+    if (el.accountSignedIn) el.accountSignedIn.hidden = !signedIn;
+    if (el.accountSignedOut) el.accountSignedOut.hidden = signedIn;
+
+    if (el.accountWho) {
+      el.accountWho.textContent = signedIn
+        ? (info.name || info.email || '로그인했어요')
+        : '로그인하지 않았어요 (익명 기기)';
+    }
+    if (el.accountMethod) {
+      el.accountMethod.textContent = signedIn ? (info.methodLabel || '로그인') : '';
+      el.accountMethod.hidden = !signedIn;
+      el.accountMethod.className = 'account-badge account-badge--' + (info.method || 'anonymous');
+    }
+    if (el.accountEmailNow) {
+      el.accountEmailNow.textContent = signedIn
+        ? (info.email || '이메일 정보 없음')
+        : '가족 코드만 넣으면 지금처럼 바로 쓸 수 있어요';
+    }
+
+    if (el.accountResetBtn2) el.accountResetBtn2.hidden = !(signedIn && info.method === 'email');
+    if (el.accountNameBtn) el.accountNameBtn.hidden = !(signedIn && info.method === 'email');
+
+    state.accountMatchId = '';
+    var match = signedIn ? findMemberByName(info.name) : null;
+    if (match && match.id !== state.profile) state.accountMatchId = match.id;
+    if (el.accountMemberBox) {
+      el.accountMemberBox.hidden = !state.accountMatchId;
+      if (el.accountMemberText && state.accountMatchId) {
+        el.accountMemberText.textContent = "이름이 가족 구성원 '" + match.name + "'와(과) 같아요.";
+      }
+    }
+
+    var shell = isAndroidShell();
+    if (el.accountApkNote) el.accountApkNote.hidden = !shell;
+    if (el.accountGoogleText) {
+      el.accountGoogleText.textContent = shell ? '크롬에서 구글로 로그인' : '구글로 로그인';
+    }
+  }
+
+  function setAccountMode(mode) {
+    state.accountMode = mode === 'signup' ? 'signup' : 'signin';
+    var btns = el.accountMode ? el.accountMode.querySelectorAll('button') : [];
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i].getAttribute('data-mode') === state.accountMode) btns[i].classList.add('is-active');
+      else btns[i].classList.remove('is-active');
+    }
+    if (el.accountNameField) el.accountNameField.hidden = state.accountMode !== 'signup';
+    if (el.accountSubmitBtn) el.accountSubmitBtn.textContent = state.accountMode === 'signup' ? '가입하기' : '로그인';
+    if (el.accountPassword) {
+      el.accountPassword.setAttribute('autocomplete', state.accountMode === 'signup' ? 'new-password' : 'current-password');
+    }
+    showAccountError('');
+  }
+
+  function openAccountModal() {
+    if (!el.accountModal) return;
+    var info = accountNow();
+    showAccountError('');
+    if (el.accountPassword) el.accountPassword.value = '';
+    if (el.accountEmail) el.accountEmail.value = info.email || '';
+    if (el.accountName) el.accountName.value = info.name || (state.profile && memberById(state.profile) ? memberById(state.profile).name : '');
+    if (el.accountNameEdit) el.accountNameEdit.hidden = true;
+    setAccountMode('signin');
+    renderAccount();
+    el.accountModal.hidden = false;
+  }
+
+  function closeAccountModal() {
+    if (el.accountModal) el.accountModal.hidden = true;
+  }
+
+  /* 계정이 바뀌면 연결을 새로 겁니다. */
+  function finishAuthChange() {
+    setTimeout(function () { location.reload(); }, 900);
+  }
+
+  function submitAccount() {
+    if (!window.FamilyCloud) return;
+    var email = el.accountEmail ? el.accountEmail.value.trim() : '';
+    var pw = el.accountPassword ? el.accountPassword.value : '';
+    var name = el.accountName ? el.accountName.value.trim() : '';
+    var signup = state.accountMode === 'signup';
+    if (!email) { showAccountError('이메일 주소를 넣어 주세요.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAccountError('이메일 주소를 다시 확인해 주세요.'); return; }
+    if (!pw) { showAccountError('비밀번호를 넣어 주세요.'); return; }
+    if (signup && pw.length < 6) { showAccountError('비밀번호는 6자 이상으로 정해 주세요.'); return; }
+    if (signup && !name) { showAccountError('이름(표시명)을 넣어 주세요. 예) 아빠, 엄마'); return; }
+
+    showAccountError('');
+    setBusy(el.accountSubmitBtn, true, signup ? '가입하는 중…' : '로그인하는 중…');
+    var run = signup
+      ? FamilyCloud.signUpWithEmail(email, pw, name)
+      : FamilyCloud.signInWithEmail(email, pw);
+    run.then(function (info) {
+      state.account = info;
+      renderAccountPills();
+      renderAccount();
+      toast((signup ? '가입하고 로그인했어요' : '로그인했어요') + ' · ' + (info.email || email));
+      closeAccountModal();
+      finishAuthChange();
+    }).catch(function (err) {
+      showAccountError(FamilyCloud.authErrorHint(err));
+    }).then(function () {
+      setBusy(el.accountSubmitBtn, false);
+      if (el.accountSubmitBtn) el.accountSubmitBtn.textContent = state.accountMode === 'signup' ? '가입하기' : '로그인';
+    });
+  }
+
+  function googleBrowserUrl() {
+    return location.origin + location.pathname + '?auth=google';
+  }
+
+  function openInBrowser(url) {
+    if (window.AndroidApp && typeof window.AndroidApp.openExternal === 'function') {
+      try {
+        window.AndroidApp.openExternal(url);
+        return;
+      } catch (e) { /* 브리지가 없으면 아래로 */ }
+    }
+    copyText(url, '주소를 복사했어요 · 크롬 주소창에 붙여넣어 열어 주세요');
+  }
+
+  function startGoogleAccount() {
+    if (!window.FamilyCloud) return;
+    if (isAndroidShell()) {
+      openInBrowser(googleBrowserUrl());
+      return;
+    }
+    showAccountError('');
+    setBusy(el.accountGoogleBtn, true, '구글 로그인 여는 중…');
+    FamilyCloud.signInWithGoogle().then(function (info) {
+      state.account = info;
+      renderAccountPills();
+      renderAccount();
+      toast('구글로 로그인했어요 · ' + (info.email || ''));
+      closeAccountModal();
+      finishAuthChange();
+    }).catch(function (err) {
+      var code = String((err && err.code) || '');
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        FamilyCloud.signInWithGoogleRedirect().catch(function (err2) {
+          showAccountError(FamilyCloud.authErrorHint(err2));
+        });
+        return;
+      }
+      showAccountError(FamilyCloud.authErrorHint(err));
+    }).then(function () {
+      setBusy(el.accountGoogleBtn, false);
+      if (el.accountGoogleText) el.accountGoogleText.textContent = isAndroidShell() ? '크롬에서 구글로 로그인' : '구글로 로그인';
+    });
+  }
+
+  function sendAccountReset(useSignedIn) {
+    if (!window.FamilyCloud) return;
+    var info = accountNow();
+    var email = useSignedIn ? (info.email || '') : (el.accountEmail ? el.accountEmail.value.trim() : '');
+    if (!email) { showAccountError('먼저 이메일 주소를 넣어 주세요.'); return; }
+    showAccountError('');
+    FamilyCloud.sendPasswordReset(email).then(function () {
+      showAccountError('');
+      toast('재설정 메일을 보냈어요 · ' + email);
+      window.alert('비밀번호 재설정 메일을 보냈어요.\n\n' + email + '\n\n메일의 링크를 눌러 새 비밀번호를 정해 주세요. (메일이 안 보이면 스팸함도 확인해 주세요.)');
+    }).catch(function (err) {
+      showAccountError(FamilyCloud.authErrorHint(err));
+    });
+  }
+
+  function signOutFromAccount() {
+    if (!window.FamilyCloud) return;
+    if (!window.confirm('이 기기에서 로그아웃할까요?\n\n가족 달력은 로그인 없이(익명) 그대로 이어져요.\n다시 들어올 때는 같은 이메일·구글로 로그인하면 돼요.')) return;
+    FamilyCloud.signOutAccount().then(function () {
+      state.account = accountFallback();
+      renderAccountPills();
+      toast('로그아웃했어요');
+      closeAccountModal();
+      finishAuthChange();
+    }).catch(function (err) {
+      showAccountError(FamilyCloud.authErrorHint(err));
+    });
+  }
+
+  function toggleAccountNameEdit() {
+    if (!el.accountNameEdit) return;
+    var open = el.accountNameEdit.hidden;
+    el.accountNameEdit.hidden = !open;
+    if (open && el.accountName2) {
+      el.accountName2.value = accountNow().name || '';
+      try { el.accountName2.focus(); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  function saveAccountName() {
+    if (!window.FamilyCloud || !el.accountName2) return;
+    var name = el.accountName2.value.trim();
+    if (!name) { showAccountError('표시 이름을 넣어 주세요.'); return; }
+    FamilyCloud.setAccountName(name).then(function (info) {
+      state.account = info;
+      showAccountError('');
+      renderAccountPills();
+      renderAccount();
+      if (el.accountNameEdit) el.accountNameEdit.hidden = true;
+      toast('표시 이름을 바꿨어요');
+    }).catch(function (err) {
+      showAccountError(FamilyCloud.authErrorHint(err));
+    });
+  }
+
+  function pickProfileFromAccount() {
+    var id = state.accountMatchId;
+    closeAccountModal();
+    if (!id) { openProfileModal(); return; }
+    chooseProfile(id);
+  }
+
+  /* 앱(APK)의 '크롬에서 열기'가 준비되기 전에도 쓸 수 있게 안내 */
+  function takeGoogleIntent() {
+    try {
+      var params = new URLSearchParams(location.search);
+      if (params.get('auth') !== 'google') return false;
+      params.delete('auth');
+      var q = params.toString();
+      history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + (location.hash || ''));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function initAccount() {
+    renderAccountPills();
+    if (!window.FamilyCloud || typeof FamilyCloud.onAuth !== 'function') return;
+
+    FamilyCloud.onAuth(function (info) {
+      state.account = info;
+      renderAccountPills();
+      if (el.accountModal && !el.accountModal.hidden) renderAccount();
+    });
+
+    /* 구글 리디렉션으로 다녀온 경우 결과 마무리 */
+    if (typeof FamilyCloud.finishRedirectSignIn === 'function') {
+      FamilyCloud.finishRedirectSignIn().then(function (info) {
+        if (!info) return;
+        state.account = info;
+        renderAccountPills();
+        renderAccount();
+        toast('구글로 로그인했어요 · ' + (info.email || ''));
+      });
+    }
+
+    /* 크롬에서 '?auth=google' 로 들어온 경우 한 번만 구글 로그인 시작 */
+    var wantGoogle = takeGoogleIntent();
+    if (wantGoogle) {
+      FamilyCloud.onAuth(function (info) {
+        if (state.googleIntentStarted) return;
+        if (info && info.signedIn) return;
+        state.googleIntentStarted = true;
+        FamilyCloud.signInWithGoogleRedirect().catch(function (err) {
+          toast('구글 로그인을 시작하지 못했어요 · ' + FamilyCloud.authErrorHint(err));
+        });
+      });
+    }
+  }
+
   /* ---------------- 프로필 선택 ---------------- */
   function openProfileModal() {
     if (!el.profileModal) return;
@@ -2916,6 +3280,40 @@
 
   function bindRoles() {
     el.profileBtn.addEventListener('click', openProfileModal);
+    if (el.profileAccountBtn) el.profileAccountBtn.addEventListener('click', function () {
+      closeProfileModal();
+      openAccountModal();
+    });
+    [el.accountPill, el.storeAccountPill].forEach(function (btn) {
+      if (btn) btn.addEventListener('click', openAccountModal);
+    });
+    if (el.accountClose) el.accountClose.addEventListener('click', closeAccountModal);
+    if (el.accountModal) {
+      var accountBackdrop = el.accountModal.querySelector('[data-close]');
+      if (accountBackdrop) accountBackdrop.addEventListener('click', closeAccountModal);
+    }
+    if (el.accountMode) {
+      var modeBtns = el.accountMode.querySelectorAll('button[data-mode]');
+      for (var mi = 0; mi < modeBtns.length; mi++) {
+        modeBtns[mi].addEventListener('click', function () {
+          setAccountMode(this.getAttribute('data-mode'));
+        });
+      }
+    }
+    if (el.accountSubmitBtn) el.accountSubmitBtn.addEventListener('click', submitAccount);
+    if (el.accountPassword) el.accountPassword.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitAccount(); }
+    });
+    if (el.accountEmail) el.accountEmail.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); if (el.accountPassword) el.accountPassword.focus(); }
+    });
+    if (el.accountGoogleBtn) el.accountGoogleBtn.addEventListener('click', startGoogleAccount);
+    if (el.accountResetBtn) el.accountResetBtn.addEventListener('click', function () { sendAccountReset(false); });
+    if (el.accountResetBtn2) el.accountResetBtn2.addEventListener('click', function () { sendAccountReset(true); });
+    if (el.accountSignOutBtn) el.accountSignOutBtn.addEventListener('click', signOutFromAccount);
+    if (el.accountNameBtn) el.accountNameBtn.addEventListener('click', toggleAccountNameEdit);
+    if (el.accountNameSaveBtn) el.accountNameSaveBtn.addEventListener('click', saveAccountName);
+    if (el.accountMemberBtn) el.accountMemberBtn.addEventListener('click', pickProfileFromAccount);
     el.profileClose.addEventListener('click', function () {
       if (state.profile) closeProfileModal();
     });
@@ -2955,6 +3353,7 @@
       if (!el.adminModal.hidden) el.adminModal.hidden = true;
       if (!el.pinModal.hidden) { el.pinModal.hidden = true; state.pendingPin = ''; }
       if (!el.profileModal.hidden && state.profile) closeProfileModal();
+      if (el.accountModal && !el.accountModal.hidden) closeAccountModal();
     });
   }
 
