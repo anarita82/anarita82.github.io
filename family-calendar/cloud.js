@@ -212,7 +212,7 @@
 
   function listen() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
-    state.unsub = eventCollection().onSnapshot(function (snap) {
+    state.unsub = eventCollection().onSnapshot({ includeMetadataChanges: true }, function (snap) {
       var list = [];
       snap.forEach(function (doc) {
         var data = doc.data() || {};
@@ -232,6 +232,8 @@
       });
       if (snap.metadata.fromCache) {
         emit('onStatus', { kind: 'offline', text: '오프라인 · 연결되면 자동으로 맞춰져요' });
+      } else if (snap.metadata.hasPendingWrites) {
+        emit('onStatus', { kind: 'pending', text: '저장하는 중…' });
       } else {
         emit('onStatus', { kind: 'online', text: '가족 실시간 공유 중 · ' + list.length + '건' });
       }
