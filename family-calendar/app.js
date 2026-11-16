@@ -474,10 +474,26 @@
 
   /* ---------------- 공유 연결 ---------------- */
   var lastStatus = { kind: 'pending', text: '' };
+  var autoRecovered = false;
 
   function setStatus(kind, text) {
     lastStatus = { kind: kind, text: text };
     paintStatus();
+    /* 로그인·로그아웃 직후에는 토큰 교체 순간에 한 번씩 권한 오류가 날 수 있어
+       화면에 오류를 띄우기 전에 한 번만 연결을 다시 시도합니다. */
+    if (kind === 'error') scheduleAutoRecover();
+  }
+
+  function scheduleAutoRecover() {
+    if (autoRecovered) return;
+    autoRecovered = true;
+    setTimeout(function () {
+      var code = window.FamilyCloud ? FamilyCloud.storedCode() : '';
+      if (!code) return;
+      try { FamilyCloud.stop(); } catch (e) { /* 무시 */ }
+      cloudReady = false;
+      connectToRoom(code);
+    }, 2500);
   }
 
   /* 매장 캘린더 화면이 떠 있을 때는 가족 상태 문구가 위에 덮이지 않게 합니다. */

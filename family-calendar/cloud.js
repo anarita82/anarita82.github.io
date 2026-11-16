@@ -259,18 +259,20 @@
     return initAuth();
   }
 
+  /* 토큰을 미리 받아 둡니다. 로그인·로그아웃 직후에는 Firestore가 토큰을 받기 전에
+     요청해 권한 오류(permission-denied)가 날 수 있어, 한 번 받아 둔 뒤 연결합니다. */
+  function warmToken(user) {
+    if (!user || typeof user.getIdToken !== 'function') return Promise.resolve(user);
+    return user.getIdToken().then(function () { return user; }, function () { return user; });
+  }
+
   function signIn() {
     ensureApp();
     return authReady().then(function (u) {
-      if (u) return u;
-      if (state.auth.currentUser) return state.auth.currentUser;
+      if (u) return warmToken(u);
+      if (state.auth.currentUser) return warmToken(state.auth.currentUser);
       return state.auth.signInAnonymously().then(function (cred) {
-        var user = cred && cred.user ? cred.user : state.auth.currentUser;
-        /* Firestore가 토큰을 받기 전에 요청해 권한 오류가 나지 않도록 토큰을 미리 받아 둡니다. */
-        if (user && typeof user.getIdToken === 'function') {
-          return user.getIdToken().then(function () { return user; }, function () { return user; });
-        }
-        return user;
+        return warmToken(cred && cred.user ? cred.user : state.auth.currentUser);
       });
     });
   }
