@@ -224,6 +224,27 @@ body.store-mode .btn-primary:active { background: #0f766e; }
 .staff-row__del:active { color: #dc2626; }
 .staff-row__off { font-size: 10px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 5px; padding: 1px 5px; }
 
+/* 🚪 퇴사(강제 탈퇴) */
+.staff-row--retired { background: #f7f7fa; }
+.staff-row--retired .staff-row__name { color: #6b7280; }
+.staff-row__retire {
+  border: 1px solid #fecaca; background: #fff5f5; color: #b91c1c;
+  border-radius: 9px; font-family: inherit; font-size: 11px; font-weight: 800;
+  padding: 5px 8px; cursor: pointer; white-space: nowrap;
+}
+.staff-row__retire:active { background: #fee2e2; }
+.staff-row__act {
+  border: 1px solid #ccfbf1; background: #ecfdf8; color: #0f766e;
+  border-radius: 9px; font-family: inherit; font-size: 11px; font-weight: 800;
+  padding: 5px 8px; cursor: pointer; white-space: nowrap;
+}
+.staff-row__note { flex: 1 0 100%; font-size: 11.5px; color: #6b7280; font-weight: 700; }
+.staff-list__head { font-size: 11.5px; font-weight: 800; color: #6b7280; padding: 10px 2px 2px; }
+.req-card__warn {
+  color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 8px; padding: 6px 8px; margin-top: 4px; font-weight: 700;
+}
+
 /* ---------- 매장 설정 ---------- */
 .store-code-line {
   margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #4b5160;

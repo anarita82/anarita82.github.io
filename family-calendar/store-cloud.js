@@ -280,6 +280,10 @@
             bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : '#e6fffb',
             hourly: Math.max(0, Math.round(Number(m.hourly) || 0)),
             tel: normTel(m.tel),
+            uid: String(m.uid || '').slice(0, 128),
+            deviceId: String(m.deviceId || '').slice(0, 60),
+            retired: m.retired === true,
+            retiredAt: m.retiredAt && m.retiredAt.toMillis ? m.retiredAt.toMillis() : 0,
             joinedAt: m.joinedAt && m.joinedAt.toMillis ? m.joinedAt.toMillis() : 0,
             active: m.active === false ? false : true,
             photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl.slice(0, 90000) : ''
@@ -297,6 +301,7 @@
           name: String(r.name).slice(0, 20),
           tel: normTel(r.tel),
           deviceId: String(r.deviceId || ''),
+          uid: String(r.uid || '').slice(0, 128),
           status: r.status === 'approved' || r.status === 'rejected' ? r.status : 'pending',
           hourly: Math.max(0, Math.round(Number(r.hourly) || 0)),
           staffId: String(r.staffId || ''),
@@ -323,7 +328,9 @@
         shiftRequests: parseShiftRequests(d.shiftRequests),
         pins: d.storePins && typeof d.storePins === 'object' ? d.storePins : {},
         payrollSettings: settings,
-        storeName: String(d.storeName || '')
+        storeName: String(d.storeName || ''),
+        revokedUids: Array.isArray(d.revokedUids) ? d.revokedUids.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : [],
+        revokedDevices: Array.isArray(d.revokedDevices) ? d.revokedDevices.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : []
       });
     }, function (err) {
       emit('onRoomError', err);
@@ -371,12 +378,21 @@
   /* 입장 요청 한 건 추가 — joinRequests 맵 전체를 덮어쓰지 않습니다. */
   function submitJoinRequest(data) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var uid = myUid();
+    var dev = String((data && data.deviceId) || '');
+    var room = state.room || {};
+    var revokedUids = Array.isArray(room.revokedUids) ? room.revokedUids : [];
+    var revokedDevices = Array.isArray(room.revokedDevices) ? room.revokedDevices : [];
+    if ((uid && revokedUids.indexOf(uid) >= 0) || (dev && revokedDevices.indexOf(dev) >= 0)) {
+      return Promise.reject(new Error('revoked'));
+    }
     var id = 'jq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     var patch = {};
     patch['joinRequests.' + id] = {
       name: String((data && data.name) || '').slice(0, 20),
       tel: normTel(data && data.tel),
-      deviceId: String((data && data.deviceId) || ''),
+      deviceId: dev,
+      uid: uid,
       status: 'pending',
       requestedAt: new Date()
     };
@@ -619,6 +635,96 @@
     return shiftCollection().doc(id).set(fields, { merge: true });
   }
 
+  /* ---------------- 🚪 퇴사(강제 탈퇴) · 복직 · 완전 삭제 ----------------
+     퇴사는 staff[] 항목을 지우지 않고 retired:true 로 남겨 과거 근무·급여명세서를
+     그대로 보존합니다. 동시에 그 직원의 계정(uid)과 기기(deviceId)를 차단 목록에
+     올려 매장 일정·인수인계·급여 화면을 열 수 없게 합니다. */
+  function myUid() {
+    try { return (state.auth && state.auth.currentUser && state.auth.currentUser.uid) || ''; } catch (e) { return ''; }
+  }
+
+  function retireStaff(staffId, opts) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(staffId || '');
+    if (!id) return Promise.reject(new Error('member-missing'));
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var d = snap.data() || {};
+        var list = Array.isArray(d.staff) ? d.staff.slice() : [];
+        var idx = -1, i;
+        for (i = 0; i < list.length; i++) {
+          if (list[i] && String(list[i].id || '') === id) { idx = i; break; }
+        }
+        if (idx < 0) throw new Error('member-missing');
+        var cur = list[idx] || {};
+        var next = {};
+        Object.keys(cur).forEach(function (k) { next[k] = cur[k]; });
+        next.retired = true;
+        next.retiredAt = new Date();
+        list[idx] = next;
+        var uid = String(cur.uid || (opts && opts.uid) || '');
+        var dev = String(cur.deviceId || (opts && opts.deviceId) || '');
+        var patch = { staff: list };
+        if (uid) patch.revokedUids = firebase.firestore.FieldValue.arrayUnion(uid);
+        if (dev) patch.revokedDevices = firebase.firestore.FieldValue.arrayUnion(dev);
+        tx.update(state.roomRef, patch);
+        return { uid: uid, deviceId: dev };
+      });
+    });
+  }
+
+  /* 다시 일하게 되면 복직 — 퇴사 표시를 지우고 차단도 풉니다. */
+  function restoreStaff(staffId) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(staffId || '');
+    if (!id) return Promise.reject(new Error('member-missing'));
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var d = snap.data() || {};
+        var list = Array.isArray(d.staff) ? d.staff.slice() : [];
+        var idx = -1, i;
+        for (i = 0; i < list.length; i++) {
+          if (list[i] && String(list[i].id || '') === id) { idx = i; break; }
+        }
+        if (idx < 0) throw new Error('member-missing');
+        var cur = list[idx] || {};
+        var next = {};
+        Object.keys(cur).forEach(function (k) { next[k] = cur[k]; });
+        next.retired = false;
+        delete next.retiredAt;
+        list[idx] = next;
+        var uid = String(cur.uid || '');
+        var dev = String(cur.deviceId || '');
+        var patch = { staff: list };
+        if (uid) patch.revokedUids = firebase.firestore.FieldValue.arrayRemove(uid);
+        if (dev) patch.revokedDevices = firebase.firestore.FieldValue.arrayRemove(dev);
+        tx.update(state.roomRef, patch);
+        return true;
+      });
+    });
+  }
+
+  /* 목록에서 완전 삭제 — 근무(events) 기록은 남고 이름 매핑만 사라집니다.
+     차단 목록은 그대로 두어 다시 들어오지 못하게 합니다. */
+  function purgeStaff(staffId) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(staffId || '');
+    if (!id) return Promise.reject(new Error('member-missing'));
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var d = snap.data() || {};
+        var list = Array.isArray(d.staff) ? d.staff.slice() : [];
+        var next = list.filter(function (m) { return !(m && String(m.id || '') === id); });
+        if (next.length === list.length) throw new Error('member-missing');
+        tx.update(state.roomRef, { staff: next });
+        return true;
+      });
+    });
+  }
+
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
@@ -658,6 +764,10 @@
     approveProfileRequest: function (req, ownerName) { return decideProfileRequest(req, true, ownerName); },
     rejectProfileRequest: function (req, ownerName) { return decideProfileRequest(req, false, ownerName); },
     parseProfileRequests: parseProfileRequests,
+    retireStaff: retireStaff,
+    restoreStaff: restoreStaff,
+    purgeStaff: purgeStaff,
+    currentUid: myUid,
     pinHash: pinHash,
     currentRoomId: function () { return state.roomId; },
     currentCode: function () { return state.code; }

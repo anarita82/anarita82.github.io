@@ -56,6 +56,9 @@
     accountMatchId: '',
     googleIntentStarted: false,
     roomPins: {},
+    revokedUids: [],
+    removedMembers: {},
+    blocked: '',
     pendingPin: '',
     pinTarget: '',
     memberColor: 0
@@ -412,6 +415,7 @@
     el.accountResetBtn = document.getElementById('accountResetBtn');
     el.accountResetBtn2 = document.getElementById('accountResetBtn2');
     el.accountSignOutBtn = document.getElementById('accountSignOutBtn');
+    el.accountDeleteBtn = document.getElementById('accountDeleteBtn');
     el.accountNameBtn = document.getElementById('accountNameBtn');
     el.accountNameEdit = document.getElementById('accountNameEdit');
     el.accountName2 = document.getElementById('accountName2');
@@ -437,6 +441,10 @@
     el.adminModal = document.getElementById('adminModal');
     el.adminClose = document.getElementById('adminClose');
     el.adminMemberList = document.getElementById('adminMemberList');
+    el.adminRemovedBlock = document.getElementById('adminRemovedBlock');
+    el.adminRemovedList = document.getElementById('adminRemovedList');
+    el.familyBlockedModal = document.getElementById('familyBlockedModal');
+    el.familyBlockedMsg = document.getElementById('familyBlockedMsg');
     el.newMemberName = document.getElementById('newMemberName');
     el.newMemberColors = document.getElementById('newMemberColors');
     el.memberError = document.getElementById('memberError');
@@ -740,6 +748,7 @@
   }
 
   function renderAll() {
+    if (state.blocked) return;
     renderFilters();
     renderCalendar();
     renderDayCard();
@@ -2081,6 +2090,10 @@
     var out = { id: m.id, name: m.name, color: m.color, bg: m.bg, role: m.role || 'member' };
     if (m.tel) out.tel = FamilyCloud.normalizeTel(m.tel);
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
+    /* 내보내기(차단) 때 쓸 계정 목록은 다른 칸을 고칠 때도 유지합니다. */
+    if (Array.isArray(m.uids) && m.uids.length) {
+      out.uids = m.uids.filter(function (u) { return typeof u === 'string' && u; }).slice(0, 8);
+    }
     return out;
   }
 
@@ -2104,11 +2117,14 @@
         bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : (color + '1f'),
         role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member',
         tel: FamilyCloud.normalizeTel(m.tel || ''),
+        uids: Array.isArray(m.uids) ? m.uids.filter(function (u) { return typeof u === 'string' && u; }).slice(0, 8) : [],
         photoDataUrl: typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0 ? m.photoDataUrl : ''
       });
     });
     MEMBERS = next.length ? next : DEFAULT_MEMBERS.slice();
     state.roomPins = info && info.pins && typeof info.pins === 'object' ? info.pins : {};
+    state.revokedUids = info && Array.isArray(info.revokedUids) ? info.revokedUids : [];
+    state.removedMembers = info && info.removedMembers && typeof info.removedMembers === 'object' ? info.removedMembers : {};
     requests = info && Array.isArray(info.requests) ? info.requests : [];
     profileRequests = info && Array.isArray(info.profileRequests) ? info.profileRequests : [];
     if (state.member !== 'all' && !memberById(state.member)) state.member = 'all';
@@ -2116,8 +2132,45 @@
       state.profile = '';
       rememberProfile('');
     }
+    state.blocked = familyBlockReason();
+    if (state.blocked) { showFamilyBlocked(); return; }
+    hideFamilyBlocked();
     renderAll();
     ensureProfile();
+  }
+
+  /* 내보낸 구성원의 계정(uid)인지 — 그 계정으로는 가족 달력을 열 수 없게 합니다.
+     (메인 관리자 프로필로 들어와 있을 때는 잠그지 않아 스스로 잠기는 일을 막습니다) */
+  function familyBlockReason() {
+    var info = accountNow();
+    var uid = info && info.uid ? info.uid : '';
+    if (!uid) return '';
+    if ((state.revokedUids || []).indexOf(uid) < 0) return '';
+    var mine = myMember();
+    if (mine && (mine.role || 'member') === 'admin') return '';
+    return '내보내기(이용 정지) 처리되어 가족 달력에 접근할 수 없습니다';
+  }
+
+  function showFamilyBlocked() {
+    if (!el.familyBlockedModal) return;
+    if (el.familyBlockedMsg) el.familyBlockedMsg.textContent = state.blocked || '내보내기(이용 정지) 처리되어 가족 달력에 접근할 수 없습니다';
+    el.familyBlockedModal.hidden = false;
+  }
+
+  function hideFamilyBlocked() {
+    if (el.familyBlockedModal) el.familyBlockedModal.hidden = true;
+  }
+
+  /* 계정이 바뀌었을 때 차단 상태를 다시 봅니다. */
+  function checkFamilyBlock() {
+    var reason = familyBlockReason();
+    if (reason) { state.blocked = reason; showFamilyBlocked(); return true; }
+    if (state.blocked) {
+      state.blocked = '';
+      hideFamilyBlocked();
+      renderAll();
+    }
+    return false;
   }
 
   function ensureProfile() {
@@ -2698,6 +2751,44 @@
     });
   }
 
+  /* 🚪 회원 탈퇴 — Firebase Auth 계정을 지우고, 이 기기는 익명 기기로 되돌립니다.
+     최근 로그인이 오래되면 auth/requires-recent-login 이 나므로 다시 로그인 안내를 보여 줍니다. */
+  function deleteMyAccount() {
+    if (!window.FamilyCloud) return;
+    var info = accountNow();
+    if (!info.signedIn) { showAccountError('지금은 로그인한 계정이 없어요(익명 기기). 탈퇴할 계정이 없어요.'); return; }
+    if (!window.confirm('정말 회원 탈퇴할까요?\n\n'
+      + (info.email || info.methodLabel || '') + ' 계정이 삭제되고 되돌릴 수 없어요.\n'
+      + '가족·매장 달력의 일정·근무·급여 기록은 그대로 남고, 이 기기는 익명 기기로 계속 써요.')) return;
+    if (!window.confirm('한 번 더 확인합니다.\n탈퇴를 누르면 계정이 바로 삭제돼요.')) return;
+    showAccountError('');
+    setBusy(el.accountDeleteBtn, true, '탈퇴하는 중…');
+    FamilyCloud.deleteAccount().then(function () {
+      /* 계정이 지워지면 로그아웃 상태가 됩니다. 화면이 오류 상태로 남지 않게
+         익명 세션을 미리 받아 두고 새로 고침합니다. */
+      return FamilyCloud.ensureSignedIn();
+    }).then(function () {
+      state.account = accountFallback();
+      renderAccountPills();
+      toast('회원 탈퇴했어요 · 이 기기는 익명 기기로 계속 써요');
+      setTimeout(function () { location.reload(); }, 1200);
+    }).catch(function (err) {
+      var code = String((err && err.code) || '');
+      var msg = String((err && err.message) || '');
+      if (code === 'auth/requires-recent-login') {
+        showAccountError('보안을 위해 다시 로그인이 필요해요. [로그아웃]을 누른 뒤 같은 계정으로 다시 로그인하고, [회원 탈퇴]를 다시 눌러 주세요.');
+      } else if (msg === 'anonymous-account') {
+        showAccountError('지금은 로그인한 계정이 아니에요(익명 기기). 탈퇴할 계정이 없어요.');
+      } else if (msg === 'not-signed-in') {
+        showAccountError('로그인이 플러졌어요. 다시 로그인한 뒤 [회원 탈퇴]를 눌러 주세요.');
+      } else {
+        showAccountError(FamilyCloud.authErrorHint(err));
+      }
+    }).then(function () {
+      setBusy(el.accountDeleteBtn, false);
+    });
+  }
+
   function toggleAccountNameEdit() {
     if (!el.accountNameEdit) return;
     var open = el.accountNameEdit.hidden;
@@ -2751,6 +2842,7 @@
       state.account = info;
       renderAccountPills();
       if (el.accountModal && !el.accountModal.hidden) renderAccount();
+      checkFamilyBlock();
     });
 
     /* 구글 리디렉션으로 다녀온 경우 결과 마무리 */
@@ -2941,6 +3033,10 @@
     rememberProfile(m.id);
     state.member = 'all';
     closeProfileModal();
+    /* 이 폰의 계정을 이 프로필에 묶어 둡니다 — 나중에 관리자가 내보내면 그 계정을 차단할 수 있어요. */
+    if (window.FamilyCloud && typeof FamilyCloud.bindMemberAccount === 'function') {
+      FamilyCloud.bindMemberAccount(m.id);
+    }
     renderAll();
     toast(m.name + ' 님으로 시작해요');
   }
@@ -3075,7 +3171,93 @@
       telRow.appendChild(tel);
       li.appendChild(telRow);
 
+      /* 메인 관리자만 일반 구성원을 내보낼 수 있어요 */
+      if (isAdmin() && (m.role || 'member') !== 'admin') {
+        var outBtn = document.createElement('button');
+        outBtn.type = 'button';
+        outBtn.className = 'admin-member__out';
+        outBtn.textContent = '🚪 내보내기';
+        outBtn.title = m.name + ' 님을 가족 달력에서 내보내기';
+        outBtn.setAttribute('aria-label', m.name + ' 가족 달력에서 내보내기');
+        outBtn.addEventListener('click', function () { removeFamilyMember(m); });
+        li.appendChild(outBtn);
+      }
+
       el.adminMemberList.appendChild(li);
+    });
+    renderRemovedMembers();
+  }
+
+  /* 내보낸 구성원 목록 (관리자 설정) — 잘못 내보냈을 때 되돌리기 */
+  function renderRemovedMembers() {
+    if (!el.adminRemovedBlock || !el.adminRemovedList) return;
+    if (!isAdmin()) { el.adminRemovedBlock.hidden = true; return; }
+    var list = state.removedMembers || {};
+    var keys = Object.keys(list);
+    el.adminRemovedList.innerHTML = '';
+    el.adminRemovedBlock.hidden = !keys.length;
+    if (!keys.length) return;
+    keys.forEach(function (key) {
+      var r = list[key];
+      if (!r || !r.name) return;
+      var li = document.createElement('li');
+      li.className = 'admin-member admin-member--out';
+      var dot = document.createElement('span');
+      dot.className = 'admin-member__dot';
+      dot.style.background = r.color || '#94a3b8';
+      li.appendChild(dot);
+      var name = document.createElement('span');
+      name.className = 'admin-member__name';
+      name.textContent = r.name;
+      li.appendChild(name);
+      var badge = document.createElement('span');
+      badge.className = 'admin-member__badge';
+      badge.textContent = (r.uids && r.uids.length) ? '계정 차단됨' : '계정 기록 없음';
+      li.appendChild(badge);
+      var back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'btn-ghost btn-small';
+      back.textContent = '되돌리기';
+      back.addEventListener('click', function () { restoreFamilyMember(key, r); });
+      li.appendChild(back);
+      el.adminRemovedList.appendChild(li);
+    });
+  }
+
+  /* 🚪 가족 구성원 내보내기 — 목록에서 빼고, 그 구성원 계정을 차단합니다. */
+  function removeFamilyMember(m) {
+    if (!isAdmin()) { toast('메인 관리자만 구성원을 내보낼 수 있어요'); return; }
+    if ((m.role || 'member') === 'admin') { toast('메인 관리자는 내보낼 수 없어요'); return; }
+    if (m.id === state.profile) { window.alert('지금 이 폰에서 쓰는 프로필은 내보낼 수 없어요.\n다른 구성원을 골라 주세요.'); return; }
+    if (!window.confirm(m.name + ' 님을 가족 달력에서 내보낼까요?\n\n'
+      + '· 구성원 목록에서 빠지고, 로그인한 계정은 다시 들어올 수 없어요.\n'
+      + '· 지금까지 넣은 일정과 확인 기록은 그대로 남아요.')) return;
+    FamilyCloud.removeMember(m.id, myMember()).then(function (uids) {
+      if (!uids || !uids.length) {
+        window.alert(m.name + ' 님을 가족 달력에서 내보냈어요.\n\n'
+          + '다만 이 구성원은 로그인(계정) 기록이 없어서 계정 차단은 안 됐어요.\n'
+          + '그 폰에서는 다시 들어와 다른 구성원를 고를 수 있으니, 필요하면 구성원 목록을 확인해 주세요.');
+      } else {
+        toast(m.name + ' 님을 내보냈어요 · 그 계정은 다시 들어올 수 없어요');
+      }
+    }).catch(function (err) {
+      var msg = (err && err.message) || '';
+      if (msg === 'cannot-remove-admin') window.alert('메인 관리자는 내보낼 수 없어요.');
+      else if (msg === 'member-missing') window.alert('구성원을 찾지 못했어요. 화면을 새로 고쳐 확인해 주세요.');
+      else window.alert('내보내지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  function restoreFamilyMember(key, r) {
+    if (!isAdmin()) return;
+    var name = r && r.name ? r.name : '이 구성원';
+    if (!window.confirm(name + ' 님을 다시 구성원으로 넣을까요?\n\n그 계정의 차단이 풀러서 다시 들어올 수 있어요.')) return;
+    FamilyCloud.restoreMember(key).then(function () {
+      toast(name + ' 님을 다시 넣었어요 · 차단도 풀렸어요');
+    }).catch(function (err) {
+      var msg = (err && err.message) || '';
+      if (msg === 'name-taken') window.alert('같은 이름의 구성원이 이미 있어서 되돌리지 못했어요.\n그 구성원 이름을 바꾼 뒤 다시 시도해 주세요.');
+      else window.alert('되돌리지 못했어요 · ' + errorHint(err));
     });
   }
 
@@ -3347,6 +3529,7 @@
     if (el.accountResetBtn) el.accountResetBtn.addEventListener('click', function () { sendAccountReset(false); });
     if (el.accountResetBtn2) el.accountResetBtn2.addEventListener('click', function () { sendAccountReset(true); });
     if (el.accountSignOutBtn) el.accountSignOutBtn.addEventListener('click', signOutFromAccount);
+    if (el.accountDeleteBtn) el.accountDeleteBtn.addEventListener('click', deleteMyAccount);
     if (el.accountNameBtn) el.accountNameBtn.addEventListener('click', toggleAccountNameEdit);
     if (el.accountNameSaveBtn) el.accountNameSaveBtn.addEventListener('click', saveAccountName);
     if (el.accountMemberBtn) el.accountMemberBtn.addEventListener('click', pickProfileFromAccount);

@@ -42,6 +42,9 @@
     pins: {},
     settings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: false, payDay: 10, weeklyHours: 15 },
     storeName: '',
+    revokedUids: [],
+    revokedDevices: [],
+    blocked: '',
     year: 0,
     month: 0,
     selected: '',
@@ -82,6 +85,32 @@
   }
 
   function isOwner() { return S.role === 'owner'; }
+
+  /* 이 기기의 계정(uid) — 퇴사 차단에 씁니다. */
+  function myUid() {
+    if (window.StoreCloud && typeof StoreCloud.currentUid === 'function') {
+      try { return StoreCloud.currentUid() || ''; } catch (e) { return ''; }
+    }
+    return '';
+  }
+
+  /* 퇴사(강제 탈퇴)된 기기인지 — 사장님 기기는 절대 막지 않습니다. */
+  function blockReason() {
+    if (isOwnerDevice()) return '';
+    var uid = myUid();
+    if (uid && (S.revokedUids || []).indexOf(uid) >= 0) return '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+    var dev = deviceId();
+    if (dev && (S.revokedDevices || []).indexOf(dev) >= 0) return '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+    var sid = myStaffId();
+    var st = sid ? staffById(sid) : null;
+    if (st && st.retired) return '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+    var mine = myJoinRequest();
+    if (mine && mine.staffId) {
+      var joined = staffById(mine.staffId);
+      if (joined && joined.retired) return '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+    }
+    return '';
+  }
   function me() {
     var id = myStaffId();
     for (var i = 0; i < S.staff.length; i++) if (S.staff[i].id === id) return S.staff[i];
@@ -231,6 +260,7 @@
     if (err.code === 'auth/operation-not-allowed') return '익명 로그인이 꺼져 있어요.';
     if (err.message === 'firebase-sdk-missing') return '공유 모듈을 불러오지 못했어요.';
     if (err.message === 'empty-code') return '매장 코드를 입력해 주세요.';
+    if (err.message === 'revoked') return '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다.';
     if (err.code) return err.code;
     return err.message || '알 수 없는 오류';
   }
@@ -253,6 +283,7 @@
     el.joinCard = $('storeJoinCard');
     el.main = $('storeMain');
     el.loadingCard = $('storeLoadingCard');
+    el.blockedCard = $('storeBlockedCard');
 
     var q = new URLSearchParams(location.search);
     var storeParam = q.get('store');
@@ -575,9 +606,20 @@
     S.profileRequests = info.profileRequests || [];
     S.shiftRequests = info.shiftRequests || [];
     S.pins = info.pins || {};
+    S.revokedUids = Array.isArray(info.revokedUids) ? info.revokedUids : [];
+    S.revokedDevices = Array.isArray(info.revokedDevices) ? info.revokedDevices : [];
     S.settings = info.payrollSettings || S.settings;
     S.payWeekly = !!S.settings.weeklyAllowance;
     S.storeName = info.storeName || '';
+    var blocked = blockReason();
+    if (blocked) {
+      S.blocked = blocked;
+      S.role = 'none';
+      lsSet(STAFF_KEY, '');
+      showBlocked(blocked);
+      return;
+    }
+    S.blocked = '';
     if (S.role === 'none') resolveIdentity();
     if (S.role === 'staff' && !me()) {
       // 승인이 해제된 경우
@@ -591,6 +633,14 @@
   function resolveIdentity() {
     var sid = myStaffId();
     if (isOwnerDevice()) { S.role = 'owner'; afterIdentity(); return; }
+    var blocked = blockReason();
+    if (blocked) {
+      S.blocked = blocked;
+      S.role = 'none';
+      lsSet(STAFF_KEY, '');
+      showBlocked(blocked);
+      return;
+    }
     if (sid && staffById(sid)) {
       S.role = 'staff';
       S.filter = sid;
@@ -649,14 +699,31 @@
     if (el.setupCard) el.setupCard.hidden = true;
     if (el.joinCard) el.joinCard.hidden = true;
     if (el.main) el.main.hidden = true;
+    if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.loadingCard) el.loadingCard.hidden = false;
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
+  }
+
+  /* 🚪 퇴사(강제 탈퇴)된 기기 — 매장 일정·인수인계·급여 화면을 막고 안내만 보여줍니다. */
+  function showBlocked(msg) {
+    if (el.loadingCard) el.loadingCard.hidden = true;
+    if (el.setupCard) el.setupCard.hidden = true;
+    if (el.joinCard) el.joinCard.hidden = true;
+    if (el.main) el.main.hidden = true;
+    if (el.storeAddBtn) el.storeAddBtn.hidden = true;
+    if (el.blockedCard) {
+      el.blockedCard.hidden = false;
+      var text = $('storeBlockedMsg');
+      if (text) text.textContent = msg || '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+    }
+    setStoreStatus('error', '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다');
   }
 
   function showSetup(msg) {
     if (el.loadingCard) el.loadingCard.hidden = true;
     if (el.joinCard) el.joinCard.hidden = true;
     if (el.main) el.main.hidden = true;
+    if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.setupCard) {
       el.setupCard.hidden = false;
       var hint = $('storeSetupMsg');
@@ -674,6 +741,7 @@
     if (el.loadingCard) el.loadingCard.hidden = true;
     if (el.setupCard) el.setupCard.hidden = true;
     if (el.main) el.main.hidden = true;
+    if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
     if (!el.joinCard) return;
     el.joinCard.hidden = false;
@@ -708,6 +776,7 @@
     if (el.loadingCard) el.loadingCard.hidden = true;
     if (el.setupCard) el.setupCard.hidden = true;
     if (el.main) el.main.hidden = true;
+    if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
     if (!el.joinCard) return;
     el.joinCard.hidden = false;
@@ -730,6 +799,7 @@
     if (el.loadingCard) el.loadingCard.hidden = true;
     if (el.setupCard) el.setupCard.hidden = true;
     if (el.joinCard) el.joinCard.hidden = true;
+    if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.main) el.main.hidden = false;
     if (el.storeAddBtn) el.storeAddBtn.hidden = !isOwner() || !S.active;
     if (el.storeSubRow) {
@@ -807,6 +877,8 @@
     var already = S.staff.filter(function (m) { return m.name === name; })[0];
     if (already) { if (err) { err.textContent = '같은 이름이 이미 있어요. 구분되는 이름(예: 오후 알바)을 넣어 주세요.'; err.hidden = false; } return; }
     if (err) err.hidden = true;
+    var blocked = blockReason();
+    if (blocked) { showBlocked(blocked); return; }
     var btn = $('storeJoinBtn');
     if (btn) btn.disabled = true;
     StoreCloud.submitJoinRequest({ name: name, tel: tel, deviceId: deviceId() }).then(function () {
@@ -816,6 +888,7 @@
       setStoreStatus('pending', '입장 승인을 기다리는 중이에요');
       toast('입장 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
     }).catch(function (e) {
+      if (e && e.message === 'revoked') { showBlocked('퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다'); return; }
       if (err) { err.textContent = '요청을 보내지 못했어요 · ' + errorHint(e); err.hidden = false; }
     }).then(function () {
       if (btn) btn.disabled = false;
@@ -866,6 +939,7 @@
   /* ---------------- 렌더 ---------------- */
   function renderAll() {
     if (!S.active) return;
+    if (S.blocked) return;
     if (S.role === 'none') { paintStoreStatus(); return; }    if (!S.connected) {
       // 방 문서는 받았지만 근무 목록을 아직 못 받은 경우
       if (!S.shifts.length) showLoading();
@@ -923,7 +997,9 @@
     var wrap = $('storeStaffFilter');
     if (!wrap) return;
     wrap.innerHTML = '';
-    var list = isOwner() ? S.staff : S.staff.filter(function (m) { return m.id === myStaffId(); });
+    var list = isOwner()
+      ? S.staff.filter(function (m) { return !m.retired || m.id === S.filter; })
+      : S.staff.filter(function (m) { return m.id === myStaffId() && !m.retired; });
     function chip(id, name, color, active, member) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -951,7 +1027,7 @@
     }
     if (isOwner()) chip('all', '전체', '#0d9488', S.filter === 'all');
     list.forEach(function (m) {
-      chip(m.id, m.name, m.color, S.filter === m.id, m);
+      chip(m.id, m.name + (m.retired ? ' ·퇴사' : ''), m.color, S.filter === m.id, m);
     });
     if (!list.length && !isOwner()) wrap.innerHTML = '<span class="field-hint">등록된 알바생이 없어요.</span>';
   }
@@ -1562,7 +1638,8 @@
   function openShift(sh, presetDate, readonly) {
     if (!isOwner() && !readonly) return;
     S.shiftEditingId = sh ? sh.id : null;
-    S.shiftStaffId = sh ? sh.staffId : (S.filter !== 'all' ? S.filter : (S.staff[0] ? S.staff[0].id : ''));
+    var firstActive = S.staff.filter(function (m) { return !m.retired; })[0];
+    S.shiftStaffId = sh ? sh.staffId : (S.filter !== 'all' ? S.filter : (firstActive ? firstActive.id : ''));
     S.shiftStatus = sh ? (sh.status || 'planned') : 'planned';
     resetShiftVoiceBox();
 
@@ -1572,10 +1649,11 @@
     var pickWrap = $('shiftStaffPicker');
     if (pickWrap) {
       pickWrap.innerHTML = '';
-      if (!S.staff.length) {
+      var pickable = S.staff.filter(function (m) { return !m.retired || m.id === S.shiftStaffId; });
+      if (!pickable.length) {
         pickWrap.innerHTML = '<p class="field-hint">등록된 알바생이 없어요. 알바생이 초대 링크로 입장을 요청하면 승인해 주세요.</p>';
       }
-      S.staff.forEach(function (m) {
+      pickable.forEach(function (m) {
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'pick' + (m.id === S.shiftStaffId ? ' is-on' : '');
@@ -1972,7 +2050,7 @@
       body.className = 'pay-row__body';
       var name = document.createElement('div');
       name.className = 'pay-row__name';
-      name.textContent = m.name;
+      name.textContent = m.name + (m.retired ? ' · 퇴사' : '');
       body.appendChild(name);
       var meta = document.createElement('div');
       meta.className = 'pay-row__meta';
@@ -2117,91 +2195,187 @@
       list.innerHTML = '<li class="empty">아직 알바생이 없어요.<br><b>초대 링크</b>를 보내고 승인하면 여기에 나와요.</li>';
       return;
     }
-    S.staff.forEach(function (m) {
-      var li = document.createElement('li');
-      li.className = 'staff-row';
+    var working = S.staff.filter(function (m) { return !m.retired; });
+    var retired = S.staff.filter(function (m) { return m.retired; });
+    if (!working.length) {
+      var none = document.createElement('li');
+      none.className = 'empty';
+      none.textContent = '지금 일하는 알바생은 없어요.';
+      list.appendChild(none);
+    }
+    working.forEach(function (m) { list.appendChild(staffRow(m, false)); });
+    if (retired.length) {
+      var head = document.createElement('li');
+      head.className = 'staff-list__head';
+      head.textContent = '🚪 퇴사자 ' + retired.length + '명 · 지난 근무·급여 기록은 그대로 남아 있어요';
+      list.appendChild(head);
+      retired.forEach(function (m) { list.appendChild(staffRow(m, true)); });
+    }
+  }
 
-      var photoBtn = document.createElement('button');
-      photoBtn.type = 'button';
-      photoBtn.className = 'staff-row__photo';
-      photoBtn.setAttribute('aria-label', m.name + ' 사진 바꾸기');
-      photoBtn.appendChild(storeAvatar(m, 30));
-      photoBtn.addEventListener('click', function () { pickStaffPhoto(m); });
-      li.appendChild(photoBtn);
-      if (m.photoDataUrl) {
-        var clearPh = document.createElement('button');
-        clearPh.type = 'button';
-        clearPh.className = 'admin-member__photo-clear';
-        clearPh.textContent = '✕';
-        clearPh.title = '사진 지우기';
-        clearPh.addEventListener('click', function () { clearStaffPhoto(m); });
-        li.appendChild(clearPh);
+  /* 알바생 한 줄 — 퇴사한 사람은 이름·시급을 잠그고 [복직]·[완전 삭제]만 보여 줍니다. */
+  function staffRow(m, isRetired) {
+    var li = document.createElement('li');
+    li.className = 'staff-row' + (isRetired ? ' staff-row--retired' : '');
+
+    var photoBtn = document.createElement('button');
+    photoBtn.type = 'button';
+    photoBtn.className = 'staff-row__photo';
+    photoBtn.setAttribute('aria-label', m.name + (isRetired ? ' 사진' : ' 사진 바꾸기'));
+    photoBtn.appendChild(storeAvatar(m, 30));
+    if (isRetired) photoBtn.disabled = true;
+    else photoBtn.addEventListener('click', function () { pickStaffPhoto(m); });
+    li.appendChild(photoBtn);
+    if (m.photoDataUrl && !isRetired) {
+      var clearPh = document.createElement('button');
+      clearPh.type = 'button';
+      clearPh.className = 'admin-member__photo-clear';
+      clearPh.textContent = '✕';
+      clearPh.title = '사진 지우기';
+      clearPh.addEventListener('click', function () { clearStaffPhoto(m); });
+      li.appendChild(clearPh);
+    }
+
+    if (isRetired) {
+      var nameText = document.createElement('span');
+      nameText.className = 'staff-row__name';
+      nameText.textContent = m.name;
+      li.appendChild(nameText);
+      var off = document.createElement('span');
+      off.className = 'staff-row__off';
+      off.textContent = '퇴사';
+      li.appendChild(off);
+      var back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'staff-row__act';
+      back.textContent = '복직';
+      back.title = m.name + ' 님을 다시 일하는 알바생으로 되돌리기';
+      back.addEventListener('click', function () { restoreStaffMember(m); });
+      li.appendChild(back);
+      var purge = document.createElement('button');
+      purge.type = 'button';
+      purge.className = 'staff-row__del';
+      purge.textContent = '✕';
+      purge.setAttribute('aria-label', m.name + ' 목록에서 완전히 삭제');
+      purge.title = '목록에서 완전 삭제 (근무·급여 기록은 남음)';
+      purge.addEventListener('click', function () { purgeStaffMember(m); });
+      li.appendChild(purge);
+      var wageText = document.createElement('span');
+      wageText.className = 'staff-row__note';
+      wageText.textContent = '시급 ' + money(m.hourly || 0);
+      li.appendChild(wageText);
+      return li;
+    }
+
+    var name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'staff-row__name';
+    name.value = m.name;
+    name.maxLength = 12;
+    name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
+    name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
+    name.addEventListener('change', function () { saveStaffName(m, name.value); });
+    li.appendChild(name);
+
+    if (m.active === false) {
+      var paused = document.createElement('span');
+      paused.className = 'staff-row__off';
+      paused.textContent = '정지';
+      li.appendChild(paused);
+    }
+    var wage = document.createElement('input');
+    wage.type = 'number';
+    wage.className = 'staff-row__wage';
+    wage.min = '0';
+    wage.step = '100';
+    wage.inputMode = 'numeric';
+    wage.value = String(m.hourly || '');
+    wage.setAttribute('aria-label', m.name + ' 기본 시급');
+    wage.addEventListener('change', function () { saveStaffHourly(m.id, wage.value); });
+    li.appendChild(wage);
+    var retire = document.createElement('button');
+    retire.type = 'button';
+    retire.className = 'staff-row__retire';
+    retire.textContent = '🚪 퇴사';
+    retire.setAttribute('aria-label', m.name + ' 퇴사(강제 탈퇴) 처리');
+    retire.title = '퇴사 처리 — 그 직원 폰에서 매장 접근을 막고, 지난 근무·급여는 남겨요';
+    retire.addEventListener('click', function () { retireStaff(m); });
+    li.appendChild(retire);
+
+    /* 휴대폰 번호 — 알바생 카드에서 바로 보이고 고칠 수 있어요 */
+    var telRow = document.createElement('div');
+    telRow.className = 'staff-row__telrow';
+    var telIcon = document.createElement('span');
+    telIcon.className = 'staff-row__telicon';
+    telIcon.textContent = '📞';
+    telRow.appendChild(telIcon);
+    var telInput = document.createElement('input');
+    telInput.type = 'tel';
+    telInput.className = 'staff-row__tel';
+    telInput.value = telOf(m);
+    telInput.placeholder = '010-1234-5678';
+    telInput.maxLength = 20;
+    telInput.setAttribute('inputmode', 'tel');
+    telInput.setAttribute('autocomplete', 'off');
+    telInput.setAttribute('aria-label', m.name + ' 휴대폰 번호');
+    telInput.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
+    telInput.addEventListener('change', function () { saveStaffTel(m, telInput.value); });
+    telRow.appendChild(telInput);
+    if (telOf(m)) {
+      var call = document.createElement('a');
+      call.className = 'staff-row__call';
+      call.href = telHref(telOf(m));
+      call.textContent = '📞';
+      call.title = telOf(m) + ' 전화';
+      call.setAttribute('aria-label', m.name + ' ' + telOf(m) + ' 전화 걸기');
+      telRow.appendChild(call);
+    }
+    li.appendChild(telRow);
+    return li;
+  }
+
+  /* 🚪 퇴사(강제 탈퇴) — 사장님만. 과거 근무·급여 기록은 남기고 접근만 막습니다. */
+  function retireStaff(m) {
+    if (!isOwner()) return;
+    if (!window.confirm(m.name + ' 님을 퇴사 처리할까요?\n\n'
+      + '· 퇴사하면 그 직원 폰에서 매장 일정·인수인계·급여 화면이 바로 잠기고, 다시 들어올 수 없어요.\n'
+      + '· 지난 근무 기록과 급여명세서는 그대로 남아서 정산할 수 있어요.\n'
+      + '· 다시 일하게 되면 [복직]을 누르면 돼요.')) return;
+    StoreCloud.retireStaff(m.id).then(function (info) {
+      renderStaffList();
+      if (!info || (!info.uid && !info.deviceId)) {
+        window.alert(m.name + ' 님을 퇴사자로 표시했어요.\n\n다만 이 직원은 계정·기기 정보가 저장되기 전에 승인돼서 기기 차단이 확실하지 않아요.\n그 폰에서 다시 입장 요청이 오면 [거절]해 주세요.');
+      } else {
+        toast(m.name + ' 님을 퇴사 처리했어요 · 지난 근무·급여는 그대로 남아요');
       }
+    }).catch(function (err) {
+      window.alert('퇴사 처리하지 못했어요 · ' + errorHint(err));
+    });
+  }
 
-      var name = document.createElement('input');
-      name.type = 'text';
-      name.className = 'staff-row__name';
-      name.value = m.name;
-      name.maxLength = 12;
-      name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
-      name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
-      name.addEventListener('change', function () { saveStaffName(m, name.value); });
-      li.appendChild(name);
+  /* 복직 — 퇴사 표시를 지우고 그 폰의 매장 접근 차단을 풉니다. */
+  function restoreStaffMember(m) {
+    if (!isOwner()) return;
+    if (!window.confirm(m.name + ' 님을 복직시킬까요?\n\n매장 접근 차단이 풀려서 그 폰에서 다시 매장 달력을 볼 수 있어요.')) return;
+    StoreCloud.restoreStaff(m.id).then(function () {
+      renderStaffList();
+      toast(m.name + ' 님을 복직시켰어요');
+    }).catch(function (err) {
+      window.alert('복직 처리하지 못했어요 · ' + errorHint(err));
+    });
+  }
 
-      if (m.active === false) {
-        var off = document.createElement('span');
-        off.className = 'staff-row__off';
-        off.textContent = '정지';
-        li.appendChild(off);
-      }
-      var wage = document.createElement('input');
-      wage.type = 'number';
-      wage.className = 'staff-row__wage';
-      wage.min = '0';
-      wage.step = '100';
-      wage.inputMode = 'numeric';
-      wage.value = String(m.hourly || '');
-      wage.setAttribute('aria-label', m.name + ' 기본 시급');
-      wage.addEventListener('change', function () { saveStaffHourly(m.id, wage.value); });
-      li.appendChild(wage);
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'staff-row__del';
-      del.textContent = '✕';
-      del.setAttribute('aria-label', m.name + ' 삭제');
-      del.addEventListener('click', function () { removeStaff(m); });
-      li.appendChild(del);
-
-      /* 휴대폰 번호 — 알바생 카드에서 바로 보이고 고칠 수 있어요 */
-      var telRow = document.createElement('div');
-      telRow.className = 'staff-row__telrow';
-      var telIcon = document.createElement('span');
-      telIcon.className = 'staff-row__telicon';
-      telIcon.textContent = '📞';
-      telRow.appendChild(telIcon);
-      var telInput = document.createElement('input');
-      telInput.type = 'tel';
-      telInput.className = 'staff-row__tel';
-      telInput.value = telOf(m);
-      telInput.placeholder = '010-1234-5678';
-      telInput.maxLength = 20;
-      telInput.setAttribute('inputmode', 'tel');
-      telInput.setAttribute('autocomplete', 'off');
-      telInput.setAttribute('aria-label', m.name + ' 휴대폰 번호');
-      telInput.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
-      telInput.addEventListener('change', function () { saveStaffTel(m, telInput.value); });
-      telRow.appendChild(telInput);
-      if (telOf(m)) {
-        var call = document.createElement('a');
-        call.className = 'staff-row__call';
-        call.href = telHref(telOf(m));
-        call.textContent = '📞';
-        call.title = telOf(m) + ' 전화';
-        call.setAttribute('aria-label', m.name + ' ' + telOf(m) + ' 전화 걸기');
-        telRow.appendChild(call);
-      }
-      li.appendChild(telRow);
-      list.appendChild(li);
+  /* 완전 삭제 — 목록에서 지웁니다. 근무(events)·급여 기록은 남고, 차단은 유지됩니다. */
+  function purgeStaffMember(m) {
+    if (!isOwner()) return;
+    if (!window.confirm(m.name + ' 님을 알바생 목록에서 완전히 지울까요?\n\n'
+      + '지난 근무·급여 기록(근무 일정)은 그대로 남아요.\n'
+      + '다만 급여명세서 목록에서는 이 이름이 빠져서, 남은 근무는 이름으로만 보여요.')) return;
+    StoreCloud.purgeStaff(m.id).then(function () {
+      renderStaffList();
+      toast(m.name + ' 님을 목록에서 지웠어요');
+    }).catch(function (err) {
+      window.alert('지우지 못했어요 · ' + errorHint(err));
     });
   }
 
@@ -2239,6 +2413,17 @@
     var tel = normTel(m.tel);
     if (tel) out.tel = tel;
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
+    /* 퇴사·계정 연결 정보는 이름·시급을 고칠 때도 그대로 남겨야 합니다. */
+    if (m.uid) out.uid = String(m.uid).slice(0, 128);
+    if (m.deviceId) out.deviceId = String(m.deviceId).slice(0, 60);
+    if (m.retired) {
+      out.retired = true;
+      var retired = m.retiredAt;
+      if (typeof m.retiredAt === 'number' && window.firebase && firebase.firestore && firebase.firestore.Timestamp) {
+        try { retired = firebase.firestore.Timestamp.fromMillis(m.retiredAt); } catch (e) { retired = m.retiredAt; }
+      }
+      if (retired) out.retiredAt = retired;
+    }
     return out;
   }
 
@@ -2391,17 +2576,6 @@
     });
   }
 
-  function removeStaff(m) {
-    if (!isOwner()) return;
-    if (!window.confirm(m.name + ' 님을 알바생 목록에서 지울까요?\n지난 근무 기록과 급여명세서는 그대로 남아요.')) return;
-    var next = S.staff.filter(function (x) { return x.id !== m.id; });
-    StoreCloud.saveRoom({ staff: next }).then(function () {
-      toast(m.name + ' 님을 목록에서 지웠어요');
-    }).catch(function (err) {
-      window.alert('지우지 못했어요 · ' + errorHint(err));
-    });
-  }
-
   function openApprovalModal() {
     if (!isOwner()) return;
     renderApprovalCards();
@@ -2426,9 +2600,12 @@
       var card = document.createElement('div');
       card.className = 'req-card req-card--pending';
       var tel = telOf(r);
+      var isRevoked = (r.uid && (S.revokedUids || []).indexOf(r.uid) >= 0)
+        || (r.deviceId && (S.revokedDevices || []).indexOf(r.deviceId) >= 0);
       card.innerHTML =
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
+        (isRevoked ? '<div class="req-card__meta req-card__warn">⚠️ 퇴사 처리된 기기·계정에서 온 요청이에요. 다시 일하게 하려면 [알바생 관리]에서 그 직원을 [복직]시켜 주세요.</div>' : '') +
         '<div class="req-card__tel">' + (tel ? '📞 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📞 연락처 미입력') + '</div>' +
         '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
@@ -2576,6 +2753,12 @@
 
   function approveJoin(req, wageValue, btn) {
     if (!isOwner()) return;
+    var isRevoked = (req.uid && (S.revokedUids || []).indexOf(req.uid) >= 0)
+      || (req.deviceId && (S.revokedDevices || []).indexOf(req.deviceId) >= 0);
+    if (isRevoked) {
+      window.alert('이 요청은 퇴사(탈퇴) 처리된 기기·계정에서 왔어요.\n\n그래도 다시 일하게 하려면 [알바생 관리] 목록에서 그 직원을 [복직]시켜 주세요.\n(복직하면 차단이 풀려 바로 들어올 수 있어요.)');
+      return;
+    }
     var hourly = Math.max(0, Math.round(Number(wageValue) || 0));
     var staffId = 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     var palette = STAFF_COLORS[S.staff.length % STAFF_COLORS.length];
@@ -2585,6 +2768,9 @@
     var added = { id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true };
     var tel = telOf(req);
     if (tel) added.tel = tel;
+    /* 나중에 퇴사시킬 때 이 직원의 폰을 찾을 수 있게 계정(uid)·기기(deviceId)를 함께 저장 */
+    if (req.uid) added.uid = String(req.uid).slice(0, 128);
+    if (req.deviceId) added.deviceId = String(req.deviceId).slice(0, 60);
     next.push(added);
     if (btn) btn.disabled = true;
     var patch = { staff: next };

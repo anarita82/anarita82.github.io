@@ -67,7 +67,10 @@
 ```
 rooms/{roomId}
   schema: 2, name: "우리 가족", createdAt
-  members: [ { id, name, color, bg, role, tel } ]    // role: admin | manager | member, tel: 휴대폰 번호(선택)
+  members: [ { id, name, color, bg, role, tel, uids[] } ]  // role: admin|manager|member, tel: 번호(선택),
+                                                          // uids: 이 구성원이 쓴 계정(uid) — 내보내기 차단용
+  revokedUids: [ "<uid>", ... ]                  // 내보낸 구성원의 계정 — 가족 달력 접근 차단
+  removedMembers: { <memberId>: { name, color, bg, role, tel, uids[], removedAt, removedBy } }
   pins: { dad: "<sha256>", mom: "<sha256>" }     // 4자리 PIN의 해시 (평문 없음)
   requests: {                                    // 일정 등록 요청 (맵 필드)
     <requestId>: { status: pending|approved|rejected, requesterId, requesterName,
@@ -146,7 +149,48 @@ FamilyCloud.signInWithGoogle() / signInWithGoogleRedirect() / finishRedirectSign
 FamilyCloud.sendPasswordReset(email)
 FamilyCloud.signOutAccount() / setAccountName(name) / authErrorHint(err)
 FamilyCloud.ensureSignedIn()           // 로그인 상태 복원을 기다린 뒤 익명으로라도 접속
+FamilyCloud.deleteAccount()            // 회원 탈퇴 — Auth 계정 삭제(user.delete)
 ```
+
+## 🚪 회원 탈퇴 · 직원(구성원) 내보내기 (2026-11-17 추가)
+
+### 1) 본인 회원 탈퇴
+
+| 화면 | 하는 일 |
+| --- | --- |
+| 계정 창 (로그인 상태) — **회원 탈퇴** | 두 번 확인 뒤 `user.delete()` 로 Firebase Auth 계정을 지웁니다 |
+| 탈퇴 성공 | 익명 세션을 미리 받아 둔 뒤 화면을 새로 고칩니다(권한 오류로 남지 않음). 이 기기는 **익명 기기**로 계속 쓰고, 가족·매장 코드도 그대로예요 |
+| 최근 로그인이 오래된 경우 | `auth/requires-recent-login` → **"[로그아웃]을 누른 뒤 같은 계정으로 다시 로그인하고 [회원 탈퇴]를 다시 눌러 주세요"** 안내 |
+| 익명 기기 | 탈퇴할 계정이 없으므로 안내만 보여 줍니다 |
+
+- 계정만 지우고 **가족·매장 데이터(일정·근무·급여)는 지우지 않습니다.**
+
+### 2) 매장 — 직원 퇴사(강제 탈퇴), 사장님 전용
+
+- `👥 알바생 관리`의 직원 옆 **[🚪 퇴사]** → 확인 → `retireStaff()`.
+  - `staff[]` 항목을 **지우지 않고** `retired: true, retiredAt` 으로 남깁니다 → **과거 근무·급여명세서가 그대로 보존**됩니다(급여 목록에 `이름 · 퇴사`로 표시).
+  - 그 직원의 `uid`(입장 승인 때 저장)와 `deviceId`를 각각 `revokedUids`·`revokedDevices` 에 넣습니다.
+  - 그 폰은 다음 실시간 갱신(수 초) 안에 **"퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다"** 화면으로 바뀌고, 매장 일정·인수인계·급여 화면이 모두 가려집니다. 새로 고침·초대 링크(`?store=...`) 재입장·입장 요청도 막힙니다.
+  - 계정·기기 정보가 없는(이 업데이트 전에 승인된) 직원은 차단이 확실하지 않다고 알려 주고, 그 폰의 새 요청은 [거절]하도록 안내합니다.
+- **[복직]** → `restoreStaff()` : `retired` 를 풀고 차단 목록에서 빼서 다시 들어올 수 있게 합니다.
+- **[✕ 완전 삭제]** → `purgeStaff()` : 목록에서만 지웁니다. 근무(events)·급여 기록은 남고 차단은 유지됩니다.
+- 퇴사자·지난 근무는 `S.staff` 에 남아 있어 **급여명세서·근무 필터**에서 계속 볼 수 있고, 새 근무 등록의 직원 선택에서는 빠집니다.
+- 퇴사 처리된 기기에서 새 입장 요청이 오면 승인함에 **⚠️ 경고**가 뜨고, [승인] 대신 **[복직]** 을 쓰도록 안내합니다.
+
+### 3) 가족 — 메인 관리자의 구성원 내보내기
+
+- `⚙️ 관리자 설정`의 구성원 줄 **[🚪 내보내기]**(아빠=메인 관리자만) → 확인 → `removeMember()`.
+  - `members[]` 에서 빼고 `removedMembers` 에 이름·색·역할·번호·계정을 기록합니다(지난 일정은 그대로).
+  - 프로필을 고를 때 그 폰의 **계정(uid)이 구성원에 묶여** 있어(`members[].uids`), 내보내면 그 uid 가 `revokedUids` 에 올라가 **"내보내기(이용 정지) 처리되어 가족 달력에 접근할 수 없습니다"** 화면이 뜹니다.
+  - 계정 기록이 없는 구성원은 **이름만 목록에서 빠집니다**(그 폰에서 다른 구성원을 고를 수 있음을 안내).
+- `🚪 내보낸 구성원` 목록의 **[되돌리기]** → `restoreMember()` : 구성원을 다시 넣고 차단을 풉니다.
+- 메인 관리자 프로필로 들어와 있을 때는 잠그지 않아, 관리자가 스스로 잠기는 일을 막습니다.
+
+> **보안 규칙 정합성**: 현재 게시된 규칙은 `request.auth != null` 만 보므로, 위 차단은 **앱(클라이언트)에서 강제**하는 것입니다.
+> 코드를 아는 사람이 브라우저 콘솔로 직접 Firestore를 읽는 것까지 막지는 못합니다. 서버에서도 막으려면 규칙에
+> `match /rooms/{roomId} { allow get, update: if request.auth != null && !(request.auth.uid in resource.data.revokedUids); ... }`
+> 같은 조건을 넣어야 하는데, Firebase 콘솔 재로그인 문제로 이번에도 규칙은 게시하지 못했습니다(README 『보안 규칙』 참고).
+> 그래서 **은퇴 직원에게는 매장 코드를 알려 주지 않고, 퇴사 시 코드 교체를 권장**합니다.
 
 ## 개인정보
 
@@ -186,8 +230,12 @@ Firebase 설정값(apiKey 등)은 웹 앱 식별용 공개 값이며, 접근 통
 ```
 rooms/{storeRoomId}
   schema: 3, kind: "store", storeName
-  staff: [ { id, name, color, bg, hourly, tel, joinedAt, active } ]
-  joinRequests: { <id>: { name, tel, deviceId, status, staffId, hourly, requestedAt, decidedAt } }
+  staff: [ { id, name, color, bg, hourly, tel, joinedAt, active,
+             uid, deviceId,               // 퇴사 시 차단 대상 (입장 승인 때 저장)
+             retired, retiredAt } ]       // 퇴사자 표시 — 항목을 지우지 않아 근무·급여 기록이 남음
+  revokedUids: [ "<uid>", ... ]               // 퇴사(강제 탈퇴)된 계정 — 매장 접근 차단
+  revokedDevices: [ "<deviceId>", ... ]       // 퇴사된 기기 — 매장 접근 차단
+  joinRequests: { <id>: { name, tel, deviceId, uid, status, staffId, hourly, requestedAt, decidedAt } }
   profileRequests: { <id>: { status, targetId, requesterId, requesterName, prevName, prevTel,
                              name, tel, createdAt, decidedByName, decidedAt } }
   storePins: { owner: "<sha256>" }          // PIN 평문 없음

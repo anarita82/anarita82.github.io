@@ -713,12 +713,18 @@
       state.requests = list;
       var profileList = parseProfileRequests(d.profileRequests);
       state.profileRequests = profileList;
+      /* 내보낸 구성원의 계정(uid) — 이 uid 로는 가족 방을 열 수 없게 합니다. */
+      var revoked = Array.isArray(d.revokedUids)
+        ? d.revokedUids.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : [];
+      var removed = parseRemovedMembers(d.removedMembers);
       emit('onRoom', {
         exists: snap.exists,
         members: Array.isArray(d.members) ? d.members : [],
         pins: d.pins && typeof d.pins === 'object' ? d.pins : {},
         requests: list,
-        profileRequests: profileList
+        profileRequests: profileList,
+        revokedUids: revoked,
+        removedMembers: removed
       });
     }, function (err) {
       emit('onRoomError', err);
@@ -768,6 +774,171 @@
     return null;
   }
 
+  /* 구성원에 붙은 계정(uid) 목록 — 최대 8개, 문자열만 */
+  function cleanUids(raw) {
+    if (!Array.isArray(raw)) return [];
+    var out = [];
+    raw.forEach(function (u) {
+      var v = String(u == null ? '' : u).trim().slice(0, 128);
+      if (!v || out.indexOf(v) >= 0) return;
+      if (out.length < 8) out.push(v);
+    });
+    return out;
+  }
+
+  function myUid() {
+    try { return (state.auth && state.auth.currentUser && state.auth.currentUser.uid) || ''; } catch (e) { return ''; }
+  }
+
+  /* 이 폰의 계정(uid)을 내 프로필(구성원)에 붙여 둡니다.
+     나중에 관리자가 그 구성원을 내보내면 이 uid 가 차단 목록에 올라가 다시 들어올 수 없어요. */
+  function bindMemberAccount(memberId) {
+    if (!state.roomRef) return Promise.resolve(false);
+    var uid = myUid();
+    var id = String(memberId || '');
+    if (!uid || !id) return Promise.resolve(false);
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) return false;
+        var d = snap.data() || {};
+        var members = Array.isArray(d.members) ? d.members.slice() : [];
+        var idx = -1, i;
+        for (i = 0; i < members.length; i++) {
+          if (members[i] && String(members[i].id || '') === id) { idx = i; break; }
+        }
+        if (idx < 0) return false;
+        var cur = members[idx] || {};
+        var uids = cleanUids(cur.uids);
+        if (uids.indexOf(uid) >= 0) return false;
+        uids.unshift(uid);
+        var next = {};
+        Object.keys(cur).forEach(function (k) { next[k] = cur[k]; });
+        next.uids = uids.slice(0, 8);
+        members[idx] = next;
+        tx.update(state.roomRef, { members: members });
+        return true;
+      });
+    }).catch(function () { return false; });
+  }
+
+  /* 내보낸 구성원 — { name, color, bg, role, tel, uids[], removedAt, removedBy } */
+  function parseRemovedMembers(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object') return out;
+    Object.keys(raw).forEach(function (key) {
+      var r = raw[key];
+      if (!r || typeof r !== 'object') return;
+      out[key] = {
+        id: key,
+        name: String(r.name || '').slice(0, 12),
+        color: String(r.color || '#64748b').slice(0, 9),
+        bg: String(r.bg || '').slice(0, 9),
+        role: r.role === 'manager' ? 'manager' : 'member',
+        tel: normalizeTel(r.tel == null ? '' : r.tel),
+        uids: cleanUids(r.uids),
+        removedAt: r.removedAt && r.removedAt.toMillis ? r.removedAt.toMillis() : 0,
+        removedBy: String(r.removedBy || '').slice(0, 12)
+      };
+    });
+    return out;
+  }
+
+  /* 관리자가 구성원을 내보냅니다.
+     - members[] 에서 빼고 removedMembers 에 이름·번호와 함께 기록
+     - 그 구성원에 붙은 계정(uid)을 revokedUids 에 올려 다시 들어오지 못하게 함
+     - 일정·사진은 그대로 두므로 지난 기록은 남습니다 */
+  function removeMember(memberId, me) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(memberId || '');
+    if (!id) return Promise.reject(new Error('member-missing'));
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var d = snap.data() || {};
+        var members = Array.isArray(d.members) ? d.members.slice() : [];
+        var idx = -1, i;
+        for (i = 0; i < members.length; i++) {
+          if (members[i] && String(members[i].id || '') === id) { idx = i; break; }
+        }
+        if (idx < 0) throw new Error('member-missing');
+        var gone = members[idx] || {};
+        if (gone.role === 'admin') throw new Error('cannot-remove-admin');
+        members.splice(idx, 1);
+        var uids = cleanUids(gone.uids);
+        var patch = { members: members };
+        patch['removedMembers.' + id] = {
+          name: String(gone.name || '').slice(0, 12),
+          color: String(gone.color || '#64748b').slice(0, 9),
+          bg: String(gone.bg || '#64748b1f').slice(0, 9),
+          role: (gone.role === 'manager' ? 'manager' : 'member'),
+          tel: normalizeTel(gone.tel == null ? '' : gone.tel),
+          uids: uids,
+          removedAt: new Date(),
+          removedBy: String((me && me.name) || '').slice(0, 12)
+        };
+        /* 그 구성원 PIN 은 지웁니다(빈 필드 삭제는 무시됨) */
+        patch['pins.' + id] = firebase.firestore.FieldValue.delete();
+        if (uids.length) patch.revokedUids = firebase.firestore.FieldValue.arrayUnion.apply(null, uids);
+        tx.update(state.roomRef, patch);
+        return uids;
+      });
+    });
+  }
+
+  /* 잘못 내보냈을 때 되돌리기 — 구성원을 다시 넣고 그 계정의 차단을 풉니다. */
+  function restoreMember(memberId) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(memberId || '');
+    if (!id) return Promise.reject(new Error('member-missing'));
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var d = snap.data() || {};
+        var removed = d.removedMembers && typeof d.removedMembers === 'object' ? d.removedMembers : {};
+        var rec = removed[id];
+        if (!rec || typeof rec !== 'object') throw new Error('member-missing');
+        var members = Array.isArray(d.members) ? d.members.slice() : [];
+        var name = String(rec.name || '').slice(0, 12);
+        if (!name) throw new Error('member-missing');
+        for (var i = 0; i < members.length; i++) {
+          if (members[i] && String(members[i].name || '') === name) throw new Error('name-taken');
+        }
+        var back = {
+          id: id,
+          name: name,
+          color: String(rec.color || '#64748b').slice(0, 9),
+          bg: String(rec.bg || '#64748b1f').slice(0, 9),
+          role: (rec.role === 'manager' ? 'manager' : 'member')
+        };
+        var tel = normalizeTel(rec.tel == null ? '' : rec.tel);
+        if (tel) back.tel = tel;
+        var uids = cleanUids(rec.uids);
+        if (uids.length) back.uids = uids;
+        members.push(back);
+        var patch = { members: members };
+        patch['removedMembers.' + id] = firebase.firestore.FieldValue.delete();
+        if (uids.length) patch.revokedUids = firebase.firestore.FieldValue.arrayRemove.apply(null, uids);
+        tx.update(state.roomRef, patch);
+        return back;
+      });
+    });
+  }
+
+  /* 회원 탈퇴 — Firebase Auth 계정을 지웁니다(익명 기기는 대상 아님).
+     최근 로그인이 오래되면 auth/requires-recent-login 오류가 납니다(화면에서 안내). */
+  function deleteAccount() {
+    ensureApp();
+    return authReady().then(function () {
+      var user = state.auth.currentUser;
+      if (!user) return Promise.reject(new Error('not-signed-in'));
+      if (user.isAnonymous) return Promise.reject(new Error('anonymous-account'));
+      return user.delete().then(function () {
+        notifyAuth();
+        return true;
+      });
+    });
+  }
+
   function cleanMember(m) {
     var photo = typeof m.photoDataUrl === 'string' && m.photoDataUrl.indexOf('data:image/') === 0
       ? m.photoDataUrl.slice(0, 90000) : '';
@@ -781,6 +952,8 @@
     var tel = normalizeTel(m.tel);
     if (tel) out.tel = tel;
     if (photo) out.photoDataUrl = photo;
+    var uids = cleanUids(m.uids);
+    if (uids.length) out.uids = uids;
     return out;
   }
 
@@ -974,6 +1147,11 @@
     approveProfileRequest: function (req, me) { return decideProfileRequest(req, me, true); },
     rejectProfileRequest: function (req, me) { return decideProfileRequest(req, me, false); },
     parseProfileRequests: parseProfileRequests,
+    bindMemberAccount: bindMemberAccount,
+    removeMember: removeMember,
+    restoreMember: restoreMember,
+    deleteAccount: deleteAccount,
+    currentUid: myUid,
     sha256Hex: sha256Hex
   };
 })();
