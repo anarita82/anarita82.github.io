@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261116l" />
-<link rel="stylesheet" href="store.css?v=20261116l" />
+<link rel="stylesheet" href="styles.css?v=20261116m" />
+<link rel="stylesheet" href="store.css?v=20261116m" />
 </head>
 <body>
 <div class="app">
@@ -492,6 +492,12 @@
       <button type="button" class="btn-ghost btn-small" id="storePinSaveBtn">PIN 저장</button>
       <button type="button" class="btn-ghost btn-small" id="storeUnlockBtn" hidden>이 기기를 사장님 기기로 열기</button>
     </section>
+
+    <section class="settings-block">
+      <h3>이 기기 연결</h3>
+      <p class="field-hint">기기를 바꿀 때 이 폰에서만 매장 연결을 끊을 수 있어요. 매장 데이터(근무·시급·명세서)는 서버에 그대로 남습니다.</p>
+      <button type="button" class="btn-ghost btn-small btn-danger" id="storeLeaveBtn">이 기기에서 매장 연결 해제</button>
+    </section>
   </div>
 </div>
 
@@ -661,15 +667,15 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261116l"></script>
-<script src="firebase-auth-compat.js?v=20261116l"></script>
-<script src="firebase-firestore-compat.js?v=20261116l"></script>
-<script src="lunar.js?v=20261116l"></script>
-<script src="cloud.js?v=20261116l"></script>
-<script src="app.js?v=20261116l"></script>
-<script src="voice.js?v=20261116l"></script>
-<script src="media.js?v=20261116l"></script>
-<script src="store-cloud.js?v=20261116l"></script>
-<script src="store.js?v=20261116l"></script>
+<script src="firebase-app-compat.js?v=20261116m"></script>
+<script src="firebase-auth-compat.js?v=20261116m"></script>
+<script src="firebase-firestore-compat.js?v=20261116m"></script>
+<script src="lunar.js?v=20261116m"></script>
+<script src="cloud.js?v=20261116m"></script>
+<script src="app.js?v=20261116m"></script>
+<script src="voice.js?v=20261116m"></script>
+<script src="media.js?v=20261116m"></script>
+<script src="store-cloud.js?v=20261116m"></script>
+<script src="store.js?v=20261116m"></script>
 </body>
 </html>

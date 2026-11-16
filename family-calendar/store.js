@@ -392,6 +392,8 @@
     if (pinSave) pinSave.addEventListener('click', changeOwnerPin);
     var unlockBtn = $('storeUnlockBtn');
     if (unlockBtn) unlockBtn.addEventListener('click', openOwnerPin);
+    var leaveBtn = $('storeLeaveBtn');
+    if (leaveBtn) leaveBtn.addEventListener('click', leaveStoreDevice);
 
     /* PIN 모달 */
     var pinForm = $('storePinForm');
@@ -1933,6 +1935,18 @@
   function showPinMsg(text) {
     var msg = $('storePinMsg');
     if (msg) { msg.textContent = text; msg.hidden = false; }
+  }
+
+  /* 이 기기에서만 매장 연결 해제 (기기 교체·알바생 그만둔 때) */
+  function leaveStoreDevice() {
+    if (!window.confirm('이 기기에서 매장 캘린더 연결을 끊을까요?\n\n매장 근무·시급·급여명세서는 서버에 그대로 남아 있고,\n다시 매장 코드를 넣으면 들어올 수 있어요.')) return;
+    StoreCloud.stop();
+    lsSet(OWNER_KEY, '');
+    lsSet(LOCK_KEY, '');
+    lsSet(STAFF_KEY, '');
+    lsSet(MODE_KEY, '');
+    StoreCloud.forgetCode();
+    location.reload();
   }
 
   /* ---------------- 외부 공개 ---------------- */
