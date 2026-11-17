@@ -954,10 +954,10 @@
       var myName = ls('family-calendar.store.myname.v1');
       var myTel = ls('family-calendar.store.mytel.v1');
       if (mine) {
-        who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · 📞 ' + telOf(mine) : ' · 연락처 미입력');
+        who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · ☎️ ' + telOf(mine) : ' · 연락처 미입력');
         who.hidden = false;
       } else if (myName) {
-        who.textContent = '🙋 ' + myName + (myTel ? ' · 📞 ' + myTel : '') + ' · 요청 보냄';
+        who.textContent = '🙋 ' + myName + (myTel ? ' · ☎️ ' + myTel : '') + ' · 요청 보냄';
         who.hidden = false;
       } else {
         who.hidden = true;
@@ -1743,7 +1743,7 @@
     if (isOwner() && st && telOf(st)) {
       var tel = document.createElement('span');
       tel.className = 'shift__tel';
-      tel.textContent = '📞 ' + telOf(st);
+      tel.textContent = '☎️ ' + telOf(st);
       meta.appendChild(tel);
     }
     body.appendChild(meta);
@@ -2941,7 +2941,7 @@
     html += '<div class="pay-doc__head"><div class="pay-doc__title">급 여 명 세 서</div>';
     html += '<div class="pay-doc__sub">' + esc(calc.storeName) + ' · ' + calc.y + '년 ' + (calc.m + 1) + '월</div></div>';
     html += '<div class="pay-doc__who"><div>' + esc(calc.staffName) + '</div><span>' + calc.y + '-' + pad2(calc.m + 1) + '-01 ~ ' + calc.y + '-' + pad2(calc.m + 1) + '-' + pad2(daysInMonth(calc.y, calc.m)) + '</span></div>';
-    if (calc.staffTel) html += '<p class="pay-doc__tel">📞 ' + esc(calc.staffTel) + '</p>';
+    if (calc.staffTel) html += '<p class="pay-doc__tel">☎️ ' + esc(calc.staffTel) + '</p>';
     html += '<table class="pay-doc__table"><tbody>';
     rows.forEach(function (r) {
       html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
@@ -3187,12 +3187,12 @@
     moneyRow.appendChild(retire);
     li.appendChild(moneyRow);
 
-    /* 3줄 — 📞 전화번호 */
+    /* 3줄 — ☎️ 전화번호 */
     var telRow = document.createElement('div');
     telRow.className = 'staff-row__telrow';
     var telIcon = document.createElement('span');
     telIcon.className = 'staff-row__telicon';
-    telIcon.textContent = '📞';
+    telIcon.textContent = '☎️';
     telRow.appendChild(telIcon);
     var telInput = document.createElement('input');
     telInput.type = 'tel';
@@ -3209,7 +3209,7 @@
       var call = document.createElement('a');
       call.className = 'staff-row__call';
       call.href = telHref(telOf(m));
-      call.textContent = '📞';
+      call.textContent = '☎️';
       call.title = telOf(m) + ' 전화';
       call.setAttribute('aria-label', m.name + ' ' + telOf(m) + ' 전화 걸기');
       telRow.appendChild(call);
@@ -3622,7 +3622,7 @@
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
         (isRevoked ? '<div class="req-card__meta req-card__warn">⚠️ 퇴사 처리된 기기·계정에서 온 요청이에요. 다시 일하게 하려면 ⚙️ 설정 → [👥 근무자 관리]에서 그 근무자를 [↩️ 복직]시켜 주세요.</div>' : '') +
-        '<div class="req-card__tel">' + (tel ? '📞 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📞 연락처 미입력') + '</div>' +
+        '<div class="req-card__tel">' + (tel ? '☎️ <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '☎️ 연락처 미입력') + '</div>' +
         (linked ? '<div class="req-card__meta">👥 이미 등록해 둔 근무자 <b>' + esc(linked.name) + '</b>와 연결해요 · 새 근무자를 만들지 않아요</div>' : '') +
         '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || (linked && linked.hourly) || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
