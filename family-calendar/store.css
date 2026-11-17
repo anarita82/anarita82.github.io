@@ -242,7 +242,7 @@ body.store-mode .day-sheet__hint { color: #6b817e; }
   display: flex; align-items: center; gap: 5px;
   margin-top: 1px;
 }
-.staff-row__telicon { font-size: 11px; flex: 0 0 auto; }
+.staff-row__telicon { font-size: 13px; line-height: 1; flex: 0 0 auto; }
 .staff-row__tel {
   flex: 1; min-width: 0;
   border: 1px solid #e3e5ec; border-radius: 9px;
