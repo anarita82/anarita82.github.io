@@ -436,6 +436,37 @@
     return ref.set(payload).then(function () { return ref.id; });
   }
 
+  /* 여러 근무를 묶음(batch)으로 한 번에 저장 — 평일·주말 일괄 등록용.
+     450건씩 나눠 커밋하고, 묶음 쓰기가 안 되는 환경에서는 한 건씩 저장합니다. */
+  function saveShifts(list) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var items = (list || []).filter(Boolean);
+    if (!items.length) return Promise.resolve([]);
+    var col = shiftCollection();
+    var db = state.db;
+    if (!db || typeof db.batch !== 'function') {
+      return Promise.all(items.map(function (d) { return saveShift(null, d); }));
+    }
+    var ids = [];
+    var chain = Promise.resolve();
+    for (var i = 0; i < items.length; i += 450) {
+      (function (chunk) {
+        chain = chain.then(function () {
+          var batch = db.batch();
+          chunk.forEach(function (d) {
+            var ref = col.doc();
+            var payload = shiftPayload(d);
+            payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            batch.set(ref, payload);
+            ids.push(ref.id);
+          });
+          return batch.commit();
+        });
+      })(items.slice(i, i + 450));
+    }
+    return chain.then(function () { return ids; });
+  }
+
   function deleteShift(id) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     return shiftCollection().doc(id).delete();
@@ -877,6 +908,7 @@
     stop: stop,
     createRoom: createRoom,
     saveShift: saveShift,
+    saveShifts: saveShifts,
     deleteShift: deleteShift,
     saveRoom: saveRoom,
     updateRoom: updateRoom,

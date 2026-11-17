@@ -105,6 +105,94 @@
 .store-today__item .att-row { flex: 1 1 100%; justify-content: flex-end; }
 .store-today__who { flex: 1 1 auto; }
 
+/* ---------- 근무 한 번에 등록 (평일·주말) ---------- */
+.shift-mode-seg { margin-bottom: 2px; }
+.shift-mode-seg button { font-size: 12.5px; padding: 0 6px; }
+.bulk-lead {
+  margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--ink-faint);
+}
+.bulk-lead b { color: #0f766e; }
+.bulk-card {
+  border: 1px solid #e6e9f0; border-radius: 14px;
+  padding: 10px 11px 11px; margin-bottom: 9px; background: #fbfbfd;
+}
+.bulk-card__head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 7px; }
+.bulk-card__title { font-size: 12.5px; font-weight: 800; color: #2b3040; }
+.bulk-card__note {
+  margin-left: auto; font-size: 11px; font-weight: 700; color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+.bulk-range { display: flex; align-items: center; gap: 6px; }
+.bulk-range input[type="date"] {
+  flex: 1 1 0; min-width: 0; padding: 11px 8px; font-size: 14px;
+  border: 1px solid #e3e5ec; border-radius: 11px; background: #fff;
+}
+.bulk-range__sep { font-weight: 800; color: #9aa1ad; }
+.quick-chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.quick-chips button {
+  flex: 0 0 auto; min-height: 34px; padding: 6px 10px; border-radius: 999px;
+  border: 1px solid #d9dcea; background: #fff; color: #4338ca;
+  font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;
+  white-space: nowrap;
+}
+.quick-chips button:active { background: #eef0ff; }
+.bulk-sec {
+  border: 1px solid #e6e9f0; border-radius: 14px;
+  padding: 9px 11px 10px; margin: 0 0 9px; background: #fbfbfd;
+}
+.bulk-sec.is-on { border-color: #99f6e4; background: #f5fffd; }
+.bulk-sec__head { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; }
+.bulk-sec__head input { position: absolute; opacity: 0; pointer-events: none; }
+.bulk-sec__box {
+  width: 22px; height: 22px; flex: 0 0 auto; position: relative;
+  border: 2px solid #cbd5e1; border-radius: 7px; background: #fff;
+}
+.bulk-sec__head input:checked + .bulk-sec__box { background: #0d9488; border-color: #0d9488; }
+.bulk-sec__head input:checked + .bulk-sec__box::after {
+  content: "✓"; position: absolute; inset: 0; color: #fff;
+  font-size: 12px; font-weight: 900; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.bulk-sec__name { flex: 1 1 auto; font-size: 13px; font-weight: 800; color: #2b3040; }
+.bulk-sec__name b { color: #0f766e; font-weight: 800; }
+.bulk-sec__count {
+  font-size: 11.5px; font-weight: 800; color: #0f766e;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bulk-sec__body { display: none; flex-direction: column; gap: 7px; margin-top: 9px; }
+.bulk-sec.is-on .bulk-sec__body { display: flex; }
+.bulk-mini {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: #5b6273;
+}
+.bulk-mini label { font-weight: 700; }
+.bulk-mini input {
+  width: 66px; min-height: 38px; text-align: right;
+  border: 1px solid #e3e5ec; border-radius: 10px; padding: 6px 9px;
+  font-size: 14px; font-variant-numeric: tabular-nums; outline: none;
+}
+.bulk-sec__hours { margin-left: auto; font-size: 11px; font-weight: 800; color: #0f766e; }
+.day-chips { display: flex; gap: 5px; }
+.day-chips button {
+  flex: 1 1 0; min-width: 0; min-height: 40px; padding: 0;
+  border: 1px solid #e3e5ec; border-radius: 10px; background: #fff;
+  color: #4b5160; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.day-chips button.is-on { background: #0d9488; border-color: #0d9488; color: #fff; }
+.day-chips button.is-sun { color: #dc2626; }
+.day-chips button.is-sun.is-on { background: #dc2626; border-color: #dc2626; color: #fff; }
+.bulk-preview {
+  margin: 2px 0 4px; padding: 10px 12px; border-radius: 12px;
+  background: #f0fdfa; border: 1px solid #ccfbf1; color: #0f766e;
+  font-size: 12.5px; font-weight: 800; line-height: 1.45;
+}
+.bulk-preview.is-error { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
+.bulk-preview__sum { display: block; font-size: 13px; }
+.bulk-preview__meta {
+  display: block; margin-top: 3px; font-size: 11.5px;
+  font-weight: 700; color: #0f766e; opacity: .82;
+}
+
 /* 매장 달력 칸 글자 정리 */
 .day__ev.store { gap: 3px; }
 .day__ev > .day__ev-h {

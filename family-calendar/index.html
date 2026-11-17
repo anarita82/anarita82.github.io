@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118a1" />
-<link rel="stylesheet" href="store.css?v=20261118a1" />
-<link rel="stylesheet" href="ledger.css?v=20261118a1" />
-<link rel="stylesheet" href="extra.css?v=20261118a1" />
-<link rel="stylesheet" href="polish.css?v=20261118a1" />
+<link rel="stylesheet" href="styles.css?v=20261118a2" />
+<link rel="stylesheet" href="store.css?v=20261118a2" />
+<link rel="stylesheet" href="ledger.css?v=20261118a2" />
+<link rel="stylesheet" href="extra.css?v=20261118a2" />
+<link rel="stylesheet" href="polish.css?v=20261118a2" />
 </head>
 <body>
 <div class="app">
@@ -679,6 +679,14 @@
       <button class="sheet-close" id="shiftClose" type="button" aria-label="닫기">✕</button>
     </div>
 
+    <div class="field" id="shiftModeField">
+      <div class="segmented segmented--wrap shift-mode-seg" id="shiftMode" role="group" aria-label="등록 방식">
+        <button type="button" data-mode="single" class="is-active">하루·기간 등록</button>
+        <button type="button" data-mode="bulk">평일·주말 한 번에</button>
+      </div>
+    </div>
+
+    <div id="shiftSingleBody">
     <div class="voice-box">
       <button type="button" class="voice-btn" id="shiftVoiceBtn">🎤 말로 입력하기</button>
       <p class="voice-status" id="shiftVoiceStatus" hidden></p>
@@ -733,6 +741,106 @@
     <div class="field">
       <label for="shiftMemo">메모</label>
       <textarea id="shiftMemo" rows="2" maxlength="200" placeholder="예) 대타, 마감"></textarea>
+    </div>
+    </div><!-- /shiftSingleBody -->
+
+    <!-- 평일·주말 근무 한 번에 등록 -->
+    <div id="shiftBulkBody" hidden>
+      <p class="bulk-lead">기간을 정하고 <b>평일·주말 근무</b>를 각각 켜면 한 번 저장으로 모두 등록돼요.</p>
+
+      <div class="bulk-card">
+        <div class="bulk-card__head">
+          <span class="bulk-card__title">기간</span>
+          <span class="bulk-card__note" id="bulkRangeNote"></span>
+        </div>
+        <div class="bulk-range">
+          <input id="bulkStart" type="date" aria-label="시작일" />
+          <span class="bulk-range__sep">~</span>
+          <input id="bulkEnd" type="date" aria-label="종료일" />
+        </div>
+        <div class="quick-chips" id="bulkPresets">
+          <button type="button" data-preset="week">이번 주 남은 날</button>
+          <button type="button" data-preset="month">이번 달 남은 날</button>
+          <button type="button" data-preset="next">다음 달 전체</button>
+        </div>
+      </div>
+
+      <section class="bulk-sec" id="bulkSecWeekday">
+        <label class="bulk-sec__head">
+          <input type="checkbox" id="bulkWeekdayOn" checked />
+          <span class="bulk-sec__box" aria-hidden="true"></span>
+          <span class="bulk-sec__name">평일 근무 <b>월~금</b></span>
+          <span class="bulk-sec__count" id="bulkWeekdayCount"></span>
+        </label>
+        <div class="bulk-sec__body">
+          <div class="picker" id="bulkWeekdayStaff"></div>
+          <div class="time-range">
+            <input id="bulkWeekdayStart" type="time" value="09:00" aria-label="평일 출근 시간" />
+            <span class="time-range__sep">~</span>
+            <input id="bulkWeekdayEnd" type="time" value="15:00" aria-label="평일 퇴근 시간" />
+          </div>
+          <div class="bulk-mini">
+            <label for="bulkWeekdayBreak">휴게</label>
+            <input id="bulkWeekdayBreak" type="number" min="0" max="240" step="10" value="0" inputmode="numeric" />
+            <span>분</span>
+            <span class="bulk-sec__hours" id="bulkWeekdayHours"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="bulk-sec" id="bulkSecWeekend">
+        <label class="bulk-sec__head">
+          <input type="checkbox" id="bulkWeekendOn" checked />
+          <span class="bulk-sec__box" aria-hidden="true"></span>
+          <span class="bulk-sec__name">주말 근무 <b>토·일</b></span>
+          <span class="bulk-sec__count" id="bulkWeekendCount"></span>
+        </label>
+        <div class="bulk-sec__body">
+          <div class="picker" id="bulkWeekendStaff"></div>
+          <div class="time-range">
+            <input id="bulkWeekendStart" type="time" value="12:00" aria-label="주말 출근 시간" />
+            <span class="time-range__sep">~</span>
+            <input id="bulkWeekendEnd" type="time" value="18:00" aria-label="주말 퇴근 시간" />
+          </div>
+          <div class="bulk-mini">
+            <label for="bulkWeekendBreak">휴게</label>
+            <input id="bulkWeekendBreak" type="number" min="0" max="240" step="10" value="0" inputmode="numeric" />
+            <span>분</span>
+            <span class="bulk-sec__hours" id="bulkWeekendHours"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="bulk-sec" id="bulkSecCustom">
+        <label class="bulk-sec__head">
+          <input type="checkbox" id="bulkCustomOn" />
+          <span class="bulk-sec__box" aria-hidden="true"></span>
+          <span class="bulk-sec__name">요일 직접 고르기</span>
+          <span class="bulk-sec__count" id="bulkCustomCount"></span>
+        </label>
+        <div class="bulk-sec__body">
+          <div class="day-chips" id="bulkCustomDays"></div>
+          <div class="picker" id="bulkCustomStaff"></div>
+          <div class="time-range">
+            <input id="bulkCustomStart" type="time" value="18:00" aria-label="고른 요일 출근 시간" />
+            <span class="time-range__sep">~</span>
+            <input id="bulkCustomEnd" type="time" value="22:00" aria-label="고른 요일 퇴근 시간" />
+          </div>
+          <div class="bulk-mini">
+            <label for="bulkCustomBreak">휴게</label>
+            <input id="bulkCustomBreak" type="number" min="0" max="240" step="10" value="0" inputmode="numeric" />
+            <span>분</span>
+            <span class="bulk-sec__hours" id="bulkCustomHours"></span>
+          </div>
+        </div>
+      </section>
+
+      <div class="field">
+        <label for="bulkWage">적용 시급(원) <span class="field-hint--inline">비우면 알바생별 시급</span></label>
+        <input id="bulkWage" type="number" min="0" step="100" inputmode="numeric" placeholder="예) 10000" />
+      </div>
+
+      <div class="bulk-preview" id="bulkPreview"></div>
     </div>
 
     <p class="shift-req-status" id="shiftReqStatus" hidden></p>
@@ -1675,19 +1783,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118a1"></script>
-<script src="firebase-auth-compat.js?v=20261118a1"></script>
-<script src="firebase-firestore-compat.js?v=20261118a1"></script>
-<script src="lunar.js?v=20261118a1"></script>
-<script src="cloud.js?v=20261118a1"></script>
-<script src="app.js?v=20261118a1"></script>
-<script src="voice.js?v=20261118a1"></script>
-<script src="media.js?v=20261118a1"></script>
-<script src="store-cloud.js?v=20261118a1"></script>
-<script src="store.js?v=20261118a1"></script>
-<script src="ledger-cloud.js?v=20261118a1"></script>
-<script src="ledger.js?v=20261118a1"></script>
-<script src="extra-cloud.js?v=20261118a1"></script>
-<script src="extra.js?v=20261118a1"></script>
+<script src="firebase-app-compat.js?v=20261118a2"></script>
+<script src="firebase-auth-compat.js?v=20261118a2"></script>
+<script src="firebase-firestore-compat.js?v=20261118a2"></script>
+<script src="lunar.js?v=20261118a2"></script>
+<script src="cloud.js?v=20261118a2"></script>
+<script src="app.js?v=20261118a2"></script>
+<script src="voice.js?v=20261118a2"></script>
+<script src="media.js?v=20261118a2"></script>
+<script src="store-cloud.js?v=20261118a2"></script>
+<script src="store.js?v=20261118a2"></script>
+<script src="ledger-cloud.js?v=20261118a2"></script>
+<script src="ledger.js?v=20261118a2"></script>
+<script src="extra-cloud.js?v=20261118a2"></script>
+<script src="extra.js?v=20261118a2"></script>
 </body>
 </html>

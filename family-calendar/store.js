@@ -14,6 +14,7 @@
   var PIN_MAX_TRY = 5;
   var PIN_WAIT_MS = 60000;
   var PIN_GUARD_KEY = 'family-calendar.store.pin.guard.v1';
+  var BULK_MODE_KEY = 'family-calendar.store.shift.bulk.v1';
 
   function pinGuard() {
     try { return JSON.parse(ls(PIN_GUARD_KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -85,6 +86,8 @@
     shiftEditingId: null,
     shiftStaffId: '',
     shiftStatus: 'planned',
+    shiftMode: 'single',
+    bulk: { weekday: '', weekend: '', custom: '', days: [1, 3, 5] },
     reqShift: null,
     reqWantStaff: '',
     payStaffId: '',
@@ -480,7 +483,11 @@
 
     /* 근무 모달 */
     var shiftForm = $('shiftForm');
-    if (shiftForm) shiftForm.addEventListener('submit', function (e) { e.preventDefault(); saveShift(); });
+    if (shiftForm) shiftForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (S.shiftMode === 'bulk' && !S.shiftEditingId) saveBulk();
+      else saveShift();
+    });
     var shiftClose = $('shiftClose'); if (shiftClose) shiftClose.addEventListener('click', closeShift);
     var shiftBackdrop = $('shiftModal') && $('shiftModal').querySelector('[data-close]');
     if (shiftBackdrop) shiftBackdrop.addEventListener('click', closeShift);
@@ -500,6 +507,32 @@
     });
     var shiftEndDate = $('shiftEndDate');
     if (shiftEndDate) shiftEndDate.addEventListener('change', updateShiftHint);
+
+    /* 평일·주말 한 번에 등록 */
+    var shiftModeWrap = $('shiftMode');
+    if (shiftModeWrap) shiftModeWrap.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-mode]');
+      if (!b || S.shiftEditingId) return;
+      setShiftMode(b.getAttribute('data-mode'), true);
+    });
+    var bulkPresets = $('bulkPresets');
+    if (bulkPresets) bulkPresets.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-preset]');
+      if (!b) return;
+      applyBulkPreset(b.getAttribute('data-preset'));
+      updateBulkPreview();
+    });
+    var bulkBody = $('shiftBulkBody');
+    if (bulkBody) {
+      bulkBody.addEventListener('input', function (e) {
+        var t = e.target;
+        if (t && t.tagName === 'INPUT' && t.type !== 'checkbox') updateBulkPreview();
+      });
+      bulkBody.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.type === 'checkbox') updateBulkPreview();
+      });
+    }
 
     if (window.CalendarVoice && $('shiftVoiceBtn')) {
       CalendarVoice.attach($('shiftVoiceBtn'), {
@@ -2079,6 +2112,7 @@
     var firstActive = S.staff.filter(function (m) { return !m.retired; })[0];
     S.shiftStaffId = sh ? sh.staffId : (S.filter !== 'all' ? S.filter : (firstActive ? firstActive.id : ''));
     S.shiftStatus = sh ? (sh.status || 'planned') : 'planned';
+    S.shiftMode = sh ? 'single' : lastShiftMode();
     resetShiftVoiceBox();
 
     var title = $('shiftTitle');
@@ -2175,7 +2209,12 @@
     var err = $('shiftError');
     if (err) err.hidden = true;
 
-    updateShiftHint();
+    /* 등록 방식: 수정·열람할 때는 기존 값 그대로 보여 주고, 새 근무만 일괄 등록을 쓸 수 있어요. */
+    var modeField = $('shiftModeField');
+    if (modeField) modeField.hidden = !!sh || !!readonly;
+    if (!sh) resetBulkForm(presetDate || S.selected || todayISO());
+    setShiftMode(S.shiftMode);
+
     var modal = $('shiftModal');
     if (modal) modal.hidden = false;
   }
@@ -2203,6 +2242,335 @@
       extra = ' · ' + n + '일 연속 등록 · 합계 ' + hoursText(min * n) + ' / ' + money(Math.round(wage * min / 60) * n);
     }
     hint.textContent = '근무 ' + hoursText(min) + ' · 예상 ' + money(Math.round(wage * min / 60)) + (overnight ? ' · 자정을 넘기는 근무로 계산해요' : '') + extra;
+  }
+
+  /* ---------------- 평일·주말 근무 한 번에 등록 ---------------- */
+  function lastShiftMode() { return ls(BULK_MODE_KEY) === 'bulk' ? 'bulk' : 'single'; }
+
+  function chkOn(id) {
+    var f = $(id);
+    return !!(f && f.checked);
+  }
+
+  /* 세 구역(평일 / 주말 / 요일 직접)을 같은 모양으로 다룹니다. */
+  function bulkSections() {
+    return [
+      {
+        key: 'weekday', label: '평일', days: [1, 2, 3, 4, 5],
+        on: chkOn('bulkWeekdayOn'), staffId: S.bulk.weekday,
+        start: getVal('bulkWeekdayStart'), end: getVal('bulkWeekdayEnd'), breakMin: getVal('bulkWeekdayBreak'),
+        secEl: 'bulkSecWeekday', countEl: 'bulkWeekdayCount', hoursEl: 'bulkWeekdayHours', pickEl: 'bulkWeekdayStaff'
+      },
+      {
+        key: 'weekend', label: '주말', days: [0, 6],
+        on: chkOn('bulkWeekendOn'), staffId: S.bulk.weekend,
+        start: getVal('bulkWeekendStart'), end: getVal('bulkWeekendEnd'), breakMin: getVal('bulkWeekendBreak'),
+        secEl: 'bulkSecWeekend', countEl: 'bulkWeekendCount', hoursEl: 'bulkWeekendHours', pickEl: 'bulkWeekendStaff'
+      },
+      {
+        key: 'custom', label: '요일 선택', days: (S.bulk.days || []).slice(),
+        on: chkOn('bulkCustomOn'), staffId: S.bulk.custom,
+        start: getVal('bulkCustomStart'), end: getVal('bulkCustomEnd'), breakMin: getVal('bulkCustomBreak'),
+        secEl: 'bulkSecCustom', countEl: 'bulkCustomCount', hoursEl: 'bulkCustomHours', pickEl: 'bulkCustomStaff'
+      }
+    ];
+  }
+
+  function renderBulkPicker(key) {
+    var idMap = { weekday: 'bulkWeekdayStaff', weekend: 'bulkWeekendStaff', custom: 'bulkCustomStaff' };
+    var wrap = $(idMap[key]);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    var current = S.bulk[key];
+    var list = S.staff.filter(function (m) { return !m.retired || m.id === current; });
+    if (!list.length) {
+      wrap.innerHTML = '<p class="field-hint">등록된 알바생이 없어요. 알바생이 초대 링크로 입장을 요청하면 승인해 주세요.</p>';
+      return;
+    }
+    list.forEach(function (m) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick' + (m.id === current ? ' is-on' : '');
+      b.setAttribute('data-id', m.id);
+      b.style.setProperty('--c', m.color);
+      b.style.setProperty('--bgc', m.bg);
+      b.style.setProperty('--fgc', m.color);
+      var dot = document.createElement('i');
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(m.name));
+      b.addEventListener('click', function () {
+        S.bulk[key] = m.id;
+        renderBulkPicker(key);
+        updateBulkPreview();
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  function renderBulkDayChips() {
+    var wrap = $('bulkCustomDays');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    [1, 2, 3, 4, 5, 6, 0].forEach(function (wd) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('data-wd', String(wd));
+      b.className = (wd === 0 ? 'is-sun' : '') + ((S.bulk.days || []).indexOf(wd) >= 0 ? ' is-on' : '');
+      b.textContent = WEEKDAYS[wd];
+      b.addEventListener('click', function () {
+        var i = S.bulk.days.indexOf(wd);
+        if (i >= 0) S.bulk.days.splice(i, 1); else S.bulk.days.push(wd);
+        b.classList.toggle('is-on', i < 0);
+        updateBulkPreview();
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  /* 기간 안의 날짜 목록 (최대 400일) */
+  function bulkDateList() {
+    var start = getVal('bulkStart'), end = getVal('bulkEnd');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return null;
+    if (end < start) return null;
+    var a = parseISO(start), b = parseISO(end);
+    var span = Math.round((b - a) / 86400000) + 1;
+    if (span < 1 || span > 400) return null;
+    var out = [];
+    var cur = parseISO(start);
+    for (var i = 0; i < span; i++) {
+      out.push(isoOfDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  }
+
+  /* 실제로 등록될 근무 목록을 미리 계산합니다. (저장 전 미리보기와 같은 계산) */
+  function bulkPlan() {
+    var secs = bulkSections();
+    var plan = { error: '', rows: [], counts: {}, days: {}, skipped: 0, minutes: 0, pay: 0 };
+    secs.forEach(function (sec) { plan.counts[sec.key] = 0; plan.days[sec.key] = 0; });
+
+    var start = getVal('bulkStart'), end = getVal('bulkEnd');
+    var dates = bulkDateList();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      plan.error = '기간(시작일·종료일)을 먼저 골라 주세요.';
+    } else if (end < start) {
+      plan.error = '종료일이 시작일보다 빨라요.';
+    } else if (!dates) {
+      plan.error = '한 번에 1년(약 400일)까지만 등록할 수 있어요.';
+    }
+    if (dates) {
+      secs.forEach(function (sec) {
+        plan.days[sec.key] = dates.filter(function (d) { return sec.days.indexOf(parseISO(d).getDay()) >= 0; }).length;
+      });
+    }
+
+    var active = secs.filter(function (sec) { return sec.on; });
+    if (!active.length) {
+      plan.error = '등록할 근무를 하나 이상 켜 주세요.';
+      return plan;
+    }
+    if (plan.error || !dates) return plan;
+
+    var commonWage = Math.max(0, Math.round(Number(getVal('bulkWage')) || 0));
+    var taken = {};
+    S.shifts.forEach(function (sh) {
+      if (sh && sh.date && sh.staffId) taken[sh.date + '|' + sh.staffId] = true;
+    });
+    var problem = '';
+    active.forEach(function (sec) {
+      var staff = staffById(sec.staffId);
+      if (!staff) { problem = problem || sec.label + ' 알바생을 골라 주세요.'; return; }
+      if (!sec.start || !sec.end) { problem = problem || sec.label + ' 근무 시간을 넣어 주세요.'; return; }
+      if (sec.start === sec.end) { problem = problem || sec.label + ' 출근·퇴근 시간이 같아요.'; return; }
+      if (!sec.days.length) { problem = problem || '요일을 하나 이상 골라 주세요.'; return; }
+      var wage = commonWage || staff.hourly || 0;
+      var breakMin = Math.max(0, Math.round(Number(sec.breakMin) || 0));
+      var minutes = shiftMinutes({ start: sec.start, end: sec.end, breakMin: breakMin });
+      dates.forEach(function (d) {
+        if (sec.days.indexOf(parseISO(d).getDay()) < 0) return;
+        var key = d + '|' + staff.id;
+        if (taken[key]) { plan.skipped++; return; }
+        taken[key] = true;
+        plan.rows.push({
+          date: d, staffId: staff.id, staffName: staff.name,
+          start: sec.start, end: sec.end, breakMin: breakMin, wage: wage, status: 'planned', memo: '', section: sec.key
+        });
+        plan.counts[sec.key]++;
+        plan.minutes += minutes;
+        plan.pay += Math.round(wage * minutes / 60);
+      });
+    });
+    if (problem) { plan.error = problem; plan.rows = []; return plan; }
+    plan.rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    if (!plan.rows.length) {
+      plan.error = plan.skipped
+        ? '이미 등록된 근무와 겹쳐서 새로 등록할 근무가 없어요.'
+        : '등록할 근무가 없어요 · 기간과 요일을 확인해 주세요.';
+    }
+    return plan;
+  }
+
+  function updateBulkPreview() {
+    var plan = bulkPlan();
+    var secs = bulkSections();
+    secs.forEach(function (sec) {
+      var secEl = $(sec.secEl);
+      if (secEl) secEl.classList.toggle('is-on', sec.on);
+      var countEl = $(sec.countEl);
+      if (countEl) {
+        var n = plan.days[sec.key] || 0;
+        countEl.textContent = sec.on ? (n ? n + '일' : '0일') : '';
+      }
+      var hoursEl = $(sec.hoursEl);
+      if (hoursEl) {
+        var m = shiftMinutes({ start: sec.start, end: sec.end, breakMin: sec.breakMin });
+        hoursEl.textContent = sec.on && m ? hoursText(m) : '';
+      }
+    });
+
+    var note = $('bulkRangeNote');
+    if (note) {
+      note.textContent = plan.days
+        ? '평일 ' + (plan.days.weekday || 0) + '일 · 주말 ' + (plan.days.weekend || 0) + '일'
+        : '';
+    }
+
+    var total = plan.rows.length;
+    var btn = $('shiftSaveBtn');
+    if (btn && S.shiftMode === 'bulk') btn.textContent = total ? total + '건 등록' : '한 번에 등록';
+
+    var box = $('bulkPreview');
+    if (!box) return;
+    if (plan.error) {
+      box.className = 'bulk-preview is-error';
+      box.textContent = plan.error;
+      return;
+    }
+    box.className = 'bulk-preview';
+    var parts = [];
+    if (plan.counts.weekday) parts.push('평일 ' + plan.counts.weekday + '건');
+    if (plan.counts.weekend) parts.push('주말 ' + plan.counts.weekend + '건');
+    if (plan.counts.custom) parts.push('요일 선택 ' + plan.counts.custom + '건');
+    var meta = hoursText(plan.minutes) + ' · 예상 ' + money(plan.pay);
+    if (plan.skipped) meta += ' · 겹치는 ' + plan.skipped + '일은 건너뜀';
+    box.innerHTML = '<span class="bulk-preview__sum">' + esc(parts.join(' + ')) + ' = 총 ' + total + '건</span>'
+      + '<span class="bulk-preview__meta">' + esc(meta) + '</span>';
+  }
+
+  function setShiftMode(mode, remember) {
+    S.shiftMode = mode === 'bulk' ? 'bulk' : 'single';
+    var single = $('shiftSingleBody');
+    var bulk = $('shiftBulkBody');
+    if (single) single.hidden = S.shiftMode !== 'single';
+    if (bulk) bulk.hidden = S.shiftMode !== 'bulk';
+    var seg = $('shiftMode');
+    if (seg) {
+      Array.prototype.forEach.call(seg.children, function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-mode') === S.shiftMode);
+      });
+    }
+    var btn = $('shiftSaveBtn');
+    if (btn && S.shiftMode === 'single') {
+      btn.hidden = false;
+      btn.textContent = S.shiftEditingId ? '저장' : '등록';
+    }
+    if (remember) lsSet(BULK_MODE_KEY, S.shiftMode);
+    var err = $('shiftError');
+    if (err) err.hidden = true;
+    updateShiftHint();
+    updateBulkPreview();
+  }
+
+  /* 일괄 등록 첫 화면값 — 기간은 누른 날부터 그 달 말일까지, 평일·주말은 켜 둔 상태 */
+  function resetBulkForm(presetDate) {
+    var start = /^\d{4}-\d{2}-\d{2}$/.test(presetDate || '') ? presetDate : todayISO();
+    var d = parseISO(start);
+    setVal('bulkStart', start);
+    setVal('bulkEnd', iso(d.getFullYear(), d.getMonth() + 1, daysInMonth(d.getFullYear(), d.getMonth())));
+
+    var active = S.staff.filter(function (m) { return !m.retired; });
+    S.bulk.weekday = active[0] ? active[0].id : '';
+    S.bulk.weekend = active[1] ? active[1].id : (active[0] ? active[0].id : '');
+    S.bulk.custom = active[0] ? active[0].id : '';
+    if (!S.bulk.days || !S.bulk.days.length) S.bulk.days = [1, 3, 5];
+
+    setVal('bulkWeekdayStart', '09:00');
+    setVal('bulkWeekdayEnd', '15:00');
+    setVal('bulkWeekdayBreak', '0');
+    setVal('bulkWeekendStart', '12:00');
+    setVal('bulkWeekendEnd', '18:00');
+    setVal('bulkWeekendBreak', '0');
+    setVal('bulkCustomStart', '18:00');
+    setVal('bulkCustomEnd', '22:00');
+    setVal('bulkCustomBreak', '0');
+    setVal('bulkWage', '');
+
+    var wOn = $('bulkWeekdayOn'); if (wOn) wOn.checked = true;
+    var eOn = $('bulkWeekendOn'); if (eOn) eOn.checked = true;
+    var cOn = $('bulkCustomOn'); if (cOn) cOn.checked = false;
+
+    renderBulkPicker('weekday');
+    renderBulkPicker('weekend');
+    renderBulkPicker('custom');
+    renderBulkDayChips();
+    updateBulkPreview();
+  }
+
+  function applyBulkPreset(kind) {
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth();
+    if (kind === 'week') {
+      var wd = (now.getDay() + 6) % 7; // 월=0
+      setVal('bulkStart', isoOfDate(now));
+      setVal('bulkEnd', isoOfDate(new Date(y, m, now.getDate() + (6 - wd))));
+    } else if (kind === 'month') {
+      setVal('bulkStart', isoOfDate(now));
+      setVal('bulkEnd', iso(y, m + 1, daysInMonth(y, m)));
+    } else if (kind === 'next') {
+      var ny = m === 11 ? y + 1 : y;
+      var nm = (m + 1) % 12;
+      setVal('bulkStart', iso(ny, nm + 1, 1));
+      setVal('bulkEnd', iso(ny, nm + 1, daysInMonth(ny, nm)));
+    }
+  }
+
+  function saveBulk() {
+    if (!isOwner()) return;
+    var plan = bulkPlan();
+    if (plan.error) { showShiftError(plan.error); return; }
+    var total = plan.rows.length;
+    if (!total) { showShiftError('등록할 근무가 없어요 · 기간과 요일을 확인해 주세요.'); return; }
+    if (total > 40) {
+      var firstD = plan.rows[0].date, lastD = plan.rows[total - 1].date;
+      if (!window.confirm(total + '건 근무를 한 번에 등록할까요?\n' + firstD + ' ~ ' + lastD)) return;
+    }
+    var btn = $('shiftSaveBtn');
+    if (btn) btn.disabled = true;
+    var jobs = plan.rows.map(function (r) {
+      return {
+        date: r.date, staffId: r.staffId, staffName: r.staffName,
+        start: r.start, end: r.end, breakMin: r.breakMin, wage: r.wage,
+        status: 'planned', memo: r.memo, actualStart: null, actualEnd: null
+      };
+    });
+    var run = (window.StoreCloud && typeof StoreCloud.saveShifts === 'function')
+      ? StoreCloud.saveShifts(jobs)
+      : Promise.all(jobs.map(function (j) { return StoreCloud.saveShift(null, j); }));
+    run.then(function () {
+      var first = plan.rows[0].date;
+      var d = parseISO(first);
+      S.selected = first;
+      S.year = d.getFullYear();
+      S.month = d.getMonth();
+      closeShift();
+      toast(total + '건 근무를 등록했어요' + (plan.skipped ? ' · 겹친 ' + plan.skipped + '일은 건너뜀' : ''));
+      renderAll();
+    }).catch(function (err) {
+      showShiftError('저장하지 못했어요 · ' + errorHint(err));
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
   }
 
   /* ---------------- 매장 말로 입력 ---------------- */
