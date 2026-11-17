@@ -9,6 +9,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.ContentValues;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,6 +18,8 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.view.Gravity;
@@ -41,6 +44,9 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -422,6 +428,85 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean hasOpenExternal() { return true; }
+
+        /* 💰 금전출납부 — 폰 알림 자동 수집.
+           사용자가 '알림 접근 권한'을 켜면 PaymentNotificationListener 가 결제·입출금 알림만 모읍니다. */
+        @JavascriptInterface
+        public boolean hasNotificationAccess() {
+            try {
+                String enabled = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+                return enabled != null && enabled.contains(getPackageName());
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void openNotificationAccessSettings() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this, "설정 → 알림 → 알림 접근 권한에서 '우리 가족 달력'을 켜 주세요", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
+
+        /* 대기 중인 자동 수집 내역(JSON 배열). 넣은 뒤 clearPendingAutoEntries() 로 비웁니다. */
+        @JavascriptInterface
+        public String getPendingAutoEntries() {
+            return PaymentNotificationListener.readQueue(getApplicationContext());
+        }
+
+        @JavascriptInterface
+        public void clearPendingAutoEntries() {
+            PaymentNotificationListener.clearQueue(getApplicationContext());
+        }
+
+        @JavascriptInterface
+        public int pendingAutoEntryCount() {
+            return PaymentNotificationListener.pendingCount(getApplicationContext());
+        }
+
+        /* 출납부 CSV를 폰 '다운로드/우리 가족 달력'에 저장하고 경로를 돌려줍니다(실패하면 빈 문자열). */
+        @JavascriptInterface
+        public String saveTextFile(String name, String text) {
+            try {
+                String safe = (name == null || name.trim().isEmpty()) ? "내보내기.csv" : name.trim();
+                StringBuilder sb = new StringBuilder();
+                for (char c : safe.toCharArray()) {
+                    sb.append((Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_') ? c : '_');
+                }
+                safe = sb.toString();
+                if (safe.isEmpty()) safe = "내보내기.csv";
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, safe);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, "text/csv");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/우리 가족 달력");
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri == null) return "";
+                    OutputStream os = getContentResolver().openOutputStream(uri);
+                    if (os == null) return "";
+                    os.write((text == null ? "" : text).getBytes("UTF-8"));
+                    os.close();
+                    return "다운로드/우리 가족 달력/" + safe;
+                }
+                File dir = new File(getExternalFilesDir(null), "내보내기");
+                if (!dir.exists() && !dir.mkdirs()) return "";
+                File file = new File(dir, safe);
+                FileOutputStream out = new FileOutputStream(file);
+                out.write((text == null ? "" : text).getBytes("UTF-8"));
+                out.close();
+                return file.getAbsolutePath();
+            } catch (Exception e) {
+                return "";
+            }
+        }
     }
 
     /* 음성인식 액티비티를 엽니다. 마이크 권한이 없으면 먼저 요청합니다. */

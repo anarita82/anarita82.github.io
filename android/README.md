@@ -8,9 +8,9 @@
 | --- | --- |
 | 앱 이름 | 우리 가족 달력 |
 | 패키지 | `com.anarita82.familycalendar` |
-| 버전 | 1.4 (versionCode 5) |
+| 버전 | 1.5 (versionCode 6) |
 | minSdk / targetSdk | 24 (Android 7.0) / 34 |
-| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, 사진 읽기 |
+| 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, 사진 읽기 · (선택) 알림 접근 권한 |
 | 진입 화면 | `MainActivity` → `https://anarita82.github.io/family-calendar/` |
 
 ## 동작
@@ -39,6 +39,21 @@
 - 폰을 다시 켜면 `BootReceiver`(`BOOT_COMPLETED`/`MY_PACKAGE_REPLACED`)가 저장된 예약(`SharedPreferences`)을 다시 겁니다.
 - 웹앱 쪽 필터: 내 프로필이 **담당**으로 들어간 일정만(또는 설정에서 '전체 일정') 알림. 문구에 `[담당: 첫째·아빠]` 표시.
 - 웹 브라우저(크롬·사파리)는 푸시 서버 없이 탭을 닫으면 예약 알림을 걸 수 없어, **달력 화면이 열려 있을 때만** 알림이 울립니다.
+
+## 💰 금전출납부 — 폰 알림 자동 수집 (1.5에서 추가)
+
+- `PaymentNotificationListener`(extends `NotificationListenerService`)가 **카드·은행·카카오톡 결제·입출금 알림**을 감지합니다.
+- 개인 대화 오수집을 줄이려고 **금액(원)과 금융 키워드**(결제·승인·입금·출금·이체·카드·은행·페이·환불·매출·정산)가
+  **함께 있는 알림만** 남깁니다. 같은 알림이 두 번 오면 한 번만 쌓습니다(최대 60건).
+- 큐는 폰 안 `SharedPreferences`(`auto-entries/queue`)에만 있고, 사용자가 확인해 넣기 전에는 서버로 가지 않습니다.
+- `MainActivity` JS 브리지:
+  - `AndroidApp.hasNotificationAccess()` — 알림 접근 권한이 켜져 있는지
+  - `AndroidApp.openNotificationAccessSettings()` — [설정 → 알림 → 알림 접근 권한] 열기
+  - `AndroidApp.getPendingAutoEntries()` — 대기 내역 JSON 배열 (`{pkg, app, title, text, time, at}`)
+  - `AndroidApp.clearPendingAutoEntries()` / `AndroidApp.pendingAutoEntryCount()`
+  - `AndroidApp.saveTextFile(name, text)` — 출납부 CSV를 `다운로드/우리 가족 달력/`에 저장(Android 10+ MediaStore, 그 아래 앱 전용 폴더)
+- 매니페스트: `BIND_NOTIFICATION_LISTENER_SERVICE` 권한을 가진 `exported=true` 서비스로 등록(사용자가 직접 켜야 동작).
+- 웹앱(출납부)은 이 큐를 읽어 **📱 자동 수집 대기함**에 보여 주고, [모두 출납부에 넣기] 또는 설정의 '바로 넣기'로 반영합니다.
 
 ## 빌드
 
