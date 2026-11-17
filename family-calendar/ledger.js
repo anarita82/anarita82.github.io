@@ -198,6 +198,8 @@
     document.body.classList.add('ledger-mode');
     closeOtherModals();
     hideOthers();
+    var note = $('appBarNote');
+    if (note) note.textContent = '사장님 전용 장부 · 가족·매장과 분리 저장';
     if (el.view) el.view.hidden = false;
     if (el.title) el.title.textContent = '💰 금전출납부';
     document.querySelectorAll('#tabFamily, #tabStore').forEach(function (b) { b.classList.remove('is-active'); });
@@ -228,12 +230,31 @@
     closeModals();
     renderTab();
     var add = $('addBtn');
-    if (add) add.hidden = false;
-    if (window.StoreMode && window.StoreMode.isStoreActive && window.StoreMode.isStoreActive()) {
-      if (el.title) el.title.textContent = '🏪 매장 달력';
+    var fv = $('familyView');
+    var fs = $('familySubRow');
+    var sv = $('storeView');
+    var ss = $('storeSubRow');
+    var storeActive = !!(window.StoreMode && window.StoreMode.isStoreActive && window.StoreMode.isStoreActive());
+    if (storeActive) {
+      if (sv) sv.hidden = false;
+      if (ss) ss.hidden = false;
+      if (fv) fv.hidden = true;
+      if (fs) fs.hidden = true;
       document.body.classList.add('store-mode');
-    } else if (el.title) {
-      el.title.textContent = '📅 우리 가족 달력';
+      if (el.title) el.title.textContent = '🏪 매장 달력';
+      if (window.StoreMode && window.StoreMode.render) {
+        try { window.StoreMode.render(); } catch (e) { /* 무시 */ }
+      }
+    } else {
+      if (fv) fv.hidden = false;
+      if (fs) fs.hidden = false;
+      if (sv) sv.hidden = true;
+      if (ss) ss.hidden = true;
+      if (add) add.hidden = false;
+      if (el.title) el.title.textContent = '📅 우리 가족 달력';
+      if (window.FamilyCalendar && typeof window.FamilyCalendar.paintStatus === 'function') {
+        try { window.FamilyCalendar.paintStatus(); } catch (e) { /* 무시 */ }
+      }
     }
   }
 
