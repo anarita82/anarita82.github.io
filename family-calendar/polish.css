@@ -203,11 +203,13 @@
   font-weight: 700; color: #0f766e; opacity: .82;
 }
 
-/* 매장 달력 칸 글자 정리 — 근무자 이름 먼저, 시간은 남는 자리에만 */
+/* 매장 달력 칸 글자 정리 — 근무자 이름만(시간은 날짜를 눌렀을 때) */
 body.store-mode .day__ev.store { gap: 2px; }
 body.store-mode .day__ev.store i { flex: 0 0 2.5px; height: 9px; }
+/* 모바일 크롬·웹뷰가 좁은 칸의 글자를 임의로 키워 칸을 넘기는 것을 막습니다 */
+body.store-mode #storeGrid { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body.store-mode .day__ev > .day__ev-n {
-  flex: 0 0 auto; max-width: 100%; min-width: 0;
+  flex: 0 1 auto; max-width: 100%; min-width: 0;
   font-size: 9.5px; font-weight: 800; line-height: 1.25;
   letter-spacing: -.45px; font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
