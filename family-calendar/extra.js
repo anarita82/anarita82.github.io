@@ -1189,9 +1189,8 @@
     hideErr('calNewError');
     var btn = $('calNewCreate');
     if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
-    var code = ExtraCloud.generateCode();
     var meName = val('calNewMe').trim() || '관리자';
-    ExtraCloud.create(code, { name: name, icon: S.newIcon, type: S.newType, pin: pin || INITIAL_PIN }).then(function () {
+    createWithFreshCode(name, pin, meName).then(function (code) {
       setMe(code, { name: meName, mgr: true, staffId: '' });
       upsertEntry({ code: code, name: name, icon: S.newIcon, type: S.newType, owner: true });
       renderTabs();
@@ -1203,6 +1202,22 @@
     }).then(function () {
       if (btn) { btn.disabled = false; btn.textContent = '만들기'; }
     });
+  }
+
+  /* 초대 코드가 이미 쓰이고 있으면(code-taken) 새 코드로 다시 시도합니다. */
+  function createWithFreshCode(name, pin, meName) {
+    var attempts = 0;
+    function tryOnce() {
+      var code = ExtraCloud.generateCode();
+      attempts++;
+      return ExtraCloud.create(code, { name: name, icon: S.newIcon, type: S.newType, pin: pin || INITIAL_PIN }).then(function () {
+        return code;
+      }, function (e) {
+        if (e && e.message === 'code-taken' && attempts < 3) return tryOnce();
+        throw e;
+      });
+    }
+    return tryOnce();
   }
 
   function openJoin(code) {
