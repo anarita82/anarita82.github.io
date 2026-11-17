@@ -196,6 +196,7 @@
   function enterLedger() {
     S.active = true;
     document.body.classList.add('ledger-mode');
+    closeOtherModals();
     hideOthers();
     if (el.view) el.view.hidden = false;
     if (el.title) el.title.textContent = '💰 금전출납부';
@@ -205,6 +206,16 @@
     if (!S.unlocked) { showLock(false); ensureCloud(); return; }
     showMain();
     ensureCloud().then(function () { collectPending(); });
+  }
+
+  /* 가족·매장 쪽 모달이 열린 채로 출납부에 들어오면 화면을 가리므로 함께 닫습니다. */
+  function closeOtherModals() {
+    ['profileModal', 'adminModal', 'roomModal', 'entryModal', 'detailModal', 'approveModal', 'daySheetModal',
+      'familyBlockedModal', 'storeSettingsModal', 'storePinModal', 'shiftModal', 'shiftReqModal',
+      'storeApproveModal', 'payrollModal', 'storeDaySheetModal'].forEach(function (id) {
+      var m = $(id);
+      if (m) m.hidden = true;
+    });
   }
 
   function leaveLedger() {
@@ -1049,6 +1060,19 @@
   /* ---------------- 이벤트 연결 ---------------- */
   function bind() {
     el.view = $('ledgerView');
+    el.entryModal = $('lgEntryModal');
+    el.dayModal = $('lgDayModal');
+    el.pasteModal = $('lgPasteModal');
+    el.settingsModal = $('lgSettingsModal');
+    el.grantModal = $('lgGrantModal');
+    el.dayTitle = $('lgDayTitle');
+    el.daySum = $('lgDaySum');
+    el.dayList = $('lgDayList');
+    el.dayEmpty = $('lgDayEmpty');
+    el.pendingCard = $('lgPendingCard');
+    el.pendingList = $('lgPendingList');
+    el.pendingReady = $('lgPendingReady');
+    el.pendingCount = $('lgPendingReady');
     el.lockCard = $('lgLockCard');
     el.lockError = $('lgLockError');
     el.lockPin = $('lgLockPin');
