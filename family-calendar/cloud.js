@@ -1341,6 +1341,7 @@
     restoreMember: restoreMember,
     deleteAccount: deleteAccount,
     currentUid: myUid,
+    currentCode: function () { return state.code; },
     isAdmin: function () {
       var uid = myUid();
       var list = state.room && Array.isArray(state.room.adminUids) ? state.room.adminUids : [];

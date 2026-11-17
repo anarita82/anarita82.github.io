@@ -678,7 +678,9 @@
     state.gateState = st;
     if (st === 'member') {
       if (el.roomJoinBox) el.roomJoinBox.hidden = true;
+      closeRoomModal();
       setStatus('online', '공유 중');
+      toast('승인되었어요 · 가족 달력이 열렸습니다');
       renderAll();
       return;
     }
@@ -688,7 +690,8 @@
 
   function showJoinGate(st) {
     if (!el.roomJoinBox) return;
-    var code = FamilyCloud.storedCode() || (el.roomCode ? FamilyCloud.normalizeCode(el.roomCode.value) : '');
+    var code = (window.FamilyCloud && FamilyCloud.currentCode) ? FamilyCloud.currentCode() : '';
+    if (!code) code = el.roomCode ? FamilyCloud.normalizeCode(el.roomCode.value) : '';
     el.roomCode.value = code;
     el.roomJoinBox.hidden = false;
     var pending = st === 'pending';
