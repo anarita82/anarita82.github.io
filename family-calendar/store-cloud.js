@@ -128,7 +128,13 @@
     }, function (err) {
       var code = (err && err.code) || '';
       if (code !== 'permission-denied') throw err;
-      return claimFirstDevice();
+      /* 읽기가 막힌 기기 — 승인 기록은 있는데 방을 못 읽는다면 퇴사·내보내기로 차단된 것입니다.
+         (denied 표시는 store.js 가 '차단' 화면을 띄우는 데 씁니다) */
+      return claimFirstDevice().then(function (res) {
+        res = res || {};
+        res.denied = true;
+        return res;
+      });
     });
   }
 
@@ -201,6 +207,10 @@
     }).then(function (res) {
       rememberCode(clean);
       if (res.state === 'missing') return { exists: false, gate: 'missing' };
+      if (res.state === 'approved' && res.denied) {
+        /* 입장은 승인됐지만 방을 못 읽는 기기 = 퇴사(내보내기)로 차단된 기기 */
+        return { exists: true, denied: true, gate: 'denied' };
+      }
       if (res.state === 'member' || res.state === 'claimed' || res.state === 'approved') {
         begin();
         return { exists: true, claimed: res.state === 'claimed' };

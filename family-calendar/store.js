@@ -709,9 +709,30 @@
         if (st === 'need-request') { showJoinForm(); setStoreStatus('pending', '입장 요청이 필요해요'); }
       },
       onRoomError: function (err) {
-        if (err && err.code === 'permission-denied') setStoreStatus('error', '매장 방 설정을 읽을 수 없어요 (승인된 기기만 열 수 있어요)');
+        if (!err || err.code !== 'permission-denied') return;
+        /* 일하던 알바생 기기가 퇴사 처리되면 서버가 읽기를 거부합니다(403) — 화면도 바로 잠급니다. */
+        if (S.role === 'staff') {
+          StoreCloud.stop();
+          S.blocked = '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+          S.role = 'none';
+          lsSet(STAFF_KEY, '');
+          showBlocked(S.blocked);
+          return;
+        }
+        setStoreStatus('error', '매장 방 설정을 읽을 수 없어요 (승인된 기기만 열 수 있어요)');
       }
     }).then(function (info) {
+      if (info && info.denied) {
+        /* 입장 기록은 있는데 방을 못 읽는 기기 — 퇴사(내보내기)로 차단된 기기 */
+        StoreCloud.stop();
+        S.connected = false;
+        S.connecting = false;
+        S.blocked = '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
+        S.role = 'none';
+        lsSet(STAFF_KEY, '');
+        showBlocked(S.blocked);
+        return;
+      }
       if (info && info.exists === false) {
         StoreCloud.stop();
         S.connected = false;
@@ -3587,12 +3608,14 @@
       var tel = telOf(r);
       var isRevoked = (r.uid && (S.revokedUids || []).indexOf(r.uid) >= 0)
         || (r.deviceId && (S.revokedDevices || []).indexOf(r.deviceId) >= 0);
+      var linked = isRevoked ? null : linkableStaff(r);
       card.innerHTML =
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
         (isRevoked ? '<div class="req-card__meta req-card__warn">⚠️ 퇴사 처리된 기기·계정에서 온 요청이에요. 다시 일하게 하려면 ⚙️ 설정 → [👥 근무자 관리]에서 그 근무자를 [↩️ 복직]시켜 주세요.</div>' : '') +
         '<div class="req-card__tel">' + (tel ? '📞 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📞 연락처 미입력') + '</div>' +
-        '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || suggestedWage()) + '" /></label></div>' +
+        (linked ? '<div class="req-card__meta">👥 이미 등록해 둔 근무자 <b>' + esc(linked.name) + '</b>와 연결해요 · 새 근무자를 만들지 않아요</div>' : '') +
+        '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || (linked && linked.hourly) || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
       var wageInput = card.querySelector('.approve-wage');
       var approveBtn = card.querySelector('[data-act="approve"]');
@@ -3736,6 +3759,21 @@
     return DEFAULT_WAGE;
   }
 
+  /* 입장 승인 때, 이미 등록해 둔(폰 연결 전) 근무자와 같은 사람이면 새로 만들지 않고 연결합니다.
+     이름이 같으면 연결, 이름이 달라도 번호가 같으면 연결합니다. */
+  function linkableStaff(req) {
+    if (!req) return null;
+    var name = String(req.name || '').slice(0, 20);
+    var tel = normTel(req.tel);
+    var byName = null, byTel = null;
+    S.staff.forEach(function (m) {
+      if (!m || m.uid || m.retired) return;
+      if (!byName && m.name === name) byName = m;
+      if (!byTel && tel && telOf(m) && telOf(m) === tel) byTel = m;
+    });
+    return byName || byTel;
+  }
+
   function approveJoin(req, wageValue, btn) {
     if (!isOwner()) return;
     var isRevoked = (req.uid && (S.revokedUids || []).indexOf(req.uid) >= 0)
@@ -3745,24 +3783,36 @@
       return;
     }
     var hourly = Math.max(0, Math.round(Number(wageValue) || 0));
-    var staffId = 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var linked = linkableStaff(req);
+    var staffId = linked ? linked.id : ('st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
     var palette = STAFF_COLORS[S.staff.length % STAFF_COLORS.length];
     var next = S.staff.map(function (m) {
       return staffPlain(m);
     });
-    var added = { id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true };
     var tel = telOf(req);
-    if (tel) added.tel = tel;
-    /* 나중에 퇴사시킬 때 이 직원의 폰을 찾을 수 있게 계정(uid)·기기(deviceId)를 함께 저장 */
-    if (req.uid) added.uid = String(req.uid).slice(0, 128);
-    if (req.deviceId) added.deviceId = String(req.deviceId).slice(0, 60);
-    next.push(added);
+    if (linked) {
+      /* 이미 등록해 둔 근무자에 그 폰(계정·기기)을 연결 — 근무·급여 기록이 한 사람으로 이어집니다. */
+      next.forEach(function (m) {
+        if (m.id !== linked.id) return;
+        if (req.uid) m.uid = String(req.uid).slice(0, 128);
+        if (req.deviceId) m.deviceId = String(req.deviceId).slice(0, 60);
+        if (tel) m.tel = tel;
+        m.hourly = hourly;
+      });
+    } else {
+      var added = { id: staffId, name: req.name, color: palette.c, bg: palette.bg, hourly: hourly, joinedAt: new Date(), active: true };
+      if (tel) added.tel = tel;
+      /* 나중에 퇴사시킬 때 이 직원의 폰을 찾을 수 있게 계정(uid)·기기(deviceId)를 함께 저장 */
+      if (req.uid) added.uid = String(req.uid).slice(0, 128);
+      if (req.deviceId) added.deviceId = String(req.deviceId).slice(0, 60);
+      next.push(added);
+    }
     if (btn) btn.disabled = true;
     /* 1) 직원 목록에 추가 2) 입장 요청을 승인으로 바꾸고 그 기기를 허용 목록에 등록 */
     StoreCloud.saveRoom({ staff: next }).then(function () {
       return StoreCloud.decideJoinRequest(req.uid || req.id, { status: 'approved', staffId: staffId, hourly: hourly, decidedAt: new Date() });
     }).then(function () {
-      toast(req.name + ' 님 입장을 승인했어요 · 그 폰에 매장 달력이 열려요');
+      toast(req.name + ' 님 입장을 승인했어요 · ' + (linked ? '등록해 둔 근무자와 연결했어요' : '그 폰에 매장 달력이 열려요'));
       renderApprovalCards();
       renderAll();
     }).catch(function (err) {
