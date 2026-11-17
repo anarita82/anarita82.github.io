@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118a2" />
-<link rel="stylesheet" href="store.css?v=20261118a2" />
-<link rel="stylesheet" href="ledger.css?v=20261118a2" />
-<link rel="stylesheet" href="extra.css?v=20261118a2" />
-<link rel="stylesheet" href="polish.css?v=20261118a2" />
+<link rel="stylesheet" href="styles.css?v=20261118b1" />
+<link rel="stylesheet" href="store.css?v=20261118b1" />
+<link rel="stylesheet" href="ledger.css?v=20261118b1" />
+<link rel="stylesheet" href="extra.css?v=20261118b1" />
+<link rel="stylesheet" href="polish.css?v=20261118b1" />
 </head>
 <body>
 <div class="app">
@@ -716,8 +716,23 @@
     </div>
 
     <div class="field">
-      <label>알바생 <span class="req">*</span></label>
+      <label>근무자 <span class="req">*</span> <span class="field-hint--inline">여러 명 선택 가능</span></label>
       <div class="picker" id="shiftStaffPicker"></div>
+      <p class="field-hint" id="shiftStaffHint" hidden></p>
+    </div>
+
+    <div class="field">
+      <label>근무 구분 <span class="field-hint--inline">달력에 오전알바(성함)으로 표시</span></label>
+      <div class="segmented segmented--wrap" id="shiftPeriod" role="group" aria-label="근무 구분">
+        <button type="button" data-period="auto" class="is-active">자동</button>
+        <button type="button" data-period="morning">오전</button>
+        <button type="button" data-period="afternoon">오후</button>
+        <button type="button" data-period="night">야간</button>
+        <button type="button" data-period="weekend">주말</button>
+        <button type="button" data-period="custom">직접</button>
+      </div>
+      <input id="shiftPeriodText" type="text" maxlength="8" placeholder="예) 마감" autocomplete="off" hidden />
+      <p class="field-hint" id="shiftPeriodHint"></p>
     </div>
 
     <div class="field">
@@ -750,6 +765,9 @@
       <label for="shiftWage">적용 시급(원)</label>
       <input id="shiftWage" type="number" min="0" step="100" inputmode="numeric" />
     </div>
+
+    <!-- 기본급 + 이번 주 주휴수당(주 15시간 이상) + 주휴 포함 합계 — 입력할 때마다 바로 계산 -->
+    <div class="shift-calc" id="shiftCalc" aria-live="polite" hidden></div>
 
     <div class="field">
       <label>근무 상태</label>
@@ -1828,19 +1846,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118a2"></script>
-<script src="firebase-auth-compat.js?v=20261118a2"></script>
-<script src="firebase-firestore-compat.js?v=20261118a2"></script>
-<script src="lunar.js?v=20261118a2"></script>
-<script src="cloud.js?v=20261118a2"></script>
-<script src="app.js?v=20261118a2"></script>
-<script src="voice.js?v=20261118a2"></script>
-<script src="media.js?v=20261118a2"></script>
-<script src="store-cloud.js?v=20261118a2"></script>
-<script src="store.js?v=20261118a2"></script>
-<script src="ledger-cloud.js?v=20261118a2"></script>
-<script src="ledger.js?v=20261118a2"></script>
-<script src="extra-cloud.js?v=20261118a2"></script>
-<script src="extra.js?v=20261118a2"></script>
+<script src="firebase-app-compat.js?v=20261118b1"></script>
+<script src="firebase-auth-compat.js?v=20261118b1"></script>
+<script src="firebase-firestore-compat.js?v=20261118b1"></script>
+<script src="lunar.js?v=20261118b1"></script>
+<script src="cloud.js?v=20261118b1"></script>
+<script src="app.js?v=20261118b1"></script>
+<script src="voice.js?v=20261118b1"></script>
+<script src="media.js?v=20261118b1"></script>
+<script src="store-cloud.js?v=20261118b1"></script>
+<script src="store.js?v=20261118b1"></script>
+<script src="ledger-cloud.js?v=20261118b1"></script>
+<script src="ledger.js?v=20261118b1"></script>
+<script src="extra-cloud.js?v=20261118b1"></script>
+<script src="extra.js?v=20261118b1"></script>
 </body>
 </html>

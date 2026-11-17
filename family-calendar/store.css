@@ -634,3 +634,74 @@ body.store-mode .set-row__chev { color: #0f766e; }
   background: #fffaf3; border: 1px solid #fde3c7;
   font-size: 11.5px; font-weight: 700; color: #92400e; line-height: 1.5;
 }
+
+
+/* =====================================================================
+   🏷️ 근무 구분 '오전알바(성함)' + 근무 수정란 주휴수당 (2026-11-18)
+   ===================================================================== */
+/* 근무자 관리 — 근무 구분 고르기 */
+.staff-row__periodrow {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; padding: 0 2px;
+}
+.staff-row__periodkey {
+  font-size: 11px; font-weight: 800; color: #64748b; flex: 0 0 auto;
+}
+.staff-row__period {
+  flex: 1 1 auto; min-width: 0;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: #0f766e;
+  background: #f2fbf9; border: 1px solid #d8f0eb; border-radius: 9px;
+  padding: 6px 8px;
+}
+
+/* 근무 수정란 — 기본급 + 주휴수당 + 주휴 포함 합계 */
+.shift-calc {
+  border: 1px solid #d9f0e4;
+  background: linear-gradient(180deg, #f4fdfa, #fff);
+  border-radius: 13px;
+  padding: 10px 12px;
+  margin: 2px 0 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.shift-calc__head {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  padding-bottom: 6px; border-bottom: 1px dashed #cdeee2;
+}
+.shift-calc__head span { font-size: 11.5px; font-weight: 800; color: #0f766e; }
+.shift-calc__head b {
+  font-size: 15px; font-weight: 800; color: #0b3b34;
+  letter-spacing: -.4px; font-variant-numeric: tabular-nums;
+}
+.shift-calc__head em {
+  flex: 1 1 auto; font-style: normal;
+  font-size: 10.5px; font-weight: 700; color: #7b8494; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.shift-calc__week {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 0 2px; border-top: 1px dashed #e5f4ee;
+}
+.shift-calc__week:first-of-type { border-top: 0; padding-top: 2px; }
+.shift-calc__wk {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 11px; font-weight: 700; color: #64748b;
+}
+.shift-calc__wk b { font-size: 11px; font-weight: 800; color: #475569; font-variant-numeric: tabular-nums; }
+.shift-calc__row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 700; color: #334155;
+}
+.shift-calc__row em {
+  font-style: normal; margin-left: 3px;
+  font-size: 10.5px; font-weight: 700; color: #8a93a3;
+}
+.shift-calc__row b { font-weight: 800; color: #0f766e; font-variant-numeric: tabular-nums; }
+.shift-calc__row--sum {
+  margin-top: 1px; padding-top: 5px; border-top: 1px solid #cdeee2;
+  font-size: 12.5px;
+}
+.shift-calc__row--sum span { font-weight: 800; color: #0b3b34; }
+.shift-calc__row--sum b { font-size: 14px; color: #0b3b34; letter-spacing: -.3px; }
+.shift-calc__note {
+  margin: 1px 0 0; font-size: 10.5px; font-weight: 600; line-height: 1.45; color: #7b8494;
+}

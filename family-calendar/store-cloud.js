@@ -275,8 +275,14 @@
     return state.roomRef.collection('events');
   }
 
+  /* 근무 구분(오전알바·오후알바·야간알바·주말알바) — 달력 칸에 '오전알바(성함)'으로 표시합니다.
+     비워 두면 근무자 관리의 기본 구분 → 시간·요일 자동 순서로 정해집니다. */
+  var PERIOD_CODES = ['morning', 'afternoon', 'night', 'weekend', 'custom'];
+
   function shiftPayload(d) {
     var name = String(d.staffName || '').slice(0, 20);
+    var period = PERIOD_CODES.indexOf(String(d.period || '')) >= 0 ? String(d.period) : '';
+    var periodLabel = period === 'custom' ? String(d.periodLabel || '').slice(0, 8) : '';
     return {
       title: (name || '알바') + ' 근무',
       date: String(d.date || ''),
@@ -286,6 +292,8 @@
       end: String(d.end || ''),
       breakMin: Math.max(0, Math.min(600, Number(d.breakMin) || 0)),
       wage: Math.max(0, Math.round(Number(d.wage) || 0)),
+      period: period,
+      periodLabel: periodLabel,
       status: (d.status === 'done' || d.status === 'absent' || d.status === 'canceled') ? d.status : 'planned',
       actualStart: cleanHM(d.actualStart),
       actualEnd: cleanHM(d.actualEnd),
@@ -331,6 +339,8 @@
           start: String(d.start || ''),
           end: String(d.end || ''),
           breakMin: Number(d.breakMin) || 0,
+          period: PERIOD_CODES.indexOf(String(d.period || '')) >= 0 ? String(d.period) : '',
+          periodLabel: String(d.periodLabel || '').slice(0, 8),
           wage: Number(d.wage) || 0,
           status: (d.status === 'done' || d.status === 'absent' || d.status === 'canceled') ? d.status : 'planned',
           actualStart: cleanHM(d.actualStart),

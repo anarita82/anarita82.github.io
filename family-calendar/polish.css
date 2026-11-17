@@ -204,16 +204,29 @@
 }
 
 /* 매장 달력 칸 글자 정리 — 근무자 이름만(시간은 날짜를 눌렀을 때) */
-body.store-mode .day__ev.store { gap: 2px; }
-body.store-mode .day__ev.store i { flex: 0 0 2.5px; height: 9px; }
+body.store-mode .day__ev.store { gap: 3px; align-items: flex-start; }
+body.store-mode .day__ev.store i { flex: 0 0 2.5px; height: 9px; margin-top: 2px; }
 /* 모바일 크롬·웹뷰가 좁은 칸의 글자를 임의로 키워 칸을 넘기는 것을 막습니다 */
 body.store-mode #storeGrid { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* '오전알바(성함)' — 좁은 칸에서는 구분과 성함을 두 줄로 나눠 보여 주고,
+   각 줄이 넘치면 말줄임(…)으로 잘라 칸이 깨지지 않게 합니다. */
 body.store-mode .day__ev > .day__ev-n {
   flex: 0 1 auto; max-width: 100%; min-width: 0;
-  font-size: 9.5px; font-weight: 800; line-height: 1.25;
-  letter-spacing: -.45px; font-variant-numeric: tabular-nums;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  font-variant-numeric: tabular-nums;
 }
+body.store-mode .day__ev-n > span {
+  display: block; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: -.45px; line-height: 1.15;
+}
+body.store-mode .day__ev-p {
+  font-size: 8.5px; font-weight: 700; color: #6b8a85; opacity: .95;
+}
+body.store-mode .day__ev-m {
+  font-size: 9.5px; font-weight: 800;
+}
+body.store-mode .day--selected .day__ev-p { color: rgba(255, 255, 255, .8); }
 body.store-mode .day__ev > .day__ev-h {
   flex: 0 0 auto; min-width: 0;
   font-size: 9px; font-weight: 800; line-height: 1.25;

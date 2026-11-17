@@ -52,7 +52,23 @@
     { c: '#4f46e5', bg: '#eef0ff' }, { c: '#65a30d', bg: '#eff8dd' }
   ];
   var WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+  /* 사장님도 근무자처럼 달력에 근무를 넣을 수 있습니다.
+     근무자 목록(staff)에는 넣지 않아 급여명세서·인건비 계산은 그대로이고, 달력에만 표시됩니다. */
+  var OWNER_STAFF = { id: 'owner', name: '사장님', hourly: 0, color: '#475569', bg: '#eef2f7', ownerStaff: true };
+  var PERIOD_SHORT = { morning: '오전', afternoon: '오후', night: '야간', weekend: '주말' };
   var STATUS_LABEL = { planned: '예정', done: '근무완료', absent: '결근', canceled: '취소' };
+  /* 근무 구분 — 달력 칸·목록에 '오전알바(성함)'처럼 구분과 성함을 함께 보여 줍니다.
+     근무에 저장된 구분이 없으면 근무자 관리의 기본 구분 → 시작 시간·요일 자동 순서입니다. */
+  var PERIODS = [
+    { code: 'morning', label: '오전알바' },
+    { code: 'afternoon', label: '오후알바' },
+    { code: 'night', label: '야간알바' },
+    { code: 'weekend', label: '주말알바' }
+  ];
+  function periodLabelOf(code) {
+    for (var i = 0; i < PERIODS.length; i++) if (PERIODS[i].code === code) return PERIODS[i].label;
+    return '';
+  }
   var NAV_MIN_YEAR = 2024;
   var NAV_MAX_YEAR = 2037;
 
@@ -85,9 +101,11 @@
     payM: 0,
     shiftEditingId: null,
     shiftStaffId: '',
+    shiftStaffIds: [],
     shiftStatus: 'planned',
+    shiftPeriod: 'auto',
     shiftMode: 'single',
-    bulk: { weekday: '', weekend: '', custom: '', days: [1, 3, 5] },
+    bulk: { weekday: [], weekend: [], custom: [], days: [1, 3, 5] },
     reqShift: null,
     reqWantStaff: '',
     payStaffId: '',
@@ -152,8 +170,28 @@
     return null;
   }
   function staffById(id) {
+    if (id === 'owner') return OWNER_STAFF;
     for (var i = 0; i < S.staff.length; i++) if (S.staff[i].id === id) return S.staff[i];
     return null;
+  }
+  function isOwnerStaffId(id) { return id === 'owner'; }
+  /* 근무 등록·일괄 등록에서 고를 수 있는 사람 — 사장님 + 재직 중인 근무자(+지금 고른 사람) */
+  function pickableStaff(keepIds) {
+    var keep = keepIds || [];
+    var list = [];
+    S.staff.forEach(function (m) {
+      if (!m.retired || keep.indexOf(m.id) >= 0) list.push(m);
+    });
+    list.push(OWNER_STAFF);   /* 사장님은 늘 맨 끝에서 고를 수 있어요 */
+    return list;
+  }
+  /* 근무 등록에서 고른 사람들 — 여러 명을 고르면 같은 날 같은 시간으로 각각 근무가 만들어집니다. */
+  function setShiftStaffIds(ids) {
+    S.shiftStaffIds = (ids || []).filter(Boolean);
+    S.shiftStaffId = S.shiftStaffIds[0] || '';
+  }
+  function shiftStaffTargets() {
+    return (S.shiftStaffIds || []).map(staffById).filter(Boolean);
   }
 
   /* 휴대폰 번호 정리·표시 (가족 달력과 같은 규칙) */
@@ -295,6 +333,24 @@
   }
   function sumPay(list) {
     return list.reduce(function (n, s) { return n + (countsForPay(s) ? shiftPay(s) : 0); }, 0);
+  }
+  /* 한 달 급여 — 기본급 + 주휴수당(주 단위). 급여명세서(computePayroll)와 같은 계산이라
+     대시보드·달력 머리의 금액이 명세서 금액과 일치합니다. 기타 수당(명세서에서 직접 넣는 값)은 뺍니다. */
+  function monthWage(y, m, staffIds) {
+    var base = 0, weekly = 0, minutes = 0;
+    (staffIds || []).forEach(function (id) {
+      var c = computePayroll(id, y, m);
+      base += c.base;
+      weekly += c.weekly;
+      minutes += c.minutes;
+    });
+    return { base: base, weekly: weekly, gross: base + weekly, minutes: minutes };
+  }
+  /* 지금 화면에서 급여를 셀 근무자 — 사장님은 전체(또는 고른 한 명), 알바생은 본인 */
+  function dashStaffIds() {
+    if (!isOwner()) return myStaffId() ? [myStaffId()] : [];
+    if (S.filter !== 'all') return [S.filter];
+    return S.staff.map(function (m) { return m.id; });
   }
 
   /* ---------------- 상태 표시 ---------------- */
@@ -553,12 +609,23 @@
         c.classList.toggle('is-active', c.getAttribute('data-status') === S.shiftStatus);
       });
     });
-    ['shiftStart', 'shiftEnd', 'shiftBreak'].forEach(function (id) {
+    ['shiftStart', 'shiftEnd', 'shiftBreak', 'shiftWage'].forEach(function (id) {
       var f = $(id);
       if (f) f.addEventListener('input', updateShiftHint);
     });
-    var shiftEndDate = $('shiftEndDate');
-    if (shiftEndDate) shiftEndDate.addEventListener('change', updateShiftHint);
+    ['shiftDate', 'shiftEndDate'].forEach(function (id) {
+      var f = $(id);
+      if (f) f.addEventListener('change', updateShiftHint);
+    });
+    /* 근무 구분 — 오전/오후/야간/주말/직접. 기본은 '자동'(시간·요일·근무자 기본 구분). */
+    var periodWrap = $('shiftPeriod');
+    if (periodWrap) periodWrap.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-period]');
+      if (!b || b.disabled) return;
+      setShiftPeriod(b.getAttribute('data-period'));
+    });
+    var periodText = $('shiftPeriodText');
+    if (periodText) periodText.addEventListener('input', updateShiftHint);
 
     /* 평일·주말 한 번에 등록 */
     var shiftModeWrap = $('shiftMode');
@@ -1288,7 +1355,7 @@
       who.appendChild(dot);
       var name = document.createElement('span');
       name.className = 'store-today__name';
-      name.textContent = st ? st.name : '알바생';
+      name.textContent = shiftLabel(sh);
       who.appendChild(name);
       row.appendChild(who);
       var time = document.createElement('span');
@@ -1316,26 +1383,35 @@
     var todayMin = sumMinutes(todayShifts);
     var todayPay = sumPay(todayShifts);
     var monthMin = sumMinutes(monthShifts);
-    var monthPay = sumPay(monthShifts);
+    /* 이번 달 금액은 주휴수당까지 포함 — 급여명세서와 같은 금액이 보이게 합니다. */
+    var mw = monthWage(S.year, S.month, dashStaffIds());
+    var monthGross = weeklyOn() ? mw.gross : mw.base;
 
     var label = $('dashMonthLabel');
     if (label) label.textContent = (S.month + 1) + '월 근무';
     var tH = $('dashTodayHours'); if (tH) tH.textContent = hoursText(todayMin);
     var tC = $('dashTodayCost'); if (tC) tC.textContent = money(todayPay);
     var mH = $('dashMonthHours'); if (mH) mH.textContent = hoursText(monthMin);
-    var mC = $('dashMonthCost'); if (mC) mC.textContent = money(monthPay);
+    var mC = $('dashMonthCost');
+    if (mC) {
+      mC.textContent = money(monthGross);
+      mC.title = '기본급 ' + money(mw.base) + (weeklyOn()
+        ? ' + 주휴수당 ' + money(mw.weekly) + ' (주휴 포함)'
+        : ' · 주휴수당 미포함');
+    }
 
     var person = $('dashPerson');
+    var weeklyNote = weeklyOn() ? ' (주휴 포함)' : ' (주휴 미포함)';
     if (person) {
       if (!isOwner()) {
         person.hidden = false;
-        person.textContent = (me() ? me().name : '내') + ' · 이번 달 ' + hoursText(monthMin) + ' · 예상 급여 ' + money(monthPay);
+        person.textContent = (me() ? me().name : '내') + ' · 이번 달 ' + hoursText(monthMin) + ' · 예상 급여 ' + money(monthGross) + weeklyNote;
       } else if (S.filter !== 'all') {
         var st = staffById(S.filter);
         var days = {};
         monthShifts.forEach(function (s) { if (countsForPay(s)) days[s.date] = 1; });
         person.hidden = false;
-        person.textContent = (st ? st.name : '선택') + ' · 이번 달 ' + Object.keys(days).length + '일 · ' + hoursText(monthMin) + ' · 예상 ' + money(monthPay);
+        person.textContent = (st ? st.name : '선택') + ' · 이번 달 ' + Object.keys(days).length + '일 · ' + hoursText(monthMin) + ' · 예상 ' + money(monthGross) + weeklyNote;
       } else {
         person.hidden = true;
       }
@@ -1392,8 +1468,9 @@
     if (sub) {
       /* 월 합계도 시간은 사장님·본인 몫만 — 알바생에게는 본인 근무 시간을 적습니다. */
       var ms = shiftsInMonth(y, m);
+      var mwSub = monthWage(y, m, dashStaffIds());
       sub.textContent = isOwner()
-        ? '총 ' + hoursText(sumMinutes(ms)) + ' · ' + money(sumPay(ms))
+        ? '총 ' + hoursText(sumMinutes(ms)) + ' · ' + money(weeklyOn() ? mwSub.gross : mwSub.base) + (weeklyOn() ? ' (주휴 포함)' : '')
         : '내 근무 ' + hoursText(sumMinutes(ms));
     }
 
@@ -1429,7 +1506,7 @@
       if (dayShifts.length) {
         var evs = document.createElement('span');
         evs.className = 'day__evs';
-        dayShifts.slice(0, 2).forEach(function (s) {
+        dayShifts.slice(0, 3).forEach(function (s) {
           var st = staffById(s.staffId);
           var row = document.createElement('span');
           row.className = 'day__ev store';
@@ -1438,16 +1515,28 @@
           row.appendChild(bar);
           var nm = document.createElement('span');
           nm.className = 'day__ev-n';
-          nm.textContent = shiftName(s);
+          var parts = shiftLabelParts(s);
+          if (parts.period) {
+            var pEl = document.createElement('span');
+            pEl.className = 'day__ev-p';
+            pEl.textContent = parts.period;
+            nm.appendChild(pEl);
+          }
+          if (parts.name) {
+            var nEl = document.createElement('span');
+            nEl.className = 'day__ev-m';
+            nEl.textContent = parts.name;
+            nm.appendChild(nEl);
+          }
           row.appendChild(nm);
           /* 다른 사람 근무 시간은 툴팁에도 남기지 않습니다 */
-          row.title = shiftName(s) + (canSeeShiftTime(s) ? ' ' + s.start + '~' + s.end : '');
+          row.title = shiftLabel(s) + (canSeeShiftTime(s) ? ' ' + s.start + '~' + s.end : '');
           evs.appendChild(row);
         });
-        if (dayShifts.length > 2) {
+        if (dayShifts.length > 3) {
           var more = document.createElement('span');
           more.className = 'day__more';
-          more.textContent = '+' + (dayShifts.length - 2);
+          more.textContent = '+' + (dayShifts.length - 3);
           evs.appendChild(more);
         }
         cell.appendChild(evs);
@@ -1535,7 +1624,7 @@
     total.className = 'store-total';
     var heads = list.filter(function (s) { return countsForPay(s); }).length;
     if (isOwner()) {
-      total.textContent = '당일 ' + heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 인건비 ' + money(sumPay(list));
+      total.textContent = '당일 ' + heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 기본급 ' + money(sumPay(list));
     } else {
       var mineList = list.filter(canSeeShiftTime);
       total.textContent = '당일 ' + heads + '명 근무' + (mineList.length ? ' · 내 근무 ' + hoursText(sumMinutes(mineList)) : '');
@@ -1596,7 +1685,7 @@
       if (!list.length) {
         stats.textContent = '';
       } else if (isOwner()) {
-        stats.textContent = heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 인건비 ' + money(sumPay(list));
+        stats.textContent = heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 기본급 ' + money(sumPay(list));
       } else {
         var mineList = list.filter(canSeeShiftTime);
         stats.textContent = heads + '명 근무' + (mineList.length ? ' · 내 근무 ' + hoursText(sumMinutes(mineList)) : '');
@@ -1646,7 +1735,7 @@
 
     var name = document.createElement('span');
     name.className = 'sheet-row__title';
-    name.textContent = shiftName(sh);
+    name.textContent = shiftLabel(sh);
     row.appendChild(name);
 
     var time = document.createElement('span');
@@ -1778,7 +1867,7 @@
 
   function deleteShiftFromSheet(sh) {
     if (!isOwner()) return;
-    var label = sh.date.slice(5) + ' ' + shiftName(sh) + ' ' + (sh.start || '') + '~' + (sh.end || '');
+    var label = sh.date.slice(5) + ' ' + shiftLabel(sh) + ' ' + (sh.start || '') + '~' + (sh.end || '');
     if (!window.confirm(label + ' 근무를 지울까요?\n매장 달력에서 사라져요.')) return;
     StoreCloud.deleteShift(sh.id).then(function () {
       toast('근무를 지웠어요');
@@ -1814,7 +1903,7 @@
     top.appendChild(av);
     var name = document.createElement('span');
     name.className = 'shift__name';
-    name.textContent = shiftName(sh);
+    name.textContent = shiftLabel(sh);
     top.appendChild(name);
     var tag = document.createElement('span');
     tag.className = 'store-tag store-tag--' + (sh.status || 'planned');
@@ -2240,7 +2329,7 @@
 
   /* ---------------- 💬 카톡 요약 복사 ---------------- */
   function storeSummaryLine(sh) {
-    var line = '· ' + (sh.start || '--:--') + '~' + (sh.end || '--:--') + ' ' + shiftName(sh) + ' (' + hoursText(shiftMinutes(sh)) + ')';
+    var line = '· ' + (sh.start || '--:--') + '~' + (sh.end || '--:--') + ' ' + shiftLabel(sh) + ' (' + hoursText(shiftMinutes(sh)) + ')';
     if (sh.status && sh.status !== 'planned') line += ' ' + (STATUS_LABEL[sh.status] || '');
     if (sh.actualStart) line += '\n   실제 ' + sh.actualStart + '~' + (sh.actualEnd || '근무 중');
     return line;
@@ -2300,8 +2389,13 @@
     if (!isOwner() && !readonly) return;
     S.shiftEditingId = sh ? sh.id : null;
     var firstActive = S.staff.filter(function (m) { return !m.retired; })[0];
-    S.shiftStaffId = sh ? sh.staffId : (S.filter !== 'all' ? S.filter : (firstActive ? firstActive.id : ''));
+    setShiftStaffIds(sh
+      ? [sh.staffId]
+      : (S.filter !== 'all' ? [S.filter] : [firstActive ? firstActive.id : OWNER_STAFF.id]));
     S.shiftStatus = sh ? (sh.status || 'planned') : 'planned';
+    S.shiftPeriod = sh
+      ? (sh.periodLabel ? 'custom' : (periodLabelOf(sh.period) ? sh.period : 'auto'))
+      : 'auto';
     S.shiftMode = sh ? 'single' : lastShiftMode();
     resetShiftVoiceBox();
 
@@ -2311,15 +2405,12 @@
     var pickWrap = $('shiftStaffPicker');
     if (pickWrap) {
       pickWrap.innerHTML = '';
-      var pickable = S.staff.filter(function (m) { return !m.retired || m.id === S.shiftStaffId; });
-      if (!pickable.length) {
-        pickWrap.innerHTML = '<p class="field-hint">등록된 알바생이 없어요. 알바생이 초대 링크로 입장을 요청하면 승인해 주세요.</p>';
-      }
-      pickable.forEach(function (m) {
+      pickableStaff(S.shiftStaffIds).forEach(function (m) {
         var b = document.createElement('button');
         b.type = 'button';
-        b.className = 'pick' + (m.id === S.shiftStaffId ? ' is-on' : '');
+        b.className = 'pick' + (S.shiftStaffIds.indexOf(m.id) >= 0 ? ' is-on' : '');
         b.setAttribute('data-id', m.id);
+        b.setAttribute('aria-pressed', String(S.shiftStaffIds.indexOf(m.id) >= 0));
         b.style.setProperty('--c', m.color);
         b.style.setProperty('--bgc', m.bg);
         b.style.setProperty('--fgc', m.color);
@@ -2328,15 +2419,27 @@
         b.appendChild(document.createTextNode(m.name));
         b.addEventListener('click', function () {
           if (readonly) return;
-          S.shiftStaffId = m.id;
-          Array.prototype.forEach.call(pickWrap.children, function (c) { c.classList.remove('is-on'); });
-          b.classList.add('is-on');
+          var ids = S.shiftStaffIds.slice();
+          var at = ids.indexOf(m.id);
+          if (S.shiftEditingId) {
+            /* 수정은 한 근무만 바꾸므로 한 명만 고를 수 있어요 */
+            setShiftStaffIds([m.id]);
+          } else if (at >= 0) {
+            if (ids.length === 1) { toast('한 명은 골라 두어야 해요 · 다른 사람을 먼저 누르면 바뀌어요'); return; }
+            ids.splice(at, 1);
+            setShiftStaffIds(ids);
+          } else {
+            ids.push(m.id);
+            setShiftStaffIds(ids);
+          }
+          paintShiftStaffPicker();
           var wage = $('shiftWage');
-          if (wage && !S.shiftEditingId) wage.value = String(m.hourly || '');
+          if (wage && !S.shiftEditingId && S.shiftStaffIds.length === 1) wage.value = String(m.hourly || '');
           updateShiftHint();
         });
         pickWrap.appendChild(b);
       });
+      paintShiftStaffPicker();
     }
 
     setVal('shiftDate', sh ? sh.date : (presetDate || S.selected || todayISO()));
@@ -2353,6 +2456,8 @@
     var st = staffById(S.shiftStaffId);
     setVal('shiftWage', sh ? String(sh.wage || 0) : String((st && st.hourly) || ''));
     setVal('shiftMemo', sh ? (sh.memo || '') : '');
+    setVal('shiftPeriodText', sh && sh.periodLabel ? sh.periodLabel : '');
+    paintShiftPeriod();
 
     var statusWrap = $('shiftStatus');
     if (statusWrap) {
@@ -2361,10 +2466,14 @@
         c.disabled = !!readonly;
       });
     }
-    ['shiftDate', 'shiftStart', 'shiftEnd', 'shiftBreak', 'shiftWage', 'shiftMemo'].forEach(function (id) {
+    ['shiftDate', 'shiftStart', 'shiftEnd', 'shiftBreak', 'shiftWage', 'shiftMemo', 'shiftPeriodText'].forEach(function (id) {
       var f = $(id);
       if (f) f.disabled = !!readonly;
     });
+    var periodBtns = $('shiftPeriod');
+    if (periodBtns) {
+      Array.prototype.forEach.call(periodBtns.children, function (b) { b.disabled = !!readonly; });
+    }
     var sEnd = $('shiftEndDate');
     if (sEnd) sEnd.disabled = !!readonly;
     if (pickWrap) {
@@ -2422,18 +2531,215 @@
 
   function updateShiftHint() {
     var hint = $('shiftHoursHint');
-    if (!hint) return;
-    var min = shiftMinutes({ start: getVal('shiftStart'), end: getVal('shiftEnd'), breakMin: getVal('shiftBreak') });
-    var wage = Math.max(0, Math.round(Number(getVal('shiftWage')) || 0));
-    var overnight = toMin(getVal('shiftEnd')) <= toMin(getVal('shiftStart'));
-    var endDate = getVal('shiftEndDate');
-    var startDate = getVal('shiftDate');
-    var extra = '';
-    if (!S.shiftEditingId && /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate > startDate) {
-      var n = Math.round((parseISO(endDate) - parseISO(startDate)) / 86400000) + 1;
-      extra = ' · ' + n + '일 연속 등록 · 합계 ' + hoursText(min * n) + ' / ' + money(Math.round(wage * min / 60) * n);
+    if (hint) {
+      var min = shiftMinutes({ start: getVal('shiftStart'), end: getVal('shiftEnd'), breakMin: getVal('shiftBreak') });
+      var wage = Math.max(0, Math.round(Number(getVal('shiftWage')) || 0));
+      var overnight = toMin(getVal('shiftEnd')) <= toMin(getVal('shiftStart'));
+      var endDate = getVal('shiftEndDate');
+      var startDate = getVal('shiftDate');
+      var extra = '';
+      if (!S.shiftEditingId && /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate > startDate) {
+        var n = Math.round((parseISO(endDate) - parseISO(startDate)) / 86400000) + 1;
+        extra = ' · ' + n + '일 연속 등록 · 합계 ' + hoursText(min * n) + ' / ' + money(Math.round(wage * min / 60) * n);
+      }
+      hint.textContent = '근무 ' + hoursText(min) + ' · 예상 ' + money(Math.round(wage * min / 60)) + (overnight ? ' · 자정을 넘기는 근무로 계산해요' : '') + extra;
     }
-    hint.textContent = '근무 ' + hoursText(min) + ' · 예상 ' + money(Math.round(wage * min / 60)) + (overnight ? ' · 자정을 넘기는 근무로 계산해요' : '') + extra;
+    paintShiftPeriodHint();
+    renderShiftCalc();
+  }
+
+  /* ---------------- 근무 구분 (오전알바·오후알바·야간알바·주말알바) ---------------- */
+  function paintShiftPeriod() {
+    var wrap = $('shiftPeriod');
+    if (wrap) {
+      Array.prototype.forEach.call(wrap.children, function (b) {
+        b.classList.toggle('is-active', (b.getAttribute('data-period') || 'auto') === (S.shiftPeriod || 'auto'));
+      });
+    }
+    var text = $('shiftPeriodText');
+    if (text) text.hidden = S.shiftPeriod !== 'custom';
+  }
+
+  function setShiftPeriod(code) {
+    S.shiftPeriod = code || 'auto';
+    paintShiftPeriod();
+    updateShiftHint();
+  }
+
+  /* 지금 입력값으로 달력에 어떻게 보일지 — '오전알바(성함)' */
+  function paintShiftPeriodHint() {
+    var hint = $('shiftPeriodHint');
+    if (!hint) return;
+    var date = getVal('shiftDate');
+    var sample = {
+      date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayISO(),
+      start: getVal('shiftStart'),
+      staffId: S.shiftStaffId,
+      period: S.shiftPeriod === 'auto' ? '' : S.shiftPeriod,
+      periodLabel: S.shiftPeriod === 'custom' ? String(getVal('shiftPeriodText') || '').trim().slice(0, 8) : ''
+    };
+    if (S.shiftStaffIds.length > 1) {
+      hint.textContent = S.shiftStaffIds.length + '명 모두 같은 구분으로 달력에 표시돼요 (예: 오전알바(성함))';
+      return;
+    }
+    var label = shiftLabel(sample);
+    var why = S.shiftPeriod === 'auto'
+      ? (staffById(S.shiftStaffId) && periodLabelOf(staffById(S.shiftStaffId).period)
+        ? '근무자 관리의 기본 구분'
+        : '시작 시간·요일로 자동')
+      : '직접 고른 구분';
+    hint.textContent = '달력에는 ' + label + ' 으로 표시돼요 · ' + why;
+  }
+
+  /* 이 근무가 들어갈 주(월~일)들 — 여러 날 등록이면 날짜마다 */
+  function shiftFormDates() {
+    var date = getVal('shiftDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+    var endDate = getVal('shiftEndDate');
+    if (S.shiftEditingId || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate <= date) return [date];
+    var out = [];
+    var cur = parseISO(date), last = parseISO(endDate);
+    while (cur <= last && out.length < 62) { out.push(isoOfDate(cur)); cur.setDate(cur.getDate() + 1); }
+    return out;
+  }
+
+  /* 주휴수당 미리보기 — 급여명세서(weeklyWeeksFor)와 같은 규칙:
+     월~일 주간 근무시간이 주 15시간(설정값) 이상이면 주휴시간 = min(8, 주간시간/40×8), 그 주 평균 시급을 곱합니다. */
+  function shiftWeekPreview(dates, form) {
+    var staffId = form.staffId;
+    var minWeekHours = Number(S.settings && S.settings.weeklyHours) || 15;
+    var byWeek = {};
+    dates.forEach(function (d) {
+      var wk = weekKey(d);
+      (byWeek[wk] = byWeek[wk] || []).push(d);
+    });
+    var rows = [];
+    Object.keys(byWeek).sort().forEach(function (wk) {
+      var mon = parseISO(wk);
+      var endISO = isoOfDate(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6));
+      var min = 0, pay = 0;
+      S.shifts.forEach(function (sh) {
+        if (!sh || sh.staffId !== staffId || !sh.date || !countsForPay(sh)) return;
+        if (S.shiftEditingId && sh.id === S.shiftEditingId) return;   /* 수정 중인 근무는 아래 입력값으로 셉니다 */
+        if (sh.date < wk || sh.date > endISO) return;
+        min += shiftMinutes(sh);
+        pay += shiftPay(sh);
+      });
+      var addMin = shiftMinutes(form) * byWeek[wk].length;
+      var addPay = Math.round((Number(form.wage) || 0) * shiftMinutes(form) / 60) * byWeek[wk].length;
+      min += addMin;
+      pay += addPay;
+      var hours = min / 60;
+      var rate = hours ? Math.round(pay / hours) : (Number(form.wage) || 0);
+      var counts = hours >= minWeekHours;
+      var paidHours = counts ? Math.min(8, hours / 40 * 8) : 0;
+      rows.push({
+        start: wk, end: endISO, minutes: min, hours: hours, base: pay, rate: rate,
+        counts: counts, paidHours: paidHours, amount: counts ? Math.round(paidHours * rate) : 0
+      });
+    });
+    return rows;
+  }
+
+  /* 근무 수정란 계산 상자 — 기본급 + 이번 주 주휴수당 + 주휴 포함 합계 */
+  function renderShiftCalc() {
+    var box = $('shiftCalc');
+    if (!box) return;
+    if (S.shiftMode !== 'single') { box.hidden = true; return; }
+    var dates = shiftFormDates();
+    var start = getVal('shiftStart'), end = getVal('shiftEnd');
+    var targets = shiftStaffTargets();
+    if (!targets.length || !dates.length || !start || !end || start === end) { box.hidden = true; return; }
+    var typedWage = Math.max(0, Math.round(Number(getVal('shiftWage')) || 0));
+    var one = shiftMinutes({ start: start, end: end, breakMin: getVal('shiftBreak') });
+    box.hidden = false;
+    if (!one) { box.hidden = true; return; }
+
+    var paid = S.shiftStatus !== 'canceled' && S.shiftStatus !== 'absent';
+    var totalBase = 0;
+    var people = targets.slice(0, 4).map(function (st) {
+      var wage = typedWage || st.hourly || 0;
+      var pay = Math.round(wage * one / 60) * dates.length;
+      totalBase += pay;
+      return { st: st, wage: wage, pay: pay };
+    });
+    if (!people.some(function (p) { return p.wage; })) {
+      box.innerHTML = '<p class="shift-calc__note">시급을 넣으면 기본급·주휴수당을 바로 계산해 드려요.</p>';
+      return;
+    }
+    var multiDay = dates.length > 1;
+    var html = '<div class="shift-calc__head"><span>' + (people.length > 1 ? '이 근무 기본급 합계' : '이 근무 기본급') + '</span>'
+      + '<b>' + money(totalBase) + '</b><em>' + (people.length > 1 ? people.length + '명 · ' : '')
+      + hoursText(one) + ' × ' + (multiDay ? dates.length + '일' : '1일') + '</em></div>';
+
+    if (!paid) {
+      box.innerHTML = html + '<p class="shift-calc__note">' + (S.shiftStatus === 'canceled' ? '취소' : '결근') + ' 근무는 급여·주휴수당 계산에서 빠져요.</p>';
+      return;
+    }
+    if (!weeklyOn()) {
+      box.innerHTML = html + '<p class="shift-calc__note">주휴수당 미포함 · ⚙️ 매장·급여 설정에서 켜면 주휴수당까지 계산해 드려요.</p>';
+      return;
+    }
+    if (isOwnerStaffId(targets[0].id) && people.length === 1) {
+      box.innerHTML = html + '<p class="shift-calc__note">사장님 근무는 인건비·주휴수당 계산에 넣지 않아요 (달력에만 표시).</p>';
+      return;
+    }
+
+    var minWeekText = weeklyHoursText(Number(S.settings && S.settings.weeklyHours) || 15);
+    people.forEach(function (p) {
+      if (isOwnerStaffId(p.st.id)) {
+        html += '<div class="shift-calc__week"><div class="shift-calc__wk"><span>' + p.st.name + '</span><b>인건비 계산 제외</b></div></div>';
+        return;
+      }
+      var rows = shiftWeekPreview(dates, { staffId: p.st.id, start: start, end: end, breakMin: getVal('shiftBreak'), wage: p.wage });
+      var shown = rows.slice(0, 2);
+      html += '<div class="shift-calc__week"><div class="shift-calc__wk"><span>' + esc(p.st.name) + '</span><b>기본급 ' + money(p.pay) + '</b></div>';
+      shown.forEach(function (w) {
+        var head = mdText(w.start) + '~' + mdText(w.end) + ' · ' + hoursText(w.minutes);
+        html += '<div class="shift-calc__wk"><span>주간 합계 ' + head + '</span><b>기본급 ' + money(w.base) + '</b></div>'
+          + '<div class="shift-calc__row"><span>주휴수당' + (w.counts ? ' <em>' + weeklyHoursText(w.paidHours) + ' × ' + money(w.rate) + '</em>' : '') + '</span><b>'
+          + (w.counts ? money(w.amount) : '0원') + '</b></div>'
+          + '<div class="shift-calc__row shift-calc__row--sum"><span>주휴 포함 합계</span><b>' + money(w.base + w.amount) + '</b></div>'
+          + (w.counts ? '' : '<p class="shift-calc__note">이 주는 ' + weeklyHoursText(w.hours) + '으로 주 ' + minWeekText + ' 미만이라 주휴수당이 붙지 않아요.</p>');
+      });
+      if (rows.length > shown.length) {
+        var rest = rows.slice(shown.length);
+        var restAllow = rest.reduce(function (n, w) { return n + w.amount; }, 0);
+        html += '<p class="shift-calc__note">그 밖 ' + rest.length + '주 · 주휴수당 합계 ' + money(restAllow) + '</p>';
+      }
+      html += '</div>';
+    });
+    if (targets.length > people.length) {
+      html += '<p class="shift-calc__note">' + (targets.length - people.length) + '명은 표시만 줄였어요 · 모두 같은 시간으로 등록돼요</p>';
+    }
+    html += '<p class="shift-calc__note">주휴수당은 주 ' + minWeekText + ' 이상일 때 주간 근무시간에 비례해 붙어요 · 급여명세서와 같은 계산이에요.</p>';
+    box.innerHTML = html;
+  }
+
+  /* 근무자 선택 칩의 선택 표시 + '여러 명 함께 등록' 안내 */
+  function paintShiftStaffPicker() {
+    var wrap = $('shiftStaffPicker');
+    if (wrap) {
+      Array.prototype.forEach.call(wrap.querySelectorAll('button[data-id]'), function (b) {
+        var on = S.shiftStaffIds.indexOf(b.getAttribute('data-id')) >= 0;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+    }
+    var hint = $('shiftStaffHint');
+    var n = S.shiftStaffIds.length;
+    if (hint) {
+      hint.textContent = S.shiftEditingId
+        ? ''
+        : (n > 1
+          ? n + '명 선택 · 같은 날 같은 시간으로 각각 근무가 등록돼요'
+          : '여러 명을 같은 시간에 넣으려면 이름을 한 명 더 눌러 주세요');
+      hint.hidden = !hint.textContent;
+    }
+    var btn = $('shiftSaveBtn');
+    if (btn && !S.shiftEditingId && S.shiftMode === 'single') {
+      btn.textContent = n > 1 ? n + '명 등록' : '등록';
+    }
   }
 
   /* ---------------- 평일·주말 근무 한 번에 등록 ---------------- */
@@ -2449,41 +2755,39 @@
     return [
       {
         key: 'weekday', label: '평일', days: [1, 2, 3, 4, 5],
-        on: chkOn('bulkWeekdayOn'), staffId: S.bulk.weekday,
+        on: chkOn('bulkWeekdayOn'), staffIds: S.bulk.weekday || [],
         start: getVal('bulkWeekdayStart'), end: getVal('bulkWeekdayEnd'), breakMin: getVal('bulkWeekdayBreak'),
         secEl: 'bulkSecWeekday', countEl: 'bulkWeekdayCount', hoursEl: 'bulkWeekdayHours', pickEl: 'bulkWeekdayStaff'
       },
       {
         key: 'weekend', label: '주말', days: [0, 6],
-        on: chkOn('bulkWeekendOn'), staffId: S.bulk.weekend,
+        on: chkOn('bulkWeekendOn'), staffIds: S.bulk.weekend || [],
         start: getVal('bulkWeekendStart'), end: getVal('bulkWeekendEnd'), breakMin: getVal('bulkWeekendBreak'),
         secEl: 'bulkSecWeekend', countEl: 'bulkWeekendCount', hoursEl: 'bulkWeekendHours', pickEl: 'bulkWeekendStaff'
       },
       {
         key: 'custom', label: '요일 선택', days: (S.bulk.days || []).slice(),
-        on: chkOn('bulkCustomOn'), staffId: S.bulk.custom,
+        on: chkOn('bulkCustomOn'), staffIds: S.bulk.custom || [],
         start: getVal('bulkCustomStart'), end: getVal('bulkCustomEnd'), breakMin: getVal('bulkCustomBreak'),
         secEl: 'bulkSecCustom', countEl: 'bulkCustomCount', hoursEl: 'bulkCustomHours', pickEl: 'bulkCustomStaff'
       }
     ];
   }
 
+  /* 일괄 등록 근무자 — 여러 명을 함께 켜 두면 그 날짜들에 각각 근무가 만들어집니다. */
   function renderBulkPicker(key) {
     var idMap = { weekday: 'bulkWeekdayStaff', weekend: 'bulkWeekendStaff', custom: 'bulkCustomStaff' };
     var wrap = $(idMap[key]);
     if (!wrap) return;
     wrap.innerHTML = '';
-    var current = S.bulk[key];
-    var list = S.staff.filter(function (m) { return !m.retired || m.id === current; });
-    if (!list.length) {
-      wrap.innerHTML = '<p class="field-hint">등록된 알바생이 없어요. 알바생이 초대 링크로 입장을 요청하면 승인해 주세요.</p>';
-      return;
-    }
-    list.forEach(function (m) {
+    var current = S.bulk[key] || [];
+    pickableStaff(current).forEach(function (m) {
+      var on = current.indexOf(m.id) >= 0;
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'pick' + (m.id === current ? ' is-on' : '');
+      b.className = 'pick' + (on ? ' is-on' : '');
       b.setAttribute('data-id', m.id);
+      b.setAttribute('aria-pressed', String(on));
       b.style.setProperty('--c', m.color);
       b.style.setProperty('--bgc', m.bg);
       b.style.setProperty('--fgc', m.color);
@@ -2491,7 +2795,15 @@
       b.appendChild(dot);
       b.appendChild(document.createTextNode(m.name));
       b.addEventListener('click', function () {
-        S.bulk[key] = m.id;
+        var ids = (S.bulk[key] || []).slice();
+        var at = ids.indexOf(m.id);
+        if (at >= 0) {
+          if (ids.length === 1) { toast('한 명은 골라 두어야 해요'); return; }
+          ids.splice(at, 1);
+        } else {
+          ids.push(m.id);
+        }
+        S.bulk[key] = ids;
         renderBulkPicker(key);
         updateBulkPreview();
       });
@@ -2565,32 +2877,36 @@
     if (plan.error || !dates) return plan;
 
     var commonWage = Math.max(0, Math.round(Number(getVal('bulkWage')) || 0));
+    /* 같은 근무자·같은 날짜·같은 시간대만 겹침으로 봅니다(그 사람의 다른 시간대 근무는 함께 넣을 수 있어요) */
     var taken = {};
     S.shifts.forEach(function (sh) {
-      if (sh && sh.date && sh.staffId) taken[sh.date + '|' + sh.staffId] = true;
+      if (sh && sh.date && sh.staffId) taken[sh.date + '|' + sh.staffId + '|' + (sh.start || '') + '|' + (sh.end || '')] = true;
     });
     var problem = '';
     active.forEach(function (sec) {
-      var staff = staffById(sec.staffId);
-      if (!staff) { problem = problem || sec.label + ' 알바생을 골라 주세요.'; return; }
+      var people = (sec.staffIds || []).map(staffById).filter(Boolean);
+      if (!people.length) { problem = problem || sec.label + ' 근무자를 골라 주세요.'; return; }
       if (!sec.start || !sec.end) { problem = problem || sec.label + ' 근무 시간을 넣어 주세요.'; return; }
       if (sec.start === sec.end) { problem = problem || sec.label + ' 출근·퇴근 시간이 같아요.'; return; }
       if (!sec.days.length) { problem = problem || '요일을 하나 이상 골라 주세요.'; return; }
-      var wage = commonWage || staff.hourly || 0;
       var breakMin = Math.max(0, Math.round(Number(sec.breakMin) || 0));
       var minutes = shiftMinutes({ start: sec.start, end: sec.end, breakMin: breakMin });
-      dates.forEach(function (d) {
-        if (sec.days.indexOf(parseISO(d).getDay()) < 0) return;
-        var key = d + '|' + staff.id;
-        if (taken[key]) { plan.skipped++; return; }
-        taken[key] = true;
-        plan.rows.push({
-          date: d, staffId: staff.id, staffName: staff.name,
-          start: sec.start, end: sec.end, breakMin: breakMin, wage: wage, status: 'planned', memo: '', section: sec.key
+      people.forEach(function (staff) {
+        var wage = commonWage || staff.hourly || 0;
+        dates.forEach(function (d) {
+          if (sec.days.indexOf(parseISO(d).getDay()) < 0) return;
+          /* 같은 사람·같은 날짜·같은 시간만 건너뛰고, 다른 사람은 같은 날짜에 함께 넣습니다 */
+          var key = d + '|' + staff.id + '|' + sec.start + '|' + sec.end;
+          if (taken[key]) { plan.skipped++; return; }
+          taken[key] = true;
+          plan.rows.push({
+            date: d, staffId: staff.id, staffName: staff.name,
+            start: sec.start, end: sec.end, breakMin: breakMin, wage: wage, status: 'planned', memo: '', section: sec.key
+          });
+          plan.counts[sec.key]++;
+          plan.minutes += minutes;
+          plan.pay += Math.round(wage * minutes / 60);
         });
-        plan.counts[sec.key]++;
-        plan.minutes += minutes;
-        plan.pay += Math.round(wage * minutes / 60);
       });
     });
     if (problem) { plan.error = problem; plan.rows = []; return plan; }
@@ -2682,9 +2998,9 @@
     setVal('bulkEnd', iso(d.getFullYear(), d.getMonth() + 1, daysInMonth(d.getFullYear(), d.getMonth())));
 
     var active = S.staff.filter(function (m) { return !m.retired; });
-    S.bulk.weekday = active[0] ? active[0].id : '';
-    S.bulk.weekend = active[1] ? active[1].id : (active[0] ? active[0].id : '');
-    S.bulk.custom = active[0] ? active[0].id : '';
+    S.bulk.weekday = active[0] ? [active[0].id] : [];
+    S.bulk.weekend = active[1] ? [active[1].id] : (active[0] ? [active[0].id] : []);
+    S.bulk.custom = active[0] ? [active[0].id] : [];
     if (!S.bulk.days || !S.bulk.days.length) S.bulk.days = [1, 3, 5];
 
     setVal('bulkWeekdayStart', '09:00');
@@ -2779,13 +3095,8 @@
       today: todayISO()
     });
     if (parsed.members && parsed.members.length) {
-      S.shiftStaffId = parsed.members[0];
-      var wrap = $('shiftStaffPicker');
-      if (wrap) {
-        Array.prototype.forEach.call(wrap.querySelectorAll('button'), function (b) {
-          b.classList.toggle('is-on', b.getAttribute('data-id') === S.shiftStaffId);
-        });
-      }
+      setShiftStaffIds(parsed.members);
+      paintShiftStaffPicker();
       var st = staffById(S.shiftStaffId);
       if (st && !S.shiftEditingId) setVal('shiftWage', String(st.hourly || ''));
     }
@@ -2828,25 +3139,28 @@
     if (!isOwner()) return;
     var date = getVal('shiftDate');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showShiftError('날짜를 골라 주세요.'); return; }
-    if (!S.shiftStaffId) { showShiftError('알바생을 골라 주세요.'); return; }
+    if (!S.shiftStaffIds.length) { showShiftError('근무자를 골라 주세요.'); return; }
     var start = getVal('shiftStart'), end = getVal('shiftEnd');
     if (!start || !end) { showShiftError('출근·퇴근 시간을 넣어 주세요.'); return; }
     if (start === end) { showShiftError('출근과 퇴근 시간이 같아요.'); return; }
     var endDate = getVal('shiftEndDate');
     if (endDate && endDate < date) { showShiftError('종료일이 시작일보다 빨라요.'); return; }
-    var staff = staffById(S.shiftStaffId);
-    if (!staff) { showShiftError('알바생 정보를 찾지 못했어요. 화면을 새로 고쳐 주세요.'); return; }
+    /* 수정은 한 근무만, 새 등록은 고른 사람 모두(사장님 포함) 각각 근무를 만듭니다. */
+    var targets = S.shiftEditingId
+      ? [staffById(S.shiftStaffId)].filter(Boolean)
+      : shiftStaffTargets();
+    if (!targets.length) { showShiftError('근무자를 한 명 이상 골라 주세요.'); return; }
     var status = S.shiftStatus || 'planned';
+    var typedWage = Math.max(0, Math.round(Number(getVal('shiftWage')) || 0));
     var payload = {
       date: date,
-      staffId: staff.id,
-      staffName: staff.name,
       start: start,
       end: end,
       breakMin: Math.max(0, Math.round(Number(getVal('shiftBreak')) || 0)),
-      wage: Math.max(0, Math.round(Number(getVal('shiftWage')) || staff.hourly || 0)),
       status: status,
-      memo: getVal('shiftMemo').trim()
+      memo: getVal('shiftMemo').trim(),
+      period: S.shiftPeriod === 'auto' ? '' : S.shiftPeriod,
+      periodLabel: S.shiftPeriod === 'custom' ? String(getVal('shiftPeriodText') || '').trim().slice(0, 8) : ''
     };
     /* 출퇴근 기록은 근무를 수정해도 지우지 않습니다. */
     if (S.shiftEditingId) {
@@ -2875,30 +3189,51 @@
       }
     }
 
-    var jobs = dates.map(function (d) {
-      var p = {
-        date: d,
-        staffId: payload.staffId,
-        staffName: payload.staffName,
-        start: payload.start,
-        end: payload.end,
-        breakMin: payload.breakMin,
-        wage: payload.wage,
-        status: payload.status,
-        actualStart: payload.actualStart || null,
-        actualEnd: payload.actualEnd || null,
-        memo: payload.memo
-      };
-      return StoreCloud.saveShift(S.shiftEditingId, p);
+    /* 같은 근무자·같은 날짜·같은 시간대의 완전 중복만 건너뜁니다(다른 사람은 같은 날 겹쳐도 OK). */
+    var skipped = 0;
+    var jobs = [];
+    dates.forEach(function (d) {
+      targets.forEach(function (st) {
+        if (!S.shiftEditingId) {
+          var dup = S.shifts.some(function (x) {
+            return x.staffId === st.id && x.date === d && x.start === start && x.end === end;
+          });
+          if (dup) { skipped++; return; }
+        }
+        jobs.push(StoreCloud.saveShift(S.shiftEditingId, {
+          date: d,
+          staffId: st.id,
+          staffName: st.name,
+          start: payload.start,
+          end: payload.end,
+          breakMin: payload.breakMin,
+          wage: typedWage || st.hourly || 0,
+          status: payload.status,
+          actualStart: payload.actualStart || null,
+          actualEnd: payload.actualEnd || null,
+          memo: payload.memo,
+          period: payload.period,
+          periodLabel: payload.periodLabel
+        }));
+      });
     });
+    if (!jobs.length) {
+      if (btn) btn.disabled = false;
+      showShiftError('같은 근무자·같은 날짜·같은 시간대 근무가 이미 있어요.');
+      return;
+    }
 
+    var editing = !!S.shiftEditingId;
     Promise.all(jobs).then(function () {
       S.selected = date;
       var d = parseISO(date);
       S.year = d.getFullYear();
       S.month = d.getMonth();
+      var people = targets.length > 1 ? targets.length + '명 · ' : '';
+      var days = dates.length > 1 ? dates.length + '일 ' : '';
       closeShift();
-      toast(dates.length > 1 ? dates.length + '일 근무를 등록했어요' : '근무를 저장했어요');
+      toast(editing ? '근무를 저장했어요'
+        : (people + days + '근무 ' + jobs.length + '건을 등록했어요') + (skipped ? ' · 겹친 ' + skipped + '건은 건너뜀' : ''));
       renderAll();
     }).catch(function (err) {
       showShiftError('저장하지 못했어요 · ' + errorHint(err));
@@ -2917,7 +3252,7 @@
     var id = S.shiftEditingId;
     var target = null;
     S.shifts.forEach(function (s) { if (s.id === id) target = s; });
-    var label = target ? target.date.slice(5) + ' ' + shiftName(target) + ' ' + target.start + '~' + target.end : '이 근무';
+    var label = target ? target.date.slice(5) + ' ' + shiftLabel(target) + ' ' + target.start + '~' + target.end : '이 근무';
     if (!window.confirm(label + ' 근무를 지울까요?\n매장 달력에서 사라져요.')) return;
     closeShift();
     StoreCloud.deleteShift(id).then(function () {
@@ -3383,7 +3718,7 @@
       li.appendChild(purge);
       var wageText = document.createElement('span');
       wageText.className = 'staff-row__note';
-      wageText.textContent = '시급 ' + money(m.hourly || 0)
+      wageText.textContent = (periodLabelOf(m.period) ? periodLabelOf(m.period) + ' · ' : '') + '시급 ' + money(m.hourly || 0)
         + (m.retiredAt ? ' · ' + shortDay(m.retiredAt) + ' 퇴사' : '')
         + ' · 지난 근무·급여 기록은 그대로';
       li.appendChild(wageText);
@@ -3448,7 +3783,28 @@
     moneyRow.appendChild(retire);
     li.appendChild(moneyRow);
 
-    /* 3줄 — ☎️ 전화번호 */
+    /* 3줄 — 근무 구분 (달력에 '오전알바(성함)'으로 표시) */
+    var periodRow = document.createElement('div');
+    periodRow.className = 'staff-row__periodrow';
+    var periodKey = document.createElement('span');
+    periodKey.className = 'staff-row__periodkey';
+    periodKey.textContent = '구분';
+    periodRow.appendChild(periodKey);
+    var periodSel = document.createElement('select');
+    periodSel.className = 'staff-row__period';
+    periodSel.setAttribute('aria-label', m.name + ' 기본 근무 구분');
+    periodSel.title = '이 사람 근무를 달력에 어떤 구분으로 표시할지 골라요 (자동이면 시작 시간·요일로 정해져요)';
+    [['', '자동 (시간·요일)'], ['morning', '오전알바'], ['afternoon', '오후알바'], ['night', '야간알바'], ['weekend', '주말알바']].forEach(function (o) {
+      var opt = document.createElement('option');
+      opt.value = o[0];
+      opt.textContent = o[1];
+      periodSel.appendChild(opt);
+    });
+    periodSel.value = periodLabelOf(m.period) ? m.period : '';
+    periodRow.appendChild(periodSel);
+    li.appendChild(periodRow);
+
+    /* 4줄 — ☎️ 전화번호 */
     var telRow = document.createElement('div');
     telRow.className = 'staff-row__telrow';
     var telIcon = document.createElement('span');
@@ -3487,13 +3843,15 @@
     saveBtn.addEventListener('click', function () { save(); });
     li.appendChild(saveBtn);
 
-    function values() { return { name: name.value, hourly: wage.value, tel: telInput.value }; }
+    function values() { return { name: name.value, hourly: wage.value, tel: telInput.value, period: periodSel.value }; }
 
     function isDirty() {
       var typedName = String(name.value || '').trim().slice(0, 12);
       var typedWage = Math.max(0, Math.round(Number(String(wage.value || '').replace(/[^\d]/g, '')) || 0));
       var typedTel = normTel(telInput.value);
-      return typedName !== m.name || typedWage !== (m.hourly || 0) || typedTel !== telOf(m);
+      var typedPeriod = periodLabelOf(periodSel.value) ? periodSel.value : '';
+      return typedName !== m.name || typedWage !== (m.hourly || 0) || typedTel !== telOf(m)
+        || typedPeriod !== (periodLabelOf(m.period) ? m.period : '');
     }
 
     function syncDirty() {
@@ -3509,6 +3867,7 @@
       saveStaffEdits(m, values());
     }
 
+    periodSel.addEventListener('change', function () { save(); });
     [name, wage, telInput].forEach(function (input) {
       input.addEventListener('input', syncDirty);
       /* 다른 곳을 누르면(포커스 아웃) 저장 */
@@ -3536,6 +3895,57 @@
   function shiftName(sh) {
     var st = sh && sh.staffId ? staffById(sh.staffId) : null;
     return (st && st.name) || (sh && sh.staffName) || '알바';
+  }
+
+  /* 시간·요일로 정하는 기본 구분 — 09시 시작은 오전알바, 토·일은 주말알바 */
+  function autoPeriodCode(sh) {
+    var d = parseISO((sh && sh.date) || todayISO());
+    var wd = d.getDay();
+    if (wd === 0 || wd === 6) return 'weekend';
+    var min = toMin(sh && sh.start);
+    if (min < 12 * 60) return 'morning';
+    if (min < 18 * 60) return 'afternoon';
+    return 'night';
+  }
+
+  /* 근무 구분 코드 — ① 근무에 저장된 구분 ② 근무자 관리의 기본 구분 ③ 자동(시간·요일) */
+  function shiftPeriodCode(sh) {
+    if (!sh) return '';
+    if (sh.period === 'custom' && sh.periodLabel) return 'custom';
+    if (periodLabelOf(sh.period)) return sh.period;
+    if (sh.periodLabel) return 'custom';
+    var st = sh.staffId ? staffById(sh.staffId) : null;
+    if (st && periodLabelOf(st.period)) return st.period;
+    return autoPeriodCode(sh);
+  }
+  function shiftPeriodLabel(sh) {
+    if (!sh) return '';
+    if (sh.period === 'custom' && sh.periodLabel) return String(sh.periodLabel).slice(0, 8);
+    var code = shiftPeriodCode(sh);
+    return code === 'custom' ? String(sh.periodLabel || '').slice(0, 8) : periodLabelOf(code);
+  }
+  /* 달력 칸에 두 줄로 나눠 쓰는 표기 — { period: '오전알바', name: '홍길동' }
+     · 구분이 없으면 성함만, 성함을 아직 모르면 구분만.
+     · 이름에 구분이 이미 들어 있으면(예: 이름이 '오전알바') 두 번 쓰지 않습니다.
+     · 사장님 근무는 '오후(사장님)'처럼 짧은 구분으로 표시합니다. */
+  function shiftLabelParts(sh) {
+    var code = shiftPeriodCode(sh);
+    var period = shiftPeriodLabel(sh);
+    var name = shiftName(sh);
+    if (sh && isOwnerStaffId(sh.staffId)) {
+      return { period: PERIOD_SHORT[code] || (code === 'custom' ? period : '') || '사장', name: '사장님' };
+    }
+    if (!period) return { period: '', name: name };
+    if (!name || name === '알바' || name === '알바생') return { period: period, name: '' };
+    if (name.indexOf(period) >= 0 || period.indexOf(name) >= 0) return { period: '', name: name };
+    return { period: period, name: name };
+  }
+  /* 한 줄 표기 — '오전알바(홍길동)' (목록·카톡·툴팁) */
+  function shiftLabel(sh) {
+    var parts = shiftLabelParts(sh);
+    if (!parts.period) return parts.name;
+    if (!parts.name) return parts.period;
+    return parts.period + '(' + parts.name + ')';
   }
 
   /* 🚪 퇴사·내보내기 — 사장님만. 과거 근무·급여 기록은 남기고 접속만 막습니다. */
@@ -3616,6 +4026,7 @@
     };
     var tel = normTel(m.tel);
     if (tel) out.tel = tel;
+    if (periodLabelOf(m.period)) out.period = m.period;
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
     /* 퇴사·계정 연결 정보는 이름·시급을 고칠 때도 그대로 남겨야 합니다. */
     if (m.uid) out.uid = String(m.uid).slice(0, 128);
@@ -3656,6 +4067,7 @@
       color: /^#[0-9a-fA-F]{3,8}$/.test(x.color || '') ? x.color : '#0d9488',
       bg: /^#[0-9a-fA-F]{3,8}$/.test(x.bg || '') ? x.bg : '#e6fffb',
       hourly: Math.max(0, Math.round(Number(x.hourly) || 0)),
+      period: periodLabelOf(x.period) ? x.period : '',
       tel: normTel(x.tel),
       uid: String(x.uid || '').slice(0, 128),
       deviceId: String(x.deviceId || '').slice(0, 60),
@@ -3686,9 +4098,11 @@
       renderStaffList();
       return;
     }
+    var period = periodLabelOf(values.period) ? values.period : (values.period === '' ? '' : (m.period || ''));
     /* Enter(change)와 [✓ 저장]이 겹쳐 두 번 불려도 한 번만 저장되도록, 지금 목록의 값과 비교합니다. */
     var cur = staffById(m.id) || m;
-    if (name === cur.name && hourly === (cur.hourly || 0) && tel === telOf(cur)) {
+    if (name === cur.name && hourly === (cur.hourly || 0) && tel === telOf(cur)
+      && period === (periodLabelOf(cur.period) ? cur.period : '')) {
       renderStaffList();
       return;
     }
@@ -3699,6 +4113,7 @@
         out.name = name;
         out.hourly = hourly;
         if (tel) out.tel = tel; else delete out.tel;
+        if (period) out.period = period; else delete out.period;
       }
       return out;
     });
@@ -3706,6 +4121,7 @@
     if (name !== cur.name) changed.push('이름');
     if (hourly !== (cur.hourly || 0)) changed.push('시급');
     if (tel !== telOf(cur)) changed.push('번호');
+    if (period !== (periodLabelOf(cur.period) ? cur.period : '')) changed.push('구분');
     applyStaffLocal(next);
     StoreCloud.saveRoom({ staff: next }).then(function () {
       toast(name + ' 님 ' + changed.join('·') + ' 저장했어요');
