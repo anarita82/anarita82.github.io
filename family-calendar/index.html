@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117b2" />
-<link rel="stylesheet" href="store.css?v=20261117b2" />
-<link rel="stylesheet" href="ledger.css?v=20261117b2" />
-<link rel="stylesheet" href="extra.css?v=20261117b2" />
-<link rel="stylesheet" href="polish.css?v=20261117b2" />
+<link rel="stylesheet" href="styles.css?v=20261117b3" />
+<link rel="stylesheet" href="store.css?v=20261117b3" />
+<link rel="stylesheet" href="ledger.css?v=20261117b3" />
+<link rel="stylesheet" href="extra.css?v=20261117b3" />
+<link rel="stylesheet" href="polish.css?v=20261117b3" />
 </head>
 <body>
 <div class="app">
@@ -269,6 +269,7 @@
           <strong id="payrollMonth">2026년 11월</strong>
           <button class="cal-nav" id="payrollNext" type="button" aria-label="다음 달">›</button>
         </div>
+        <div class="pay-sum" id="paySummary" hidden></div>
         <ul class="pay-list" id="payList"></ul>
       </section>
 
@@ -865,42 +866,62 @@
 
     <div class="sheet-actions">
       <button type="submit" class="btn-primary" id="shiftSaveBtn">등록</button>
-      <button type="button" class="btn-primary" id="shiftReqBtn" hidden>🙋 근무 변경 · 대타 요청</button>
+      <button type="button" class="btn-ghost" id="shiftLeaveBtn" hidden>🏖 휴무 요청</button>
+      <button type="button" class="btn-primary" id="shiftReqBtn" hidden>🔁 교대·대타 요청</button>
       <button type="button" class="btn-ghost btn-danger" id="shiftDeleteBtn" hidden>삭제</button>
     </div>
   </form>
 </div>
 
-<!-- 🏪 근무 변경·대타 요청 -->
+<!-- 🙋 휴무·교대 요청 -->
 <div class="modal" id="shiftReqModal" hidden>
   <div class="modal__backdrop" data-close="1"></div>
   <form class="modal__sheet" id="shiftReqForm" novalidate>
     <div class="sheet-bar"></div>
     <div class="sheet-head">
-      <h2>🙋 근무 변경 · 대타 요청</h2>
+      <h2>🙋 휴무·교대 요청</h2>
       <button class="sheet-close" id="shiftReqClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro" id="shiftReqIntro">바꾸고 싶은 내용을 적어 보내면 사장님이 <b>승인</b>한 뒤 근무가 바뀌어요.</p>
-    <div class="field">
-      <label>희망 시간 <span class="field-hint--inline">바꿀 때만</span></label>
-      <div class="time-range">
-        <input id="reqStart" type="time" />
-        <span class="time-range__sep">~</span>
-        <input id="reqEnd" type="time" />
+    <p class="room-intro" id="shiftReqIntro">보내면 사장님이 <b>승인</b>한 뒤 반영돼요.</p>
+
+    <div class="req-kind" id="reqKindPicker" role="group" aria-label="요청 종류">
+      <button type="button" class="req-kind__btn" data-kind="leave">
+        <b>🏖 휴무 요청</b>
+        <small>이날 못 나와요</small>
+      </button>
+      <button type="button" class="req-kind__btn" data-kind="shift">
+        <b>🔁 교대·대타 요청</b>
+        <small>다른 근무자·시간으로</small>
+      </button>
+    </div>
+
+    <div id="reqLeaveBox" hidden>
+      <p class="req-kind__note">승인되면 이 근무가 <b>달력에서 빠지고</b> 급여 계산에서도 빠져요.<br>대신 나올 사람을 정하려면 <b>🔁 교대·대타 요청</b>을 골라 주세요.</p>
+    </div>
+
+    <div id="reqShiftBox">
+      <div class="field">
+        <label>희망 시간 <span class="field-hint--inline">바꿀 때만</span></label>
+        <div class="time-range">
+          <input id="reqStart" type="time" />
+          <span class="time-range__sep">~</span>
+          <input id="reqEnd" type="time" />
+        </div>
+        <p class="field-hint">비워 두면 지금 근무 시간 그대로 둬요.</p>
+        <div class="time-quick" id="reqQuick">
+          <button type="button" data-quick="late1">1시간 늦게</button>
+          <button type="button" data-quick="late2">2시간 늦게</button>
+          <button type="button" data-quick="early1">1시간 일찍</button>
+          <button type="button" data-quick="clear">지움</button>
+        </div>
       </div>
-      <p class="field-hint">비워 두면 지금 근무 시간 그대로 둬요.</p>
-      <div class="time-quick" id="reqQuick">
-        <button type="button" data-quick="late1">1시간 늦게</button>
-        <button type="button" data-quick="late2">2시간 늦게</button>
-        <button type="button" data-quick="early1">1시간 일찍</button>
-        <button type="button" data-quick="clear">지움</button>
+      <div class="field">
+        <label>희망 대타 직원 <span class="field-hint--inline">선택</span></label>
+        <div class="picker" id="reqStaffPicker"></div>
+        <p class="field-hint">고르면 그 알바생에게 근무가 넘어가요.</p>
       </div>
     </div>
-    <div class="field">
-      <label>희망 대타 직원 <span class="field-hint--inline">선택</span></label>
-      <div class="picker" id="reqStaffPicker"></div>
-      <p class="field-hint">고르면 그 알바생에게 근무가 넘어가요.</p>
-    </div>
+
     <div class="field">
       <label for="reqReason">사유</label>
       <textarea id="reqReason" rows="2" maxlength="120" placeholder="예) 학교 시험, 병원 진료"></textarea>
@@ -929,7 +950,7 @@
       <button type="button" class="btn-primary btn-small" id="storeDaySheetAddBtn">＋ 근무 등록</button>
     </div>
     <ul class="sheet-events" id="storeDaySheetList"></ul>
-    <p class="day-sheet__hint" id="storeDaySheetHint">근무를 누르면 출퇴근 체크·근무 변경 요청이 펼쳐져요</p>
+    <p class="day-sheet__hint" id="storeDaySheetHint">근무를 누르면 출퇴근 체크와 휴무·교대 요청이 펼쳐져요</p>
   </div>
 </div>
 
@@ -959,7 +980,7 @@
       <h2>🔔 입장·승인 관리 <span id="storeApproveModalCount">0</span>건</h2>
       <button class="sheet-close" id="storeApproveClose" type="button" aria-label="닫기">✕</button>
     </div>
-    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>·<b>신상정보 변경 요청</b>·<b>근무 변경·대타 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(입장은 그 폰 화면이 매장 캘린더로 바뀜), <b>거절</b>하면 바뀌지 않아요.</p>
+    <p class="room-intro">알바생이 보낸 <b>입장 요청</b>·<b>신상정보 변경 요청</b>·<b>휴무·교대 요청</b>이에요.<br><b>승인</b>하면 바로 반영되고(휴무는 근무가 달력에서 빠지고, 교대는 근무자·시간이 바뀜), <b>거절</b>하면 그대로 남아요.</p>
     <div class="req-cards" id="storeApprovalCards"></div>
   </div>
 </div>
@@ -999,7 +1020,8 @@
         <label for="settingsTaxRate">공제 요율(%)</label>
         <input id="settingsTaxRate" type="number" min="0" max="30" step="0.1" inputmode="decimal" />
       </div>
-      <label class="settings-check"><input type="checkbox" id="settingsWeekly" /> 주휴수당 자동 계산 포함 (주 15시간 이상)</label>
+      <label class="settings-check"><input type="checkbox" id="settingsWeekly" checked /> <b>주휴수당 자동 포함</b> — 주 15시간 이상인 주만 (기본 켜짐)</label>
+      <p class="field-hint">끄면 기본급만 계산해요. 급여명세서·이번 달 인건비 요약에 기본급 / 주휴수당 / 총 급여가 나뉘어 보입니다.</p>
       <div class="field" style="margin-top:10px">
         <label for="settingsPayDay">급여 지급일(다음 달 며칠)</label>
         <input id="settingsPayDay" type="number" min="1" max="31" step="1" inputmode="numeric" />
@@ -1801,19 +1823,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117b2"></script>
-<script src="firebase-auth-compat.js?v=20261117b2"></script>
-<script src="firebase-firestore-compat.js?v=20261117b2"></script>
-<script src="lunar.js?v=20261117b2"></script>
-<script src="cloud.js?v=20261117b2"></script>
-<script src="app.js?v=20261117b2"></script>
-<script src="voice.js?v=20261117b2"></script>
-<script src="media.js?v=20261117b2"></script>
-<script src="store-cloud.js?v=20261117b2"></script>
-<script src="store.js?v=20261117b2"></script>
-<script src="ledger-cloud.js?v=20261117b2"></script>
-<script src="ledger.js?v=20261117b2"></script>
-<script src="extra-cloud.js?v=20261117b2"></script>
-<script src="extra.js?v=20261117b2"></script>
+<script src="firebase-app-compat.js?v=20261117b3"></script>
+<script src="firebase-auth-compat.js?v=20261117b3"></script>
+<script src="firebase-firestore-compat.js?v=20261117b3"></script>
+<script src="lunar.js?v=20261117b3"></script>
+<script src="cloud.js?v=20261117b3"></script>
+<script src="app.js?v=20261117b3"></script>
+<script src="voice.js?v=20261117b3"></script>
+<script src="media.js?v=20261117b3"></script>
+<script src="store-cloud.js?v=20261117b3"></script>
+<script src="store.js?v=20261117b3"></script>
+<script src="ledger-cloud.js?v=20261117b3"></script>
+<script src="ledger.js?v=20261117b3"></script>
+<script src="extra-cloud.js?v=20261117b3"></script>
+<script src="extra.js?v=20261117b3"></script>
 </body>
 </html>

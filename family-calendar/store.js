@@ -70,7 +70,7 @@
     handovers: [],
     shifts: [],
     pins: {},
-    settings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: false, payDay: 10, weeklyHours: 15 },
+    settings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: true, payDay: 10, weeklyHours: 15 },
     storeName: '',
     revokedUids: [],
     revokedDevices: [],
@@ -92,7 +92,8 @@
     reqWantStaff: '',
     payStaffId: '',
     payExtra: 0,
-    payWeekly: false,
+    payWeekly: true,
+    reqKind: 'shift',
     pendingPin: '',
     pinAsked: false,
     lastStatus: { kind: 'pending', text: '' }
@@ -189,6 +190,13 @@
     return p[0] * 60 + p[1];
   }
   function money(n) { return Math.round(Number(n) || 0).toLocaleString('ko-KR') + '원'; }
+  /* 주휴수당 포함 계산 — 설정에 값이 없으면 켜진 것으로 봅니다(기본 ON).
+     사장님이 ⚙️ 설정에서 끄면 예전처럼 기본급만 계산합니다. */
+  function weeklyOn() { return !(S.settings && S.settings.weeklyAllowance === false); }
+  function weeklyHoursText(h) {
+    var n = Math.round(Number(h) * 10) / 10;
+    return (n % 1 ? n.toFixed(1) : String(n)) + '시간';
+  }
   function hoursText(min) {
     var m = Math.max(0, Math.round(Number(min) || 0));
     var h = Math.floor(m / 60), r = m % 60;
@@ -428,7 +436,19 @@
     if (reqOpenBtn) reqOpenBtn.addEventListener('click', function () {
       var target = null;
       S.shifts.forEach(function (s) { if (s.id === S.shiftEditingId) target = s; });
-      if (target) openShiftReq(target);
+      if (target) openShiftReq(target, 'shift');
+    });
+    var leaveOpenBtn = $('shiftLeaveBtn');
+    if (leaveOpenBtn) leaveOpenBtn.addEventListener('click', function () {
+      var target = null;
+      S.shifts.forEach(function (s) { if (s.id === S.shiftEditingId) target = s; });
+      if (target) openShiftReq(target, 'leave');
+    });
+    var reqKinds = $('reqKindPicker');
+    if (reqKinds) reqKinds.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-kind]');
+      if (!b) return;
+      applyReqKind(b.getAttribute('data-kind'));
     });
     var reqQuick = $('reqQuick');
     if (reqQuick) reqQuick.addEventListener('click', function (e) {
@@ -561,7 +581,9 @@
 
     /* 명세서 모달 */
     var payClose = $('payrollClose');
-    if (payClose) payClose.addEventListener('click', function () { $('payrollModal').hidden = true; });
+    if (payClose) payClose.addEventListener('click', closePayroll);
+    var payBackdrop = $('payrollModal') && $('payrollModal').querySelector('[data-close]');
+    if (payBackdrop) payBackdrop.addEventListener('click', closePayroll);
     var payCopy = $('payrollCopyBtn');
     if (payCopy) payCopy.addEventListener('click', copyPayrollText);
     var payPrint = $('payrollPrintBtn');
@@ -571,15 +593,12 @@
       S.payExtra = Math.max(0, Math.round(Number(payExtra.value) || 0));
       renderPayrollModal();
     });
-    var payWeekly = $('payrollWeekly');
-    if (payWeekly) payWeekly.addEventListener('change', function () {
-      S.payWeekly = payWeekly.checked;
-      renderPayrollModal();
-    });
 
     /* 설정 모달 */
     var setClose = $('storeSettingsClose');
-    if (setClose) setClose.addEventListener('click', function () { $('storeSettingsModal').hidden = true; });
+    if (setClose) setClose.addEventListener('click', closeSettings);
+    var setBackdrop = $('storeSettingsModal') && $('storeSettingsModal').querySelector('[data-close]');
+    if (setBackdrop) setBackdrop.addEventListener('click', closeSettings);
     var nameSave = $('storeNameSaveBtn');
     if (nameSave) nameSave.addEventListener('click', saveStoreName);
     var taxWrap = $('settingsTax');
@@ -767,6 +786,8 @@
       setStoreStatus('error', '이전 매장 주소는 쓰지 않아요');
       return;
     }
+    var beforeReqs = {};
+    (S.shiftRequests || []).forEach(function (r) { if (r && r.id) beforeReqs[r.id] = r.status; });
     S.staff = info.staff || [];
     S.profileRequests = info.profileRequests || [];
     S.shiftRequests = info.shiftRequests || [];
@@ -774,7 +795,7 @@
     S.revokedUids = Array.isArray(info.revokedUids) ? info.revokedUids : [];
     S.revokedDevices = Array.isArray(info.revokedDevices) ? info.revokedDevices : [];
     S.settings = info.payrollSettings || S.settings;
-    S.payWeekly = !!S.settings.weeklyAllowance;
+    S.payWeekly = weeklyOn();
     S.storeName = info.storeName || '';
     var blocked = blockReason();
     if (blocked) {
@@ -792,6 +813,24 @@
       showJoinForm('사장님이 입장을 해제했어요. 다시 요청해 주세요.');
     }
     renderAll();
+    notifyMyReqDecisions(beforeReqs);
+  }
+
+  /* 내가 보낸 휴무·교대 요청이 승인·거절되면 알바생 화면에서 바로 알려 줍니다. */
+  function notifyMyReqDecisions(prev) {
+    if (S.role !== 'staff') return;
+    var mine = myStaffId();
+    (S.shiftRequests || []).forEach(function (r) {
+      if (!r || r.staffId !== mine) return;
+      if (prev[r.id] !== 'pending' || r.status === 'pending') return;
+      if (r.status === 'approved') {
+        toast(r.kind === 'leave'
+          ? '휴무 요청이 승인됐어요 · 그 근무가 달력에서 빠졌어요'
+          : '교대 요청이 승인됐어요 · 근무가 바뀌었어요');
+      } else {
+        toast('요청이 거절됐어요 · 근무는 그대로예요');
+      }
+    });
   }
 
   function resolveIdentity() {
@@ -1648,9 +1687,7 @@
     if (myReq) {
       var rq = document.createElement('p');
       rq.className = 'sheet-detail__meta sheet-detail__req';
-      rq.textContent = '🙋 변경 요청 ' + (myReq.status === 'pending' ? '대기 중' : myReq.status === 'approved' ? '승인됨' : '거절됨')
-        + (myReq.reqStart || myReq.reqEnd ? ' · ' + (myReq.reqStart || '?') + '~' + (myReq.reqEnd || '?') : '')
-        + (myReq.wantStaffName ? ' · 대타 ' + myReq.wantStaffName : '');
+      rq.textContent = reqDetailText(myReq);
       box.appendChild(rq);
     }
 
@@ -1689,13 +1726,25 @@
       delBtn.addEventListener('click', function () { deleteShiftFromSheet(sh); });
       actions.appendChild(delBtn);
     } else {
+      var leaveBtn = document.createElement('button');
+      leaveBtn.type = 'button';
+      leaveBtn.className = 'btn-ghost btn-small';
+      leaveBtn.textContent = '🏖 휴무 요청';
+      leaveBtn.title = '이날 못 나올 때 — 승인되면 그 근무가 달력에서 빠져요';
+      leaveBtn.addEventListener('click', function () {
+        closeDaySheet();
+        openShiftReq(sh, 'leave');
+      });
+      actions.appendChild(leaveBtn);
+
       var reqBtn = document.createElement('button');
       reqBtn.type = 'button';
       reqBtn.className = 'btn-primary btn-small';
-      reqBtn.textContent = '🙋 근무 변경 · 대타 요청';
+      reqBtn.textContent = '🔁 교대·대타 요청';
+      reqBtn.title = '다른 근무자나 다른 시간으로 바꿀 때';
       reqBtn.addEventListener('click', function () {
         closeDaySheet();
-        openShiftReq(sh);
+        openShiftReq(sh, 'shift');
       });
       actions.appendChild(reqBtn);
     }
@@ -1792,9 +1841,7 @@
     if (myReq) {
       var rq = document.createElement('div');
       rq.className = 'shift__req shift__req--' + myReq.status;
-      rq.textContent = '🙋 변경 요청 ' + (myReq.status === 'pending' ? '대기 중' : myReq.status === 'approved' ? '승인됨' : '거절됨')
-        + (myReq.reqStart || myReq.reqEnd ? ' · ' + (myReq.reqStart || '?') + '~' + (myReq.reqEnd || '?') : '')
-        + (myReq.wantStaffName ? ' · 대타 ' + myReq.wantStaffName : '');
+      rq.textContent = reqDetailText(myReq);
       body.appendChild(rq);
     }
 
@@ -1880,6 +1927,18 @@
     }).catch(function (err) {
       window.alert('기록을 지우지 못했어요 · ' + errorHint(err));
     });
+  }
+
+  /* 요청 종류·상태를 한 줄로 — 알바생 화면 여러 곳에서 같은 표현을 씁니다. */
+  function reqKindWord(r) { return r && r.kind === 'leave' ? '🏖 휴무' : '🔁 교대'; }
+  function reqStateWord(r) {
+    return r.status === 'pending' ? '대기 중' : r.status === 'approved' ? '승인됨' : '거절됨';
+  }
+  function reqDetailText(r) {
+    var bits = [];
+    if (r.reqStart || r.reqEnd) bits.push((r.reqStart || '?') + '~' + (r.reqEnd || '?'));
+    if (r.wantStaffName) bits.push('대타 ' + r.wantStaffName);
+    return reqKindWord(r) + ' 요청 ' + reqStateWord(r) + (bits.length ? ' · ' + bits.join(' · ') : '');
   }
 
   /* 그 근무의 가장 최근 변경 요청 (staffId 있으면 그 알바생 것만) */
@@ -1991,17 +2050,42 @@
     });
   }
 
-  /* ---------------- 🙋 근무 변경·대타 요청 (알바생) ---------------- */
-  function openShiftReq(sh) {
+  /* ---------------- 🙋 휴무·교대 요청 (알바생) ----------------
+     kind = 'leave' — 이날 못 나와요(승인되면 그 근무가 달력에서 빠짐)
+     kind = 'shift' — 교대·대타(승인되면 근무자·시간이 바뀜) */
+  function applyReqKind(kind) {
+    S.reqKind = kind === 'leave' ? 'leave' : 'shift';
+    var wrap = $('reqKindPicker');
+    if (wrap) {
+      Array.prototype.forEach.call(wrap.querySelectorAll('button[data-kind]'), function (b) {
+        b.classList.toggle('is-on', b.getAttribute('data-kind') === S.reqKind);
+      });
+    }
+    var leaveBox = $('reqLeaveBox');
+    if (leaveBox) leaveBox.hidden = S.reqKind !== 'leave';
+    var shiftBox = $('reqShiftBox');
+    if (shiftBox) shiftBox.hidden = S.reqKind !== 'shift';
+    var save = $('reqSaveBtn');
+    if (save) save.textContent = S.reqKind === 'leave' ? '🏖 휴무 요청 보내기' : '🔁 교대 요청 보내기';
+    var reason = $('reqReason');
+    if (reason) reason.placeholder = S.reqKind === 'leave'
+      ? '예) 학교 시험, 병원 진료, 가족 행사'
+      : '예) 시간 조정이 필요해요, 대타 부탁드려요';
+    var err = $('reqError');
+    if (err) err.hidden = true;
+  }
+
+  function openShiftReq(sh, kind) {
     if (!sh) return;
     S.reqShift = sh;
     S.reqWantStaff = '';
     var d = parseISO(sh.date);
     var intro = $('shiftReqIntro');
     if (intro) {
-      intro.innerHTML = '<b>' + esc((d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + (sh.start || '--:--') + ' ~ ' + (sh.end || '--:--')) +
-        '</b> 근무를 바꾸려고 해요.<br>바꿀 내용을 적어 보내면 사장님이 <b>승인</b>한 뒤 근무가 바뀝니다.';
+      intro.innerHTML = '<b>' + esc((d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + WEEKDAYS[d.getDay()] + ') ' + (sh.start || '--:--') + ' ~ ' + (sh.end || '--:--')) +
+        '</b> 근무예요.<br>아래에서 <b>휴무</b>인지 <b>교대</b>인지 고르고 보내면 사장님이 <b>승인</b>한 뒤 반영돼요.';
     }
+    applyReqKind(kind || 'shift');
     setVal('reqStart', '');
     setVal('reqEnd', '');
     setVal('reqReason', '');
@@ -2085,15 +2169,26 @@
   function submitShiftReq() {
     var sh = S.reqShift;
     if (!sh) return;
-    var rs = getVal('reqStart'), re = getVal('reqEnd');
-    if ((rs && !re) || (!rs && re)) { showReqError('희망 시간은 출근·퇴근을 함께 넣어 주세요.'); return; }
-    if (rs && re && rs === re) { showReqError('희망 출근과 퇴근 시간이 같아요.'); return; }
-    var want = S.reqWantStaff ? staffById(S.reqWantStaff) : null;
-    if (!rs && !want) { showReqError('바꿀 시간이나 대타 직원을 하나는 골라 주세요.'); return; }
+    var pending = (S.shiftRequests || []).filter(function (r) {
+      return r.shiftId === sh.id && r.status === 'pending';
+    })[0];
+    if (pending) {
+      showReqError('이 근무는 이미 승인을 기다리는 요청이 있어요. 사장님 답을 기다려 주세요.');
+      return;
+    }
+    var leave = S.reqKind === 'leave';
+    var rs = leave ? '' : getVal('reqStart'), re = leave ? '' : getVal('reqEnd');
+    var want = (leave || !S.reqWantStaff) ? null : staffById(S.reqWantStaff);
+    if (!leave) {
+      if ((rs && !re) || (!rs && re)) { showReqError('희망 시간은 출근·퇴근을 함께 넣어 주세요.'); return; }
+      if (rs && re && rs === re) { showReqError('희망 출근과 퇴근 시간이 같아요.'); return; }
+      if (!rs && !want) { showReqError('바꿀 시간이나 대타 직원을 하나는 골라 주세요.'); return; }
+    }
     var btn = $('reqSaveBtn');
     if (btn) btn.disabled = true;
     StoreCloud.submitShiftRequest({
       shiftId: sh.id,
+      kind: leave ? 'leave' : 'shift',
       date: sh.date,
       staffId: sh.staffId,
       staffName: sh.staffName,
@@ -2106,7 +2201,7 @@
       closeShiftReq();
       var sm = $('shiftModal');
       if (sm) sm.hidden = true;
-      toast('변경 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
+      toast(leave ? '휴무 요청을 보냈어요 · 사장님 승인을 기다려 주세요' : '교대 요청을 보냈어요 · 사장님 승인을 기다려 주세요');
     }).catch(function (err) {
       showReqError('요청을 보내지 못했어요 · ' + errorHint(err));
     }).then(function () {
@@ -2255,13 +2350,15 @@
     if (delBtn) delBtn.hidden = !sh || !!readonly;
     var reqBtn = $('shiftReqBtn');
     if (reqBtn) reqBtn.hidden = !(sh && readonly);
+    var leaveReqBtn = $('shiftLeaveBtn');
+    if (leaveReqBtn) leaveReqBtn.hidden = !(sh && readonly);
     var reqNote = $('shiftReqStatus');
     if (reqNote) {
       var mineReq = sh ? latestShiftRequest(sh.id, isOwner() ? '' : myStaffId()) : null;
       if (mineReq) {
         reqNote.hidden = false;
-        reqNote.textContent = '🙋 변경 요청 · ' + (mineReq.status === 'pending' ? '사장님 승인 대기 중'
-          : mineReq.status === 'approved' ? '승인됨 (근무가 바뀌었어요)' : '거절됨')
+        reqNote.textContent = reqKindWord(mineReq) + ' 요청 · ' + (mineReq.status === 'pending' ? '사장님 승인 대기 중'
+          : mineReq.status === 'approved' ? (mineReq.kind === 'leave' ? '승인됨 (휴무 처리됐어요)' : '승인됨 (근무가 바뀌었어요)') : '거절됨')
           + (mineReq.reqStart || mineReq.reqEnd ? ' · 희망 ' + (mineReq.reqStart || '?') + '~' + (mineReq.reqEnd || '?') : '')
           + (mineReq.wantStaffName ? ' · 대타 ' + mineReq.wantStaffName : '')
           + (mineReq.reason ? ' · ' + mineReq.reason : '');
@@ -2828,6 +2925,63 @@
   }
 
   /* ---------------- 급여명세서 ---------------- */
+  /* 주휴수당 계산표 — 급여명세서에 그대로 보여 줄 주차별 내역입니다.
+     · 주 단위는 월~일. 그 주에 인정되는 근무(예정·완료) 시간을 모두 더합니다.
+     · 주 15시간(설정값) 이상이면 주휴시간 = min(8, 주간근무시간 / 40 × 8)시간, 그 주 시급을 곱합니다.
+     · 15시간 미만인 주는 0원.
+     · 달 경계에서 두 달에 겹치지 않도록, 그 주 월요일이 속한 달의 명세서에만 넣습니다. */
+  function weeklyWeeksFor(staffId, y, m) {
+    var key = monthKey(y, m);
+    var staff = staffById(staffId);
+    var baseRate = staff && staff.hourly ? Number(staff.hourly) || 0 : 0;
+    var minWeekHours = Number(S.settings.weeklyHours) || 15;
+    var seen = {};
+    var keys = [];
+    S.shifts.forEach(function (sh) {
+      if (!sh || sh.staffId !== staffId || !sh.date || !countsForPay(sh)) return;
+      if (sh.date.slice(0, 7) !== key) return;
+      var wk = weekKey(sh.date);
+      var mon = parseISO(wk);
+      if (mon.getFullYear() !== y || mon.getMonth() !== m) return;
+      if (seen[wk]) return;
+      seen[wk] = 1;
+      keys.push(wk);
+    });
+    keys.sort();
+    return keys.map(function (wk) {
+      var mon = parseISO(wk);
+      var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+      var endISO = isoOfDate(sun);
+      var min = 0;
+      var pay = 0;
+      S.shifts.forEach(function (sh) {
+        if (!sh || sh.staffId !== staffId || !sh.date || !countsForPay(sh)) return;
+        if (sh.date < wk || sh.date > endISO) return;
+        min += shiftMinutes(sh);
+        pay += shiftPay(sh);
+      });
+      var hours = min / 60;
+      var rate = min ? Math.round(pay / hours) : baseRate;
+      var counts = hours >= minWeekHours;
+      var paidHours = counts ? Math.min(8, hours / 40 * 8) : 0;
+      return {
+        start: wk,
+        end: endISO,
+        minutes: min,
+        hours: hours,
+        rate: rate,
+        counts: counts,
+        paidHours: paidHours,
+        amount: counts ? Math.round(paidHours * rate) : 0
+      };
+    });
+  }
+
+  function mdText(dateISO) {
+    var d = parseISO(dateISO);
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
   function computePayroll(staffId, y, m) {
     var key = monthKey(y, m);
     var list = S.shifts.filter(function (s) {
@@ -2841,24 +2995,9 @@
     var avgWage = minutes ? Math.round(base / (minutes / 60)) : 0;
     var staff = staffById(staffId);
 
+    var weeks = weeklyOn() ? weeklyWeeksFor(staffId, y, m) : [];
     var weekly = 0;
-    if (S.payWeekly && minutes) {
-      var groups = {};
-      paid.forEach(function (s) {
-        var k = weekKey(s.date);
-        groups[k] = groups[k] || { min: 0, pay: 0 };
-        groups[k].min += shiftMinutes(s);
-        groups[k].pay += shiftPay(s);
-      });
-      Object.keys(groups).forEach(function (k) {
-        var g = groups[k];
-        if (!g.min) return;
-        var h = g.min / 60;
-        if (h < (S.settings.weeklyHours || 15)) return;
-        var avg = g.pay / h;
-        weekly += Math.round(Math.min(h, 40) / 40 * 8 * avg);
-      });
-    }
+    weeks.forEach(function (w) { weekly += w.amount; });
     var extra = Math.max(0, Math.round(Number(S.payExtra) || 0));
     var gross = base + weekly + extra;
     var taxRate = S.settings.taxMode === 'none' ? 0 : (S.settings.taxMode === '3.3' ? 3.3 : (Number(S.settings.taxRate) || 0));
@@ -2875,6 +3014,8 @@
       minutes: minutes,
       base: base,
       avgWage: avgWage,
+      weeks: weeks,
+      weeklyOn: weeklyOn(),
       weekly: weekly,
       extra: extra,
       gross: gross,
@@ -2894,16 +3035,37 @@
     return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + day + '일';
   }
 
+  /* 이번 달 급여 요약 — 총 급여 / 기본급 / 주휴수당 / 실지급 합계 */
+  function renderPaySummary(targets) {
+    var wrap = $('paySummary');
+    if (!wrap) return;
+    var paid = (targets || []).map(function (m) { return computePayroll(m.id, S.payY, S.payM); })
+      .filter(function (c) { return c.minutes; });
+    if (!paid.length) { wrap.innerHTML = ''; wrap.hidden = true; return; }
+    var base = 0, weekly = 0, gross = 0, net = 0, extra = 0;
+    paid.forEach(function (c) { base += c.base; weekly += c.weekly; extra += c.extra; gross += c.gross; net += c.net; });
+    wrap.hidden = false;
+    wrap.innerHTML =
+      '<div class="pay-sum__head"><span>' + (isOwner() ? '이번 달 인건비' : '이번 달 내 급여') + '</span>'
+      + '<b>' + money(net) + '</b></div>'
+      + '<div class="pay-sum__row"><span>기본급</span><b>' + money(base) + '</b></div>'
+      + '<div class="pay-sum__row"><span>주휴수당</span><b>' + money(weekly) + '</b>'
+      + (weeklyOn() ? '' : ' <em>미포함</em>') + '</div>'
+      + (extra ? '<div class="pay-sum__row"><span>기타 수당</span><b>' + money(extra) + '</b></div>' : '')
+      + '<div class="pay-sum__row"><span>총 급여</span><b>' + money(gross) + '</b></div>';
+  }
+
   function renderPayroll() {
     var list = $('payList');
     var label = $('payrollMonth');
     if (!list) return;
     if (label) label.textContent = S.payY + '년 ' + (S.payM + 1) + '월';
     var ml = $('payrollMonthLabel');
-    if (ml) ml.textContent = '알바생별 월 급여';
+    if (ml) ml.textContent = isOwner() ? '알바생별 월 급여 · 주휴수당 포함' : '내 월 급여 · 주휴수당 포함';
 
     list.innerHTML = '';
     var targets = isOwner() ? S.staff : S.staff.filter(function (m) { return m.id === myStaffId(); });
+    renderPaySummary(targets);
     if (!targets.length) {
       list.innerHTML = isOwner()
         ? '<li class="empty">아직 등록된 알바생이 없어요.<br>초대 링크로 들어온 알바생을 <b>승인</b>하면 여기에 나와요.</li>'
@@ -2928,10 +3090,21 @@
       meta.className = 'pay-row__meta';
       meta.textContent = calc.days + '일 · ' + hoursText(calc.minutes);
       body.appendChild(meta);
+      if (calc.minutes) {
+        /* 기본급 / 주휴수당 / 총 급여를 한 줄로 나눠 보여 줍니다. */
+        var split = document.createElement('div');
+        split.className = 'pay-row__split';
+        split.innerHTML = '<span>기본급 <b>' + money(calc.base) + '</b></span>'
+          + '<span>주휴수당 <b>' + money(calc.weekly) + '</b></span>'
+          + '<span>총 급여 <b>' + money(calc.gross) + '</b></span>';
+        body.appendChild(split);
+      }
       li.appendChild(body);
       var amt = document.createElement('span');
       amt.className = 'pay-row__amt';
-      amt.textContent = calc.minutes ? money(calc.net) : '-';
+      amt.innerHTML = calc.minutes
+        ? money(calc.net) + (calc.tax ? '<small>공제 ' + money(calc.tax) + '</small>' : '')
+        : '-';
       li.appendChild(amt);
       var btn = document.createElement('button');
       btn.type = 'button';
@@ -2947,18 +3120,35 @@
     if (!isOwner() && staffId !== myStaffId()) return;
     S.payStaffId = staffId;
     S.payExtra = 0;
-    S.payWeekly = !!S.settings.weeklyAllowance;
+    S.payWeekly = weeklyOn();
     renderPayrollModal();
+    /* 설정 허브 안에서 열면 허브 시트가 명세서 위로 올라와 가려지므로, 허브를 잠시 닫아 둡니다. */
+    var hub = $('storeHubModal');
+    S.payHubPaused = !!(hub && !hub.hidden);
+    if (S.payHubPaused) hub.hidden = true;
     var m = $('payrollModal');
     if (m) m.hidden = false;
   }
 
+  function closePayroll() {
+    var m = $('payrollModal');
+    if (m) m.hidden = true;
+    var hub = $('storeHubModal');
+    if (S.payHubPaused && hub) { hub.hidden = false; }
+    S.payHubPaused = false;
+  }
+
   function statementHTML(calc) {
+    var payWeeks = (calc.weeks || []).filter(function (w) { return w.counts; }).length;
+    var weeklyLabel = calc.weeklyOn
+      ? money(calc.weekly) + (payWeeks ? ' (' + payWeeks + '주)' : ' (해당 주 없음)')
+      : money(0) + ' (미포함)';
     var rows = [
       ['근무일수', calc.days + '일 (총 ' + hoursText(calc.minutes) + ')'],
       ['기본급', money(calc.base) + (calc.avgWage ? ' (평균 시급 ' + money(calc.avgWage) + ')' : '')],
-      ['주휴수당', money(calc.weekly)],
-      ['기타 수당', money(calc.extra)]
+      ['주휴수당', weeklyLabel],
+      ['기타 수당', money(calc.extra)],
+      ['총 급여', money(calc.gross)]
     ];
     var html = '<div class="pay-doc">';
     html += '<div class="pay-doc__head"><div class="pay-doc__title">급 여 명 세 서</div>';
@@ -2972,6 +3162,19 @@
     html += '<tr><th>' + (calc.taxRate ? '공제 (' + calc.taxRate + '%)' : '공제') + '</th><td>' + (calc.tax ? '-' + money(calc.tax) : money(0)) + '</td></tr>';
     html += '</tbody></table>';
     html += '<div class="pay-doc__net"><span>실지급액</span><b>' + money(calc.net) + '</b></div>';
+    if (calc.weeklyOn && calc.weeks && calc.weeks.length) {
+      html += '<div class="pay-doc__weeks"><div class="pay-doc__weeks-head">주휴수당 계산 · 주 15시간 이상만</div>';
+      calc.weeks.forEach(function (w) {
+        html += '<div class="pay-doc__week' + (w.counts ? '' : ' is-out') + '">'
+          + '<span>' + mdText(w.start) + '~' + mdText(w.end) + ' · ' + hoursText(w.minutes) + '</span>'
+          + '<b>' + (w.counts
+            ? '주휴 ' + weeklyHoursText(w.paidHours) + ' · ' + money(w.amount)
+            : '15시간 미만 · 0원') + '</b></div>';
+      });
+      html += '</div>';
+    } else if (!calc.weeklyOn) {
+      html += '<p class="pay-doc__note">주휴수당은 ⚙️ 매장·급여 설정에서 끄져 있어 계산하지 않았습니다.</p>';
+    }
     html += '<div class="pay-doc__who" style="margin-top:8px"><div>지급일</div><span>' + payDayText(calc.y, calc.m) + '</span></div>';
     if (calc.list.length) {
       html += '<ul class="pay-doc__list">';
@@ -3004,16 +3207,13 @@
       tools.innerHTML =
         '<label class="pay-tools__row"><span>기타 수당(원)</span>' +
         '<input type="number" id="payrollExtra" min="0" step="1000" inputmode="numeric" value="' + calc.extra + '" /></label>' +
-        '<label class="settings-check"><input type="checkbox" id="payrollWeekly"' + (S.payWeekly ? ' checked' : '') + ' /> 주휴수당 자동 계산 포함</label>';
+        '<p class="pay-tools__note">' + (weeklyOn()
+          ? '💡 주휴수당 포함 계산 중 · 주 15시간 이상 주만 넣어요'
+          : '💡 주휴수당 미포함 · ⚙️ 매장·급여 설정에서 켤 수 있어요') + '</p>';
       body.appendChild(tools);
       var extraInput = tools.querySelector('#payrollExtra');
       if (extraInput) extraInput.addEventListener('change', function () {
         S.payExtra = Math.max(0, Math.round(Number(extraInput.value) || 0));
-        renderPayrollModal();
-      });
-      var weeklyInput = tools.querySelector('#payrollWeekly');
-      if (weeklyInput) weeklyInput.addEventListener('change', function () {
-        S.payWeekly = weeklyInput.checked;
         renderPayrollModal();
       });
     }
@@ -3031,8 +3231,17 @@
     if (calc.staffTel) lines.push('- 연락처: ' + calc.staffTel);
     lines.push('- 근무일수: ' + calc.days + '일 (총 ' + hoursText(calc.minutes) + ')');
     lines.push('- 기본급: ' + money(calc.base) + (calc.avgWage ? ' (평균 시급 ' + money(calc.avgWage) + ')' : ''));
-    lines.push('- 주휴수당: ' + money(calc.weekly));
+    var payWeeks = (calc.weeks || []).filter(function (w) { return w.counts; });
+    lines.push('- 주휴수당: ' + money(calc.weekly)
+      + (calc.weeklyOn ? (payWeeks.length ? ' (주 15시간 이상 ' + payWeeks.length + '주)' : ' (해당 주 없음)') : ' (미포함)'));
+    if (calc.weeklyOn) {
+      (calc.weeks || []).forEach(function (w) {
+        lines.push('  · ' + mdText(w.start) + '~' + mdText(w.end) + ' ' + hoursText(w.minutes)
+          + (w.counts ? ' → 주휴 ' + weeklyHoursText(w.paidHours) + ' ' + money(w.amount) : ' → 15시간 미만 0원'));
+      });
+    }
     lines.push('- 기타 수당: ' + money(calc.extra));
+    lines.push('- 총 급여: ' + money(calc.gross));
     lines.push('- 공제' + (calc.taxRate ? '(' + calc.taxRate + '%)' : '') + ': ' + (calc.tax ? '-' + money(calc.tax) : money(0)));
     lines.push('- 실지급액: ' + money(calc.net));
     lines.push('- 지급일: ' + payDayText(calc.y, calc.m));
@@ -3689,10 +3898,14 @@
     var d = parseISO(r.date);
     var shift = null;
     S.shifts.forEach(function (s) { if (s.id === r.shiftId) shift = s; });
+    var leave = r.kind === 'leave';
     var rows = [];
-    rows.push('<div class="req-card__top"><strong>🙋 근무 변경 · 대타 요청</strong><span class="req-status req-status--pending">대기 중</span></div>');
+    rows.push('<div class="req-card__top"><strong>' + (leave ? '🏖 휴무 요청' : '🔁 교대·대타 요청') + '</strong><span class="req-status req-status--pending">대기 중</span></div>');
     rows.push('<div class="req-card__meta">👤 ' + esc(r.staffName || '알바생') + ' · ' + (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEKDAYS[d.getDay()] + ') 근무</div>');
-    rows.push('<div class="req-card__meta">지금: ' + (shift ? esc((shift.start || '--:--') + '~' + (shift.end || '--:--')) : '근무를 찾지 못했어요') + '</div>');
+    rows.push('<div class="req-card__meta">지금: ' + (shift ? esc((shift.start || '--:--') + '~' + (shift.end || '--:--')) : '이미 지워진 근무예요') + '</div>');
+    if (leave) {
+      rows.push('<div class="req-card__meta">이날 <b>못 나온다</b>는 요청이에요. 승인하면 그 근무가 달력에서 빠지고 급여에서도 빠져요.</div>');
+    }
     if (r.reqStart || r.reqEnd) {
       rows.push('<div class="req-card__meta">희망 시간: <b>' + esc((r.reqStart || '?') + '~' + (r.reqEnd || '?')) + '</b></div>');
     }
@@ -3700,7 +3913,7 @@
       rows.push('<div class="req-card__meta">희망 대타: <b>' + esc(r.wantStaffName) + '</b></div>');
     }
     if (r.reason) rows.push('<div class="req-card__memo">' + esc(r.reason) + '</div>');
-    rows.push('<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>');
+    rows.push('<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">' + (leave ? '휴무 승인' : '승인') + '</button></div>');
     card.innerHTML = rows.join('');
     var approveBtn = card.querySelector('[data-act="approve"]');
     var rejectBtn = card.querySelector('[data-act="reject"]');
@@ -3715,6 +3928,23 @@
     S.shifts.forEach(function (s) { if (s.id === r.shiftId) shift = s; });
     if (!shift) {
       window.alert('그 근무를 찾지 못했어요. 이미 지워졌을 수 있어요.');
+      return;
+    }
+    var d0 = parseISO(r.date || shift.date);
+    var when = (d0.getMonth() + 1) + '/' + d0.getDate() + '(' + WEEKDAYS[d0.getDay()] + ') '
+      + (shift.start || '--:--') + '~' + (shift.end || '--:--');
+    if (r.kind === 'leave') {
+      if (!window.confirm(r.staffName + ' 님의 휴무 요청을 승인할까요?\n\n' + when + ' 근무가 달력에서 빠지고 급여 계산에서도 빠집니다.')) return;
+      if (btn) btn.disabled = true;
+      StoreCloud.decideShiftRequest(r, true, { ownerName: '사장님', deleteShift: true }).then(function () {
+        toast('휴무로 처리했어요 · 그 근무를 달력에서 뺐어요');
+        renderApprovalCards();
+        renderAll();
+      }).catch(function (err) {
+        window.alert('승인하지 못했어요 · ' + errorHint(err));
+      }).then(function () {
+        if (btn) btn.disabled = false;
+      });
       return;
     }
     var patch = {};
@@ -3901,7 +4131,7 @@
       rate.disabled = S.settings.taxMode !== 'custom';
     }
     var weekly = $('settingsWeekly');
-    if (weekly) weekly.checked = !!S.settings.weeklyAllowance;
+    if (weekly) weekly.checked = weeklyOn();
     var payDay = $('settingsPayDay');
     if (payDay) payDay.value = String(S.settings.payDay || 10);
     var pin1 = $('storeNewPin'), pin2 = $('storeNewPin2');
@@ -3917,8 +4147,20 @@
         ? 'PIN을 바꾼 뒤에는 새 PIN만 열려요.'
         : '아직 사장님 PIN이 없어요. 사장님 기기에서 [사장님으로 열기]를 눌러 새 PIN을 정해 주세요.';
     }
+    /* 허브 안에서 열면 허브 시트가 위로 올라오므로 허브를 잠시 닫아 둡니다. */
+    var hub = $('storeHubModal');
+    S.setHubPaused = !!(hub && !hub.hidden);
+    if (S.setHubPaused) hub.hidden = true;
     var m = $('storeSettingsModal');
     if (m) m.hidden = false;
+  }
+
+  function closeSettings() {
+    var m = $('storeSettingsModal');
+    if (m) m.hidden = true;
+    var hub = $('storeHubModal');
+    if (S.setHubPaused && hub) hub.hidden = false;
+    S.setHubPaused = false;
   }
 
   function saveStoreName() {

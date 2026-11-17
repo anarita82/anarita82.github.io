@@ -264,7 +264,8 @@
           staff: [],
           joinRequests: {},
           storePins: {},
-          payrollSettings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: false, payDay: 10, weeklyHours: 15 }
+          /* 주휴수당 자동 포함이 기본값입니다(사장님이 ⚙️ 설정에서 끄면 기본급만 계산). */
+          payrollSettings: { taxMode: 'none', taxRate: 3.3, weeklyAllowance: true, payDay: 10, weeklyHours: 15 }
         }).then(function () { return { created: true }; });
       });
     });
@@ -411,7 +412,8 @@
       var settings = {
         taxMode: (ps.taxMode === '3.3' || ps.taxMode === 'custom') ? ps.taxMode : 'none',
         taxRate: ps.taxRate === undefined || ps.taxRate === null ? 3.3 : Number(ps.taxRate) || 0,
-        weeklyAllowance: ps.weeklyAllowance === true,
+        /* 값이 없는 예전 방은 켜진 것으로 봅니다 — 기본 ON. */
+        weeklyAllowance: ps.weeklyAllowance !== false,
         payDay: Math.min(31, Math.max(1, Number(ps.payDay) || 10)),
         weeklyHours: Math.max(0, Number(ps.weeklyHours) || 15)
       };
@@ -695,6 +697,7 @@
       list.push({
         id: key,
         shiftId: String(r.shiftId || ''),
+        kind: r.kind === 'leave' ? 'leave' : 'shift',
         date: String(r.date || ''),
         staffId: String(r.staffId || ''),
         staffName: String(r.staffName || '').slice(0, 20),
@@ -720,6 +723,8 @@
     var patch = {};
     patch['shiftRequests.' + id] = {
       shiftId: String(data.shiftId || '').slice(0, 60),
+      /* leave = 휴무 요청(승인 시 근무 삭제), shift = 교대·대타 요청(승인 시 근무자·시간 변경) */
+      kind: data.kind === 'leave' ? 'leave' : 'shift',
       date: String(data.date || ''),
       staffId: String(data.staffId || '').slice(0, 40),
       staffName: String(data.staffName || '').slice(0, 20),
@@ -747,9 +752,14 @@
     batch.update(state.roomRef, patch);
     if (approve) {
       if (!req.shiftId) return Promise.reject(new Error('no-shift'));
-      var shiftPatch = (opts && opts.shiftPatch) || {};
-      shiftPatch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-      batch.set(shiftCollection().doc(req.shiftId), shiftPatch, { merge: true });
+      if (opts && opts.deleteShift) {
+        /* 휴무 요청 승인 — 그 근무를 달력에서 뺍니다(급여 계산에서도 즉시 빠짐). */
+        batch.delete(shiftCollection().doc(req.shiftId));
+      } else {
+        var shiftPatch = (opts && opts.shiftPatch) || {};
+        shiftPatch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        batch.set(shiftCollection().doc(req.shiftId), shiftPatch, { merge: true });
+      }
     }
     return batch.commit();
   }
