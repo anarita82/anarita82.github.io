@@ -1435,6 +1435,7 @@
       var row = rows[i];
       var tm = row.getElementsByClassName('day__ev-h')[0];
       if (!tm || !tm.parentNode) continue;
+      if (!row.clientWidth) continue;   /* 화면에 안 붙어 아직 폭을 못 재는 상태면 건너뜁니다 */
       if (row.scrollWidth > row.clientWidth + 1) tm.style.display = 'none';
     }
   }
