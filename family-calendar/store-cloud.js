@@ -22,6 +22,9 @@
     code: '',
     unsub: null,
     unsubRoom: null,
+    unsubJoins: null,
+    gatePoll: null,
+    joins: [],
     room: null,
     handlers: {}
   };
@@ -106,25 +109,105 @@
     return state.auth.signInAnonymously().then(function (cred) { return cred.user; });
   }
 
+  /* ---------------- 방 접근 게이트 ----------------
+     규칙이 "승인된 기기(allowedUids)"만 방을 읽게 바꿔 두었습니다.
+       1) 방 읽기 → 성공하면 구성원
+       2) 거부 → 승인 목록이 없는 이전 방이면 이 기기를 사장님 기기로 등록
+       3) 그래도 거부 → 내 입장 요청 상태(없음 / 대기 / 거절) */
+  var ROOM_SCHEMA = 7;
+  var GATE_POLL_MS = 8000;
+
+  function joinRef(uid) {
+    return state.roomRef.collection('joinRequests').doc(uid);
+  }
+
+  function probeRoom() {
+    return state.roomRef.get().then(function (snap) {
+      if (!snap.exists) return { state: 'missing' };
+      return { state: 'member', data: snap.data() || {} };
+    }, function (err) {
+      var code = (err && err.code) || '';
+      if (code !== 'permission-denied') throw err;
+      return claimFirstDevice();
+    });
+  }
+
+  function claimFirstDevice() {
+    var uid = myUid();
+    if (!uid) return Promise.resolve({ state: 'need-request' });
+    return state.roomRef.update({
+      allowedUids: [uid],
+      adminUids: [uid],
+      schema: ROOM_SCHEMA
+    }).then(function () {
+      return state.roomRef.get().then(function (snap) {
+        return { state: 'claimed', data: snap.exists ? (snap.data() || {}) : {} };
+      }, function () { return { state: 'claimed', data: {} }; });
+    }, function () {
+      return readMyJoinRequest();
+    });
+  }
+
+  function readMyJoinRequest() {
+    var uid = myUid();
+    if (!uid) return Promise.resolve({ state: 'need-request' });
+    return joinRef(uid).get().then(function (snap) {
+      if (!snap.exists) return { state: 'need-request' };
+      var d = snap.data() || {};
+      if (d.status === 'approved') return { state: 'approved', data: d };
+      if (d.status === 'rejected') return { state: 'rejected', data: d };
+      return { state: 'pending', data: d };
+    }, function () { return { state: 'need-request' }; });
+  }
+
+  function watchGate() {
+    if (state.gatePoll) return;
+    state.gatePoll = setInterval(function () {
+      if (!state.roomRef) { clearInterval(state.gatePoll); state.gatePoll = null; return; }
+      probeRoom().then(function (res) {
+        if (!state.roomRef) return;
+        if (res.state === 'member' || res.state === 'claimed') {
+          clearInterval(state.gatePoll);
+          state.gatePoll = null;
+          begin();
+          emit('onGate', { state: 'member', data: res.data || {} });
+          return;
+        }
+        if (res.state === 'rejected') emit('onGate', res);
+      }, function () { /* 다음 차례에 다시 */ });
+    }, GATE_POLL_MS);
+  }
+
+  function begin() {
+    listenShifts();
+    listenRoom();
+    listenJoins();
+  }
+
   /* ---------------- 연결 ---------------- */
   function start(code, handlers) {
     var clean = normalizeCode(code);
     if (!clean) return Promise.reject(new Error('empty-code'));
     state.handlers = handlers || {};
     state.code = clean;
+    state.roomId = roomIdForCode(clean);
     emit('onStatus', { kind: 'pending', text: '매장 방에 연결하는 중…' });
 
     try { ensureApp(); } catch (err) { return Promise.reject(err); }
 
     return signIn().then(function () {
-      state.roomId = roomIdForCode(clean);
       state.roomRef = state.db.collection('rooms').doc(state.roomId);
-      listenShifts();
-      listenRoom();
-      return roomLookup();
-    }).then(function (exists) {
+      return probeRoom();
+    }).then(function (res) {
       rememberCode(clean);
-      return { exists: exists };
+      if (res.state === 'missing') return { exists: false, gate: 'missing' };
+      if (res.state === 'member' || res.state === 'claimed' || res.state === 'approved') {
+        begin();
+        return { exists: true, claimed: res.state === 'claimed' };
+      }
+      watchGate();
+      emit('onGate', res);
+      return { exists: true, gate: res.state };
     });
   }
 
@@ -159,12 +242,15 @@
       var ref = state.db.collection('rooms').doc(roomIdForCode(clean));
       return ref.get().then(function (snap) {
         if (snap.exists) return { created: false };
+        var uid = myUid();
         return ref.set({
-          schema: 3,
+          schema: ROOM_SCHEMA,
           kind: 'store',
           name: '우리 매장',
           storeName: '',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          allowedUids: uid ? [uid] : [],
+          adminUids: uid ? [uid] : [],
           staff: [],
           joinRequests: {},
           storePins: {},
@@ -322,6 +408,7 @@
 
       emit('onRoom', {
         exists: snap.exists,
+        moved: d.moved === true,
         staff: staff,
         joinRequests: joins,
         profileRequests: parseProfileRequests(d.profileRequests),
@@ -375,39 +462,74 @@
     return state.roomRef.update(fields || {});
   }
 
-  /* 입장 요청 한 건 추가 — joinRequests 맵 전체를 덮어쓰지 않습니다. */
+  /* 입장 요청 한 건 — 아직 구성원이 아닌 기기는 자기 요청만 만들고 볼 수 있습니다.
+     (방 문서 자체는 승인된 기기만 읽을 수 있어 joinRequests 맵이 아니라 하위 컬렉션을 씁니다) */
   function submitJoinRequest(data) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     var uid = myUid();
-    var dev = String((data && data.deviceId) || '');
-    var room = state.room || {};
-    var revokedUids = Array.isArray(room.revokedUids) ? room.revokedUids : [];
-    var revokedDevices = Array.isArray(room.revokedDevices) ? room.revokedDevices : [];
-    if ((uid && revokedUids.indexOf(uid) >= 0) || (dev && revokedDevices.indexOf(dev) >= 0)) {
-      return Promise.reject(new Error('revoked'));
-    }
-    var id = 'jq' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    var patch = {};
-    patch['joinRequests.' + id] = {
-      name: String((data && data.name) || '').slice(0, 20),
-      tel: normTel(data && data.tel),
-      deviceId: dev,
+    if (!uid) return Promise.reject(new Error('not-signed-in'));
+    var rec = {
       uid: uid,
+      name: String((data && data.name) || '').trim().slice(0, 20),
+      tel: normTel(data && data.tel),
+      device: String((data && data.deviceId) || '').slice(0, 60),
       status: 'pending',
       requestedAt: new Date()
     };
-    return updateRoom(patch).then(function () { return id; });
+    if (!rec.name) return Promise.reject(new Error('empty-name'));
+    return joinRef(uid).set(rec).then(function () {
+      watchGate();
+      return uid;
+    });
   }
 
-  /* 입장 요청 승인·거절 — 상태 필드만 점 경로로 고쳐 다른 요청 기록을 보존합니다. */
-  function decideJoinRequest(id, fields) {
+  /* 입장 요청 목록 — 사장님(구성원)만 볼 수 있습니다. */
+  function listenJoins() {
+    if (state.unsubJoins) { state.unsubJoins(); state.unsubJoins = null; }
+    state.unsubJoins = state.roomRef.collection('joinRequests').onSnapshot(function (snap) {
+      var list = [];
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        if (typeof d.name !== 'string') return;
+        list.push({
+          id: doc.id,
+          uid: String(d.uid || doc.id),
+          name: String(d.name).slice(0, 20),
+          tel: normTel(d.tel),
+          deviceId: String(d.device || ''),
+          status: d.status === 'approved' || d.status === 'rejected' ? d.status : 'pending',
+          staffId: String(d.staffId || ''),
+          requestedAt: d.requestedAt && d.requestedAt.toMillis ? d.requestedAt.toMillis() : 0,
+          decidedAt: d.decidedAt && d.decidedAt.toMillis ? d.decidedAt.toMillis() : 0
+        });
+      });
+      list.sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); });
+      state.joins = list;
+      emit('onJoins', list);
+    }, function () { /* 구성원이 아니면 목록을 볼 수 없습니다 */ });
+  }
+
+  /* 입장 요청 승인·보류 — 상태를 바꾸고, 승인이면 그 기기를 허용 목록에 넣습니다. */
+  function decideJoinRequest(uid, fields) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(uid || '');
     if (!id) return Promise.reject(new Error('no-request'));
-    var patch = {};
-    Object.keys(fields || {}).forEach(function (key) {
-      patch['joinRequests.' + id + '.' + key] = fields[key];
+    var payload = {};
+    Object.keys(fields || {}).forEach(function (key) { payload[key] = fields[key]; });
+    if (!payload.status) payload.status = 'approved';
+    payload.decidedBy = myUid();
+    return joinRef(id).set(payload, { merge: true }).then(function () {
+      if (payload.status !== 'approved') return true;
+      return state.db.runTransaction(function (tx) {
+        return tx.get(state.roomRef).then(function (snap) {
+          if (!snap.exists) throw new Error('room-missing');
+          tx.update(state.roomRef, {
+            allowedUids: firebase.firestore.FieldValue.arrayUnion(id),
+            revokedUids: firebase.firestore.FieldValue.arrayRemove(id)
+          });
+        });
+      });
     });
-    return updateRoom(patch);
   }
 
   /* ---------------- 신상정보(이름·휴대폰 번호) 변경 요청 ----------------
@@ -667,6 +789,8 @@
         var dev = String(cur.deviceId || (opts && opts.deviceId) || '');
         var patch = { staff: list };
         if (uid) patch.revokedUids = firebase.firestore.FieldValue.arrayUnion(uid);
+        if (uid) patch.allowedUids = firebase.firestore.FieldValue.arrayRemove(uid);
+        if (uid) patch.adminUids = firebase.firestore.FieldValue.arrayRemove(uid);
         if (dev) patch.revokedDevices = firebase.firestore.FieldValue.arrayUnion(dev);
         tx.update(state.roomRef, patch);
         return { uid: uid, deviceId: dev };
@@ -699,6 +823,7 @@
         var dev = String(cur.deviceId || '');
         var patch = { staff: list };
         if (uid) patch.revokedUids = firebase.firestore.FieldValue.arrayRemove(uid);
+        if (uid) patch.allowedUids = firebase.firestore.FieldValue.arrayUnion(uid);
         if (dev) patch.revokedDevices = firebase.firestore.FieldValue.arrayRemove(dev);
         tx.update(state.roomRef, patch);
         return true;
@@ -726,6 +851,10 @@
   }
 
   function stop() {
+    if (state.unsubJoins) { try { state.unsubJoins(); } catch (e) { /* 무시 */ } }
+    if (state.gatePoll) { clearInterval(state.gatePoll); state.gatePoll = null; }
+    state.unsubJoins = null;
+    state.joins = [];
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
     state.roomRef = null;
@@ -753,6 +882,7 @@
     updateRoom: updateRoom,
     submitJoinRequest: submitJoinRequest,
     decideJoinRequest: decideJoinRequest,
+    myJoinRequest: readMyJoinRequest,
     submitShiftRequest: submitShiftRequest,
     decideShiftRequest: decideShiftRequest,
     parseShiftRequests: parseShiftRequests,
@@ -769,6 +899,11 @@
     purgeStaff: purgeStaff,
     currentUid: myUid,
     pinHash: pinHash,
+    isAdmin: function () {
+      var uid = myUid();
+      var list = state.room && Array.isArray(state.room.adminUids) ? state.room.adminUids : [];
+      return !!uid && list.indexOf(uid) >= 0;
+    },
     currentRoomId: function () { return state.roomId; },
     currentCode: function () { return state.code; }
   };

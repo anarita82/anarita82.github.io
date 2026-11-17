@@ -1,6 +1,6 @@
 /* 💰 금전출납부 — 사장님(본인)만 보는 비공개 장부
-   - 가족 달력(우리집2026)·매장 달력(store-dfxh2)과 다른 비공개 방을 씁니다.
-   - 이 기기에서 '사장님 모드'를 켠 뒤 PIN(처음 2026)을 넣어야 열립니다.
+   - 가족·매장 달력과 다른 비공개 방을 씁니다(방 코드는 이 기기에서 만들어 기기에만 저장).
+   - 이 기기에서 '사장님 모드'를 켠 뒤 내가 정한 PIN을 넣어야 열립니다.
    - 문자·카톡 붙여넣기 자동입력과, APK v1.5의 알림 자동 수집을 함께 지원합니다.
 */
 (function () {
@@ -8,9 +8,29 @@
 
   var LS_OWNER = 'family-calendar.ledger.owner.v1';
   var LS_AUTO = 'family-calendar.ledger.auto.v1';
-  var DEFAULT_PIN = '2026';
   var PIN_MAX_TRY = 5;
   var PIN_WAIT_MS = 60000;
+  var PIN_GUARD_KEY = 'family-calendar.ledger.pin.guard.v1';
+
+  function pinGuard() {
+    try { return JSON.parse(localStorage.getItem(PIN_GUARD_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function pinGuardSave(g) {
+    try { localStorage.setItem(PIN_GUARD_KEY, JSON.stringify(g || {})); } catch (e) { /* 무시 */ }
+  }
+  function pinWaitUntil() {
+    return Number(pinGuard().until) || 0;
+  }
+  function pinMissOnce() {
+    var g = pinGuard();
+    var tries = (Number(g.tries) || 0) + 1;
+    var blocked = false;
+    if (tries >= PIN_MAX_TRY) { tries = 0; g.until = Date.now() + PIN_WAIT_MS; blocked = true; }
+    g.tries = tries;
+    pinGuardSave(g);
+    return { tries: tries, blocked: blocked };
+  }
+  function pinClearTries() { pinGuardSave({}); }
 
   var CATS = [
     { id: 'sales', label: '매장매출', emoji: '🏪' },
@@ -272,8 +292,12 @@
     if (el.lockHint) {
       el.lockHint.innerHTML = notOwner
         ? '아직 <b>사장님 모드</b>가 꺼진 기기예요.<br>가족·매장 설정의 <b>💰 금전출납부</b>에서 PIN을 넣어 켜 주세요.'
-        : '처음 PIN은 <b>2026</b>이에요. 들어간 뒤 <b>⚙️ 설정</b>에서 바꿔 주세요.';
+        : (hasPin() ? '내가 정한 4자리 PIN을 넣어 주세요.' : '이 기기에서 처음 여는 출납부예요. <b>새 PIN(4자리)</b>을 넣으면 그 PIN으로 잠깁니다.');
     }
+  }
+
+  function hasPin() {
+    return !!(window.LedgerCloud && window.LedgerCloud.hasPin && window.LedgerCloud.hasPin());
   }
 
   function showMain() {
@@ -303,9 +327,14 @@
     return ensureCloud().then(function () {
       return window.LedgerCloud.fetchPinHash();
     }).then(function (hash) {
-      if (!hash) return String(pin) === DEFAULT_PIN;
-      return window.LedgerCloud.verifyPin(pin);
+      if (!hash) return { ok: true, noPin: true };
+      return { ok: window.LedgerCloud.verifyPin(pin), noPin: false };
     });
+  }
+
+  /* 처음 쓰는 기기는 기본 PIN 없이 사용자가 정한 PIN을 바로 저장합니다. */
+  function setFirstPin(pin) {
+    return window.LedgerCloud.savePin(pin).then(function () { return true; });
   }
 
   /* ---------------- 요약 · 달력 ---------------- */
@@ -979,25 +1008,34 @@
 
   /* ---------------- PIN ---------------- */
   function unlockWithPin(pin) {
-    if (Date.now() < S.pinBlockedUntil) {
+    if (Date.now() < pinWaitUntil()) {
       showLockError('너무 여러 번 틀렸어요. 잠시 뒤에 다시 넣어 주세요.');
       return;
     }
     if (!/^\d{4}$/.test(pin)) { showLockError('4자리 숫자를 넣어 주세요.'); return; }
-    checkPin(pin).then(function (ok) {
-      if (!ok) {
-        S.pinTries++;
-        if (S.pinTries >= PIN_MAX_TRY) {
-          S.pinTries = 0;
-          S.pinBlockedUntil = Date.now() + PIN_WAIT_MS;
+    checkPin(pin).then(function (res) {
+      if (res.noPin) {
+        return setFirstPin(pin).then(function () {
+          pinClearTries();
+          S.unlocked = true;
+          if (el.lockPin) el.lockPin.value = '';
+          if (el.lockError) el.lockError.hidden = true;
+          showMain();
+          collectPending();
+          toast('출납부 PIN을 새로 정했어요 · 다음부터 이 PIN으로 열립니다');
+        });
+      }
+      if (!res.ok) {
+        var rec = pinMissOnce();
+        if (rec.blocked) {
           showLockError('5번 틀렸어요. 1분 뒤에 다시 넣어 주세요.');
         } else {
-          showLockError('PIN이 맞지 않아요. (' + S.pinTries + '/' + PIN_MAX_TRY + ')');
+          showLockError('PIN이 맞지 않아요. (' + rec.tries + '/' + PIN_MAX_TRY + ')');
         }
         if (el.lockPin) el.lockPin.value = '';
         return;
       }
-      S.pinTries = 0;
+      pinClearTries();
       S.unlocked = true;
       if (el.lockPin) el.lockPin.value = '';
       if (el.lockError) el.lockError.hidden = true;
@@ -1014,18 +1052,27 @@
 
   function grantDevice(pin) {
     if (!/^\d{4}$/.test(pin)) { showGrantError('4자리 숫자를 넣어 주세요.'); return; }
-    checkPin(pin).then(function (ok) {
-      if (!ok) { showGrantError('PIN이 맞지 않아요.'); return; }
-      S.owner = true;
-      S.unlocked = true;
-      lsSet(LS_OWNER, '1');
-      if (el.grantModal) el.grantModal.hidden = true;
-      if (el.grantPin) el.grantPin.value = '';
-      renderTab();
-      if (!S.active) enterLedger(); else showMain();
-      ensureCloud().then(function () { collectPending(); });
-      toast('이 기기에서 출납부를 켰어요 · PIN으로 잠겨 있어요');
-    });
+    checkPin(pin).then(function (res) {
+      if (res.noPin) {
+        return setFirstPin(pin).then(function () { finishGrant(true); });
+      }
+      if (!res.ok) { showGrantError('PIN이 맞지 않아요.'); return; }
+      finishGrant(false);
+    }).catch(function () { showGrantError('인터넷 연결을 확인해 주세요.'); });
+  }
+
+  function finishGrant(first) {
+    S.owner = true;
+    S.unlocked = true;
+    lsSet(LS_OWNER, '1');
+    if (el.grantModal) el.grantModal.hidden = true;
+    if (el.grantPin) el.grantPin.value = '';
+    renderTab();
+    if (!S.active) enterLedger(); else showMain();
+    ensureCloud().then(function () { collectPending(); });
+    toast(first
+      ? '이 기기에서 출납부를 켰어요 · 새 PIN으로 잠겨 있어요'
+      : '이 기기에서 출납부를 켰어요 · PIN으로 잠겨 있어요');
   }
 
   function showGrantError(msg) {
@@ -1040,8 +1087,8 @@
     var n2 = el.pinNew2 ? digits(el.pinNew2.value) : '';
     if (!/^\d{4}$/.test(n1)) { showPinError('새 PIN은 4자리 숫자로 넣어 주세요.'); return; }
     if (n1 !== n2) { showPinError('새 PIN을 두 번 똑같이 넣어 주세요.'); return; }
-    checkPin(cur).then(function (ok) {
-      if (!ok) { showPinError('지금 PIN이 맞지 않아요.'); return; }
+    checkPin(cur).then(function (res) {
+      if (!res.noPin && !res.ok) { showPinError('지금 PIN이 맞지 않아요.'); return; }
       return window.LedgerCloud.savePin(n1).then(function () {
         if (el.pinCur) el.pinCur.value = '';
         if (el.pinNew) el.pinNew.value = '';
@@ -1072,6 +1119,9 @@
     }
     if (el.notifyOpen) el.notifyOpen.hidden = !hasBridge();
     if (el.setTotal) el.setTotal.textContent = '저장된 내역 ' + S.entries.length + '건 · 비공개 출납부 방(가족·매장과 분리)';
+    if (el.codeNow) el.codeNow.textContent = window.LedgerCloud && window.LedgerCloud.currentCode
+      ? '복구 코드: ' + window.LedgerCloud.currentCode()
+      : '';
   }
 
   function openSettings() {
@@ -1344,6 +1394,22 @@
     el.notifyOpen = $('lgNotifyOpen');
     if (el.notifyOpen) el.notifyOpen.addEventListener('click', openNotificationSettings);
     el.setTotal = $('lgSetTotal');
+    el.codeNow = $('lgCodeNow');
+    var codeCopy = $('lgCodeCopy');
+    if (codeCopy) codeCopy.addEventListener('click', function () {
+      var code = window.LedgerCloud && window.LedgerCloud.currentCode ? window.LedgerCloud.currentCode() : '';
+      if (code) copyText(code, '복구 코드를 복사했어요 · 다른 기기에서 붙여넣으면 같은 장부가 열립니다');
+    });
+    var codeApply = $('lgCodeApply');
+    if (codeApply) codeApply.addEventListener('click', function () {
+      var input = $('lgCodeInput');
+      var code = String(input ? input.value : '').trim().toLowerCase();
+      if (!/^[a-z0-9-]{10,40}$/.test(code)) { showPinError('복구 코드를 다시 확인해 주세요.'); return; }
+      if (!window.confirm('이 기기를 그 복구 코드의 장부로 연결할까요?\n\n지금 이 기기에 있던 장부와는 다른 장부가 열립니다.')) return;
+      window.LedgerCloud.rememberCode(code);
+      window.LedgerCloud.stop();
+      location.reload();
+    });
     el.pinCur = $('lgPinCur');
     el.pinNew = $('lgPinNew');
     el.pinNew2 = $('lgPinNew2');

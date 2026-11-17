@@ -44,8 +44,17 @@
 
   function generateCode() {
     var out = '';
-    for (var i = 0; i < 5; i++) {
-      out += CODE_ALPHABET.charAt(Math.floor(Math.random() * CODE_ALPHABET.length));
+    var buf = null;
+    var idx = 0;
+    if (window.crypto && window.crypto.getRandomValues) {
+      buf = new Uint8Array(32);
+      window.crypto.getRandomValues(buf);
+    }
+    while (out.length < 12) {
+      if (buf && idx >= buf.length) { window.crypto.getRandomValues(buf); idx = 0; }
+      var n = buf ? buf[idx++] : Math.floor(Math.random() * 31);
+      if (buf && n >= 248) continue;
+      out += CODE_ALPHABET.charAt(n % 31);
     }
     return CODE_PREFIX + out;
   }
@@ -121,6 +130,10 @@
       var info = parseRoom(snap.data() || {});
       info.code = clean;
       return info;
+    }, function (err) {
+      /* 아직 구성원이 아닌 기기 — 코드는 맞지만 방 문서는 읽을 수 없습니다. */
+      if (((err && err.code) || '') === 'permission-denied') return { exists: true, joined: false, code: clean };
+      throw err;
     });
   }
 
@@ -139,13 +152,17 @@
       return db().collection('rooms').doc(roomId).get();
     }).then(function (snap) {
       if (snap && snap.exists) return Promise.reject(new Error('code-taken'));
+      var uid = myUid();
       var rec = {
-        schema: 5,
+        schema: 9,
         kind: 'custom',
         calType: (data && data.type === 'store') ? 'store' : 'general',
         name: name,
         icon: String((data && data.icon) || '📅').slice(0, 8),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        allowedUids: uid ? [uid] : [],
+        adminUids: uid ? [uid] : [],
+        autoJoin: true,
         staff: []
       };
       if (data && data.pin) rec.pinHash = pinHashFor(roomId, data.pin);
@@ -158,6 +175,37 @@
       if (!info.exists) return false;
       if (!info.pinHash) return true;      // PIN을 정하지 않은 캘린더
       return PIN_SALT && pinHashFor(roomIdForCode(code), pin) === info.pinHash;
+    });
+  }
+
+  function myUid() {
+    if (window.FamilyCloud && typeof window.FamilyCloud.currentUid === 'function') return window.FamilyCloud.currentUid();
+    try { return (firebase.auth().currentUser && firebase.auth().currentUser.uid) || ''; } catch (e) { return ''; }
+  }
+
+  /* 방 열기 — 코드를 가진 기기는 스스로 허용 목록에 들어갑니다(autoJoin),
+     이전 버전 방(승인 목록 없음)은 이 기기를 방장으로 올립니다. */
+  function openRoom() {
+    return state.roomRef.get().then(function (snap) {
+      return { exists: !!snap.exists };
+    }, function (err) {
+      var code = (err && err.code) || '';
+      if (code !== 'permission-denied') throw err;
+      var uid = myUid();
+      if (!uid) return { exists: true, denied: true };
+      return state.roomRef.update({
+        allowedUids: firebase.firestore.FieldValue.arrayUnion(uid)
+      }).then(function () {
+        return { exists: true, joined: true };
+      }, function () {
+        return state.roomRef.update({
+          allowedUids: [uid],
+          adminUids: [uid],
+          schema: 9
+        }).then(function () { return { exists: true, joined: true }; }, function () {
+          return { exists: true, denied: true };
+        });
+      });
     });
   }
 
@@ -174,11 +222,12 @@
     return signedIn().then(function () {
       state.roomId = roomIdForCode(clean);
       state.roomRef = db().collection('rooms').doc(state.roomId);
+      return openRoom();
+    }).then(function (res) {
+      if (!res.exists) return { exists: false };
       listenEvents();
       listenRoom();
-      return roomLookup();
-    }).then(function (exists) {
-      return { exists: exists };
+      return { exists: true, joined: !!res.joined, denied: !!res.denied };
     });
   }
 

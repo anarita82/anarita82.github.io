@@ -11,7 +11,36 @@
   var STAFF_KEY = 'family-calendar.store.staff.v1';
   var DEVICE_KEY = 'family-calendar.store.device.v1';
   var MODE_KEY = 'family-calendar.mode.v1';
-  var INITIAL_PIN = '2026';
+  var PIN_MAX_TRY = 5;
+  var PIN_WAIT_MS = 60000;
+  var PIN_GUARD_KEY = 'family-calendar.store.pin.guard.v1';
+
+  function pinGuard() {
+    try { return JSON.parse(ls(PIN_GUARD_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function pinGuardSave(g) {
+    try { lsSet(PIN_GUARD_KEY, JSON.stringify(g || {})); } catch (e) { /* 무시 */ }
+  }
+  function pinWaitLeft() {
+    var rec = pinGuard().owner;
+    if (!rec || !rec.until) return 0;
+    var left = rec.until - Date.now();
+    return left > 0 ? left : 0;
+  }
+  function pinMiss() {
+    var g = pinGuard();
+    var rec = g.owner || { tries: 0, until: 0 };
+    rec.tries = (Number(rec.tries) || 0) + 1;
+    if (rec.tries >= PIN_MAX_TRY) { rec.tries = 0; rec.until = Date.now() + PIN_WAIT_MS; }
+    g.owner = rec;
+    pinGuardSave(g);
+    return rec;
+  }
+  function pinClear() {
+    var g = pinGuard();
+    delete g.owner;
+    pinGuardSave(g);
+  }
   var DEFAULT_WAGE = 10000;
 
   var STAFF_COLORS = [
@@ -624,8 +653,17 @@
       onShifts: function (list) { S.shifts = list; S.connected = true; S.connecting = false; renderAll(); },
       onHandovers: function (list) { S.handovers = list || []; renderHandover(); },
       onRoom: function (info) { applyRoom(info); },
+      onJoins: function (list) { S.joins = Array.isArray(list) ? list : []; if (S.role === 'owner') renderApprovalCards(); },
+      onGate: function (res) {
+        var st = (res && res.state) || '';
+        S.connecting = false;
+        if (st === 'member') { setStoreStatus('pending', '승인되었어요 · 매장을 여는 중…'); return; }
+        if (st === 'pending') { showPending(); setStoreStatus('pending', '입장 승인을 기다리는 중이에요'); return; }
+        if (st === 'rejected') { showJoinForm('사장님이 입장을 거절했어요. 필요하면 다시 요청해 주세요.'); return; }
+        if (st === 'need-request') { showJoinForm(); setStoreStatus('pending', '입장 요청이 필요해요'); }
+      },
       onRoomError: function (err) {
-        if (err && err.code === 'permission-denied') setStoreStatus('error', '매장 방 설정을 읽을 수 없어요 (매장 코드를 확인해 주세요)');
+        if (err && err.code === 'permission-denied') setStoreStatus('error', '매장 방 설정을 읽을 수 없어요 (승인된 기기만 열 수 있어요)');
       }
     }).then(function (info) {
       if (info && info.exists === false) {
@@ -643,8 +681,16 @@
   }
 
   function applyRoom(info) {
+    if (info && info.moved) {
+      S.connected = false;
+      S.connecting = false;
+      if (StoreCloud.forgetCode) StoreCloud.forgetCode();
+      S.code = '';
+      showSetup('이 매장 주소는 더 이상 쓰지 않아요.\n사장님에게 새 매장 코드(초대 링크)를 받아 주세요.');
+      setStoreStatus('error', '이전 매장 주소는 쓰지 않아요');
+      return;
+    }
     S.staff = info.staff || [];
-    S.joins = info.joinRequests || [];
     S.profileRequests = info.profileRequests || [];
     S.shiftRequests = info.shiftRequests || [];
     S.pins = info.pins || {};
@@ -810,8 +856,9 @@
 
   /* 이 기기에서 보낸 가장 최근 입장 요청 */
   function myJoinRequest() {
-    return S.joins.filter(function (r) { return r.deviceId === deviceId(); })
-      .sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); })[0] || null;
+    var uid = (window.StoreCloud && StoreCloud.currentUid) ? StoreCloud.currentUid() : '';
+    var list = (S.joins || []).filter(function (r) { return (uid && r.uid === uid) || r.deviceId === deviceId(); });
+    return list.sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); })[0] || null;
   }
 
   function showPending() {
@@ -828,8 +875,13 @@
     var who = $('storePendingWho');
     if (who) {
       var mine = myJoinRequest();
+      var myName = ls('family-calendar.store.myname.v1');
+      var myTel = ls('family-calendar.store.mytel.v1');
       if (mine) {
         who.textContent = '🙋 ' + mine.name + (telOf(mine) ? ' · 📞 ' + telOf(mine) : ' · 연락처 미입력');
+        who.hidden = false;
+      } else if (myName) {
+        who.textContent = '🙋 ' + myName + (myTel ? ' · 📞 ' + myTel : '') + ' · 요청 보냄';
         who.hidden = false;
       } else {
         who.hidden = true;
@@ -905,7 +957,7 @@
   }
 
   function submitJoin() {
-    if (!S.code || !S.connected) { toast('매장 방에 연결하는 중이에요. 잠시 후 다시 눌러 주세요'); return; }
+    if (!S.code) { showSetup(); return; }
     var nameInput = $('storeJoinName');
     var telInput = $('storeJoinTel');
     var name = (nameInput ? nameInput.value : '').trim();
@@ -947,10 +999,13 @@
     if (input) input.value = '';
     var hint = $('storePinHint');
     var stored = S.pins && S.pins.owner;
+    var wait = pinWaitLeft();
     if (hint) {
       hint.textContent = stored
         ? '등록된 4자리 사장님 PIN을 넣어 주세요.'
-        : '처음에는 2026으로 열려요. 들어간 뒤 매장 설정에서 꼭 바꿔 주세요.';
+        : (wait
+          ? '너무 여러 번 틀렸어요. ' + Math.ceil(wait / 1000) + '초 뒤에 다시 넣어 주세요.'
+          : '아직 사장님 PIN이 없어요. 이 기기에서 새 PIN(4자리)을 정합니다. (관리자로 등록된 기기만 정할 수 있어요)');
     }
     var m = $('storePinModal');
     if (m) m.hidden = false;
@@ -963,9 +1018,42 @@
     var err = $('storePinError');
     var pin = (input ? input.value : '').replace(/\D/g, '');
     if (pin.length !== 4) { if (err) { err.textContent = '4자리 숫자를 넣어 주세요.'; err.hidden = false; } return; }
+    var wait = pinWaitLeft();
+    if (wait) { if (err) { err.textContent = '너무 여러 번 틀렸어요. ' + Math.ceil(wait / 1000) + '초 뒤에 다시 넣어 주세요.'; err.hidden = false; } return; }
     var stored = S.pins && S.pins.owner;
-    var ok = stored ? (StoreCloud.pinHash(pin) === stored) : (pin === INITIAL_PIN);
-    if (!ok) { if (err) { err.textContent = 'PIN이 맞지 않아요.'; err.hidden = false; } return; }
+    if (!stored) {
+      if (!(window.StoreCloud && StoreCloud.isAdmin && StoreCloud.isAdmin())) {
+        if (err) { err.textContent = '사장님 PIN은 관리자(사장님 기기)가 먼저 정해야 해요.'; err.hidden = false; }
+        return;
+      }
+      StoreCloud.saveRoom({ storePins: { owner: StoreCloud.pinHash(pin) } }).then(function () {
+        S.pins = S.pins || {};
+        S.pins.owner = StoreCloud.pinHash(pin);
+        pinClear();
+        enterOwnerMode();
+        toast('사장님 PIN을 새로 정했어요 · 다음부터 이 PIN으로 열립니다');
+      }).catch(function () {
+        if (err) { err.textContent = 'PIN을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.'; err.hidden = false; }
+      });
+      return;
+    }
+    var ok = StoreCloud.pinHash(pin) === stored;
+    if (!ok) {
+      var rec = pinMiss();
+      if (err) {
+        err.textContent = rec.until
+          ? '5번 틀렸어요. 1분 뒤에 다시 넣어 주세요.'
+          : 'PIN이 맞지 않아요. (' + rec.tries + '/' + PIN_MAX_TRY + ')';
+        err.hidden = false;
+      }
+      return;
+    }
+    pinClear();
+    enterOwnerMode();
+  }
+
+  function enterOwnerMode() {
+    var err = $('storePinError');
     if (err) err.hidden = true;
     $('storePinModal').hidden = true;
     S.pinAsked = false;
@@ -975,7 +1063,7 @@
     S.filter = 'all';
     renderModeChrome();
     renderAll();
-    toast(stored ? '사장님으로 열었어요' : '처음 PIN(2026)으로 열었어요 · 매장 설정에서 바꿔 주세요');
+    toast('사장님으로 열었어요');
   }
 
   /* ---------------- 렌더 ---------------- */
@@ -3123,12 +3211,10 @@
     if (req.deviceId) added.deviceId = String(req.deviceId).slice(0, 60);
     next.push(added);
     if (btn) btn.disabled = true;
-    var patch = { staff: next };
-    patch['joinRequests.' + req.id + '.status'] = 'approved';
-    patch['joinRequests.' + req.id + '.staffId'] = staffId;
-    patch['joinRequests.' + req.id + '.hourly'] = hourly;
-    patch['joinRequests.' + req.id + '.decidedAt'] = new Date();
-    StoreCloud.updateRoom(patch).then(function () {
+    /* 1) 직원 목록에 추가 2) 입장 요청을 승인으로 바꾸고 그 기기를 허용 목록에 등록 */
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      return StoreCloud.decideJoinRequest(req.uid || req.id, { status: 'approved', staffId: staffId, hourly: hourly, decidedAt: new Date() });
+    }).then(function () {
       toast(req.name + ' 님 입장을 승인했어요 · 그 폰에 매장 달력이 열려요');
       renderApprovalCards();
       renderAll();
@@ -3143,7 +3229,7 @@
     if (!isOwner()) return;
     if (!window.confirm(req.name + ' 님의 입장 요청을 거절할까요?')) return;
     if (btn) btn.disabled = true;
-    StoreCloud.decideJoinRequest(req.id, { status: 'rejected', decidedAt: new Date() }).then(function () {
+    StoreCloud.decideJoinRequest(req.uid || req.id, { status: 'rejected', decidedAt: new Date() }).then(function () {
       toast('입장 요청을 거절했어요');
       renderApprovalCards();
     }).catch(function (err) {
@@ -3200,7 +3286,7 @@
     if (note) {
       note.textContent = (S.pins && S.pins.owner)
         ? 'PIN을 바꾼 뒤에는 새 PIN만 열려요.'
-        : '아직 PIN을 바꾸지 않았어요. 처음 PIN(2026)에서 꼭 바꿔 주세요.';
+        : '아직 사장님 PIN이 없어요. 사장님 기기에서 [사장님으로 열기]를 눌러 새 PIN을 정해 주세요.';
     }
     var m = $('storeSettingsModal');
     if (m) m.hidden = false;

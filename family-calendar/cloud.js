@@ -29,6 +29,9 @@
     room: null,
     requests: [],
     profileRequests: [],
+    joins: [],
+    gatePoll: null,
+    unsubJoins: null,
     handlers: {}
   };
 
@@ -420,64 +423,233 @@
     return (err && err.message) || '알 수 없는 오류가 났어요.';
   }
 
+  var ROOM_SCHEMA = 6;
+  var GATE_POLL_MS = 8000;
+
+  /* ---------------- 방 접근 게이트 ----------------
+     보안 규칙이 "승인된 기기(allowedUids)"만 방을 읽게 바꿔 두었으므로 연결은 이 순서로 합니다.
+       1) 방 읽기 → 성공하면 구성원
+       2) 거부 → 승인 목록이 없는 이전 방이면 이 기기를 방장(관리자)으로 등록
+       3) 그래도 거부 → 내 입장 요청 상태 확인(없음 / 대기 / 거절)
+     결과: { state: 'member'|'claimed'|'missing'|'need-request'|'pending'|'rejected', data } */
+  function joinRef(uid) {
+    return state.roomRef.collection('joinRequests').doc(uid);
+  }
+
+  function probeRoom() {
+    return state.roomRef.get().then(function (snap) {
+      if (!snap.exists) return { state: 'missing' };
+      return { state: 'member', data: snap.data() || {} };
+    }, function (err) {
+      var code = (err && err.code) || '';
+      if (code !== 'permission-denied') throw err;
+      return claimFirstDevice();
+    });
+  }
+
+  /* 승인 목록이 없는 방(이전 버전에서 만든 방)이면 이 기기를 유일한 승인 기기·관리자로 올립니다.
+     이미 승인 목록이 있는 방이면 규칙이 거부하므로 아무것도 바뀌지 않습니다. */
+  function claimFirstDevice() {
+    var uid = myUid();
+    if (!uid) return Promise.resolve({ state: 'need-request' });
+    return state.roomRef.update({
+      allowedUids: [uid],
+      adminUids: [uid],
+      schema: ROOM_SCHEMA
+    }).then(function () {
+      return state.roomRef.get().then(function (snap) {
+        return { state: 'claimed', data: snap.exists ? (snap.data() || {}) : {} };
+      }, function () { return { state: 'claimed', data: {} }; });
+    }, function () {
+      return readMyJoinRequest();
+    });
+  }
+
+  function readMyJoinRequest() {
+    var uid = myUid();
+    if (!uid) return Promise.resolve({ state: 'need-request' });
+    return joinRef(uid).get().then(function (snap) {
+      if (!snap.exists) return { state: 'need-request' };
+      var d = snap.data() || {};
+      if (d.status === 'approved') return { state: 'approved', data: d };
+      if (d.status === 'rejected') return { state: 'rejected', data: d };
+      return { state: 'pending', data: d };
+    }, function () { return { state: 'need-request' }; });
+  }
+
+  /* 승인 대기 중인 기기 — 8초마다 다시 확인해, 승인되면 그때부터 구독을 시작합니다. */
+  function watchGate() {
+    if (state.gatePoll) return;
+    state.gatePoll = setInterval(function () {
+      if (!state.roomRef) { clearInterval(state.gatePoll); state.gatePoll = null; return; }
+      probeRoom().then(function (res) {
+        if (!state.roomRef) return;
+        if (res.state === 'member' || res.state === 'claimed') {
+          clearInterval(state.gatePoll);
+          state.gatePoll = null;
+          begin();
+          emit('onGate', { state: 'member', data: res.data || {} });
+          return;
+        }
+        if (res.state === 'rejected') emit('onGate', res);
+      }, function () { /* 다음 차례에 다시 확인 */ });
+    }, GATE_POLL_MS);
+  }
+
+  function begin() {
+    listen();
+    listenRoom();
+    listenJoins();
+  }
+
   function start(code, handlers) {
     var clean = normalizeCode(code);
     if (!clean) return Promise.reject(new Error('empty-code'));
     state.handlers = handlers || {};
     state.code = clean;
+    state.roomId = roomIdForCode(clean);
     emit('onStatus', { kind: 'pending', text: '가족 방에 연결하는 중…' });
 
     try { ensureApp(); } catch (err) { return Promise.reject(err); }
 
     return signIn().then(function () {
-      state.roomId = roomIdForCode(clean);
       state.roomRef = state.db.collection('rooms').doc(state.roomId);
-      // 먼저 구독을 걸어 두면 캐시에 있던 일정이 곧바로 보입니다.
-      listen();
-      listenRoom();
-      return roomLookup();
-    }).then(function (exists) {
-      if (exists === false) {
+      return probeRoom();
+    }).then(function (res) {
+      if (res.state === 'missing') {
         if (typeof state.handlers.confirmCreate === 'function' && !state.handlers.confirmCreate(clean)) {
           return Promise.reject(new Error('cancelled'));
         }
-        return state.roomRef.set({
-          schema: 1,
-          name: '우리 가족',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(function () {
-          return seedRoom();
-        }).then(function () { return { created: true }; });
+        return createRoom().then(function () {
+          rememberCode(clean);
+          return { created: true };
+        });
       }
-      return { created: false };
-    }).then(function (info) {
-      rememberCode(clean);
-      return info;
+      if (res.state === 'member' || res.state === 'claimed' || res.state === 'approved') {
+        var d = res.data || {};
+        /* 이전 코드로 들어온 기기 — 방이 새 코드로 옮겨졌음을 알려 줍니다. */
+        if (d.moved) {
+          forgetCode();
+          emit('onMoved', d);
+          return { moved: true };
+        }
+        begin();
+        rememberCode(clean);
+        return { created: false, claimed: res.state === 'claimed' };
+      }
+      watchGate();
+      emit('onGate', res);
+      return { joined: false, gate: res.state };
     });
   }
 
-  /* 방 문서가 있는지 확인. 네트워크가 느리거나 끊겨 있으면 null(모름)을 돌려
-     새 방을 엉겁결에 만들지 않습니다. */
-  function roomLookup() {
-    return new Promise(function (resolve) {
-      var settled = false;
-      var timer = setTimeout(function () {
-        if (settled) return;
-        settled = true;
-        resolve(null);
-      }, 7000);
-      state.roomRef.get().then(function (snap) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(!!snap.exists);
-      }).catch(function () {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(null);
-      });
+  function createRoom() {
+    var uid = myUid();
+    return state.roomRef.set({
+      schema: ROOM_SCHEMA,
+      kind: 'family',
+      name: '우리 가족',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      allowedUids: uid ? [uid] : [],
+      adminUids: uid ? [uid] : [],
+      members: [],
+      pins: {},
+      requests: {},
+      profileRequests: {},
+      joinRequests: {}
+    }).then(function () {
+      return seedRoom();
+    }).then(function () {
+      begin();
+      return true;
     });
+  }
+
+  /* ---------------- 입장 요청 (신규 기기) ---------------- */
+  function requestJoin(data) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var uid = myUid();
+    if (!uid) return Promise.reject(new Error('not-signed-in'));
+    var name = String((data && data.name) || '').trim().slice(0, 20);
+    if (!name) return Promise.reject(new Error('empty-name'));
+    var rec = {
+      uid: uid,
+      name: name,
+      tel: normalizeTel((data && data.tel) || ''),
+      device: String((data && data.device) || '').slice(0, 60),
+      status: 'pending',
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    return joinRef(uid).set(rec).then(function () {
+      watchGate();
+      return uid;
+    });
+  }
+
+  function listenJoins() {
+    if (state.unsubJoins) { state.unsubJoins(); state.unsubJoins = null; }
+    state.unsubJoins = state.roomRef.collection('joinRequests').onSnapshot(function (snap) {
+      var list = [];
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        list.push({
+          id: doc.id,
+          uid: String(d.uid || doc.id),
+          name: String(d.name || '').slice(0, 20),
+          tel: normalizeTel(d.tel == null ? '' : d.tel),
+          device: String(d.device || ''),
+          status: d.status === 'approved' ? 'approved' : (d.status === 'rejected' ? 'rejected' : 'pending'),
+          requestedAt: d.requestedAt && d.requestedAt.toMillis ? d.requestedAt.toMillis() : 0
+        });
+      });
+      list.sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); });
+      state.joins = list;
+      emit('onJoins', list);
+    }, function () { /* 관리자가 아니면 목록을 볼 수 없습니다 */ });
+  }
+
+  /* 관리자 승인 — 그 기기를 허용 목록에 넣습니다(원하면 관리자로도). */
+  function approveJoin(uid, opts) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(uid || '');
+    if (!id) return Promise.reject(new Error('no-request'));
+    var addAdmin = !!(opts && opts.admin);
+    return state.db.runTransaction(function (tx) {
+      return tx.get(state.roomRef).then(function (snap) {
+        if (!snap.exists) throw new Error('room-missing');
+        var patch = { allowedUids: firebase.firestore.FieldValue.arrayUnion(id) };
+        if (addAdmin) patch.adminUids = firebase.firestore.FieldValue.arrayUnion(id);
+        patch.revokedUids = firebase.firestore.FieldValue.arrayRemove(id);
+        tx.update(state.roomRef, patch);
+      });
+    }).then(function () {
+      return joinRef(id).update({
+        status: 'approved',
+        decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        decidedBy: myUid()
+      }).catch(function () { /* 요청 문서가 없어도 승인은 유지 */ });
+    }).then(function () {
+      emit('onStatus', { kind: 'pending', text: '승인했어요' });
+      return true;
+    });
+  }
+
+  function rejectJoin(uid) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(uid || '');
+    if (!id) return Promise.reject(new Error('no-request'));
+    return joinRef(id).update({
+      status: 'rejected',
+      decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      decidedBy: myUid()
+    });
+  }
+
+  function dropJoin(uid) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var id = String(uid || '');
+    if (!id) return Promise.reject(new Error('no-request'));
+    return joinRef(id).delete();
   }
 
   function seedRoom() {
@@ -867,6 +1039,11 @@
         members.splice(idx, 1);
         var uids = cleanUids(gone.uids);
         var patch = { members: members };
+        /* 서버 규칙도 막도록 허용 목록에서 빼고 차단 목록에 올립니다(내보내기 = 즉시 접근 차단). */
+        if (uids.length) {
+          patch.allowedUids = firebase.firestore.FieldValue.arrayRemove.apply(null, uids);
+          patch.adminUids = firebase.firestore.FieldValue.arrayRemove.apply(null, uids);
+        }
         patch['removedMembers.' + id] = {
           name: String(gone.name || '').slice(0, 12),
           color: String(gone.color || '#64748b').slice(0, 9),
@@ -918,7 +1095,10 @@
         members.push(back);
         var patch = { members: members };
         patch['removedMembers.' + id] = firebase.firestore.FieldValue.delete();
-        if (uids.length) patch.revokedUids = firebase.firestore.FieldValue.arrayRemove.apply(null, uids);
+        if (uids.length) {
+          patch.revokedUids = firebase.firestore.FieldValue.arrayRemove.apply(null, uids);
+          patch.allowedUids = firebase.firestore.FieldValue.arrayUnion.apply(null, uids);
+        }
         tx.update(state.roomRef, patch);
         return back;
       });
@@ -1099,6 +1279,9 @@
   function stop() {
     if (state.unsub) { state.unsub(); state.unsub = null; }
     if (state.unsubRoom) { state.unsubRoom(); state.unsubRoom = null; }
+    if (state.unsubJoins) { state.unsubJoins(); state.unsubJoins = null; }
+    if (state.gatePoll) { clearInterval(state.gatePoll); state.gatePoll = null; }
+    state.joins = [];
     state.roomRef = null;
     state.roomId = '';
     state.code = '';
@@ -1141,6 +1324,11 @@
     telLooksValid: telLooksValid,
     setPin: setPin,
     pinHash: pinHash,
+    requestJoin: requestJoin,
+    approveJoin: approveJoin,
+    rejectJoin: rejectJoin,
+    dropJoin: dropJoin,
+    currentJoin: readMyJoinRequest,
     submitRequest: submitRequest,
     approveRequest: function (req, me) { return decideRequest(req, me, true); },
     rejectRequest: function (req, me) { return decideRequest(req, me, false); },
@@ -1153,6 +1341,16 @@
     restoreMember: restoreMember,
     deleteAccount: deleteAccount,
     currentUid: myUid,
+    isAdmin: function () {
+      var uid = myUid();
+      var list = state.room && Array.isArray(state.room.adminUids) ? state.room.adminUids : [];
+      return !!uid && list.indexOf(uid) >= 0;
+    },
+    isMember: function () {
+      var uid = myUid();
+      var list = state.room && Array.isArray(state.room.allowedUids) ? state.room.allowedUids : [];
+      return !!uid && list.indexOf(uid) >= 0;
+    },
     sha256Hex: sha256Hex
   };
 })();

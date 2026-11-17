@@ -19,11 +19,44 @@
   };
 
   /* 이 방은 가족·매장 방과 다른 소금을 쓰고, 코드도 화면에 노출하지 않습니다.
-     (출납부는 초대 링크가 없는 1인용 방입니다) */
-  var LEDGER_CODE = 'lg-7c4b91e2-5a3f';
+     코드는 이 기기에서 무작위로 만들어 기기에만 저장합니다(서버·저장소에 상수로 두지 않음). */
+  var CODE_KEY = 'family-calendar.ledger.code.v1';
   var ROOM_SALT = 'family-calendar-ledger-room:';
   var PIN_SALT = 'family-calendar-ledger-pin:';
-  var DEFAULT_PIN = '2026';
+  var CODE_PREFIX = 'lg-';
+  var CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+  /* 80비트 난수 — 코드를 추측할 수 없게 crypto 로 만듭니다. */
+  function generateCode() {
+    var out = '';
+    var buf = null;
+    var idx = 0;
+    if (window.crypto && window.crypto.getRandomValues) {
+      buf = new Uint8Array(32);
+      window.crypto.getRandomValues(buf);
+    }
+    while (out.length < 16) {
+      if (buf && idx >= buf.length) { window.crypto.getRandomValues(buf); idx = 0; }
+      var n = buf ? buf[idx++] : Math.floor(Math.random() * 31);
+      if (buf && n >= 248) continue;            /* 247 이후 값은 버려 치우침을 없앱니다 */
+      out += CODE_ALPHABET.charAt(n % 31);
+    }
+    return CODE_PREFIX + out;
+  }
+
+  function storedCode() {
+    try { return localStorage.getItem(CODE_KEY) || ''; } catch (e) { return ''; }
+  }
+  function rememberCode(code) {
+    try { localStorage.setItem(CODE_KEY, String(code || '')); } catch (e) { /* 저장 못해도 이번엔 동작 */ }
+  }
+  function forgetCode() {
+    try { localStorage.removeItem(CODE_KEY); } catch (e) { /* 무시 */ }
+  }
+
+  function myUid() {
+    try { return (state.auth && state.auth.currentUser && state.auth.currentUser.uid) || ''; } catch (e) { return ''; }
+  }
 
   var state = {
     auth: null,
@@ -36,7 +69,9 @@
     unsubRoom: null,
     handlers: {},
     connecting: null,
-    connected: false
+    connected: false,
+    freshCode: false,
+    code: ''
   };
 
   function sha256(str) {
@@ -165,13 +200,31 @@
     }).catch(function () { return null; });
   }
 
+  /* 방을 엽니다. 코드를 가진 기기는 스스로 허용 목록에 들어갈 수 있습니다(autoJoin). */
+  function openRoom() {
+    return state.roomRef.get().then(function (snap) {
+      return { exists: !!snap.exists };
+    }, function (err) {
+      var code = (err && err.code) || '';
+      if (code !== 'permission-denied') throw err;
+      var uid = myUid();
+      if (!uid) throw new Error('not-signed-in');
+      return state.roomRef.update({
+        allowedUids: window.firebase.firestore.FieldValue.arrayUnion(uid)
+      }).then(function () { return { exists: true, joined: true }; }, function () { return { exists: true, denied: true }; });
+    });
+  }
+
   function createRoom() {
+    var uid = myUid();
     return state.roomRef.set({
-      schema: 1,
+      schema: 8,
       kind: 'ledger',
       name: '금전출납부',
       createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-      pinHash: pinHash(DEFAULT_PIN)
+      allowedUids: uid ? [uid] : [],
+      adminUids: uid ? [uid] : [],
+      autoJoin: true
     }).then(function () { return { created: true }; });
   }
 
@@ -183,17 +236,24 @@
     emit('onStatus', { kind: 'pending', text: '출납부 방에 연결하는 중…' });
     state.connecting = Promise.resolve().then(function () {
       ensureApp();
-      state.roomId = roomIdFor(LEDGER_CODE);
+      var code = storedCode();
+      if (!code) { code = generateCode(); rememberCode(code); state.freshCode = true; }
+      state.code = code;
+      state.roomId = roomIdFor(code);
       state.roomRef = state.db.collection('rooms').doc(state.roomId);
       return signIn();
     }).then(function () {
       listenEntries();
       listenRoom();
-      return roomLookup();
-    }).then(function (exists) {
-      if (exists === false) return createRoom().then(function (r) { return { exists: false, created: r.created }; });
+      return openRoom();
+    }).then(function (res) {
+      if (!res.exists) return createRoom().then(function (r) { return { exists: false, created: r.created }; });
+      if (res.denied) {
+        emit('onStatus', { kind: 'error', text: '출납부 방에 들어갈 수 없어요 · 코드를 확인해 주세요' });
+        return { exists: true, denied: true };
+      }
       emit('onStatus', { kind: 'online', text: '출납부 공유 중' });
-      return { exists: exists !== false };
+      return { exists: true };
     }).catch(function (err) {
       state.connecting = null;
       emit('onStatus', { kind: 'error', text: '출납부 연결 실패 · ' + (err && (err.code || err.message) || 'error') });
@@ -241,7 +301,7 @@
 
   function verifyPin(pin) {
     var stored = storedPinHash();
-    if (!stored) return String(pin) === DEFAULT_PIN;
+    if (!stored) return false;
     return stored === pinHash(pin);
   }
 
@@ -268,6 +328,12 @@
     entries: function () { return state.entries.slice(); },
     isConnected: function () { return state.connected; },
     roomId: function () { return state.roomId; },
-    DEFAULT_PIN: DEFAULT_PIN
+    currentCode: function () { return state.code; },
+    storedCode: storedCode,
+    rememberCode: rememberCode,
+    forgetCode: forgetCode,
+    generateCode: generateCode,
+    freshCode: function () { return !!state.freshCode; },
+    clearFresh: function () { state.freshCode = false; }
   };
 })();

@@ -11,7 +11,6 @@
   var LAST_KEY = 'family-calendar.custom.last.v1';
   var ME_KEY = 'family-calendar.custom.me.v1';
   var MODE_KEY = 'family-calendar.mode.v1';
-  var INITIAL_PIN = '2026';
   var ICONS = ['📅', '💼', '🏪', '⚽', '🎓', '✈️', '🏠', '🎯', '🎵', '🍽️', '🚗', '🐶'];
   var STATUS_LABEL = { planned: '예정', done: '근무완료', absent: '결근', canceled: '취소' };
   var WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -406,6 +405,8 @@
     }).then(function (res) {
       if (res && res.exists === false) {
         setNote('이 캘린더 방을 찾을 수 없어요. 초대 코드를 확인해 주세요.', 'error');
+      } else if (res && res.denied) {
+        setNote('이 캘린더에 들어갈 수 없어요 · 초대 코드를 확인해 주세요', 'error');
       }
     }).catch(function (e) {
       S.connecting = false;
@@ -1185,7 +1186,7 @@
     var name = val('calNewName').trim();
     if (!name) { err('calNewError', '캘린더 이름을 넣어 주세요.'); return; }
     var pin = val('calNewPin').replace(/[^0-9]/g, '');
-    if (pin && pin.length !== 4) { err('calNewError', '관리자 PIN은 4자리 숫자예요.'); return; }
+    if (pin && pin.length !== 4) { err('calNewError', '관리자 PIN은 4자리 숫자예요. (비우면 PIN 없이 열려요)'); return; }
     hideErr('calNewError');
     var btn = $('calNewCreate');
     if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
@@ -1210,7 +1211,7 @@
     function tryOnce() {
       var code = ExtraCloud.generateCode();
       attempts++;
-      return ExtraCloud.create(code, { name: name, icon: S.newIcon, type: S.newType, pin: pin || INITIAL_PIN }).then(function () {
+      return ExtraCloud.create(code, { name: name, icon: S.newIcon, type: S.newType, pin: pin || '' }).then(function () {
         return code;
       }, function (e) {
         if (e && e.message === 'code-taken' && attempts < 3) return tryOnce();
@@ -1249,11 +1250,13 @@
       if (box) {
         box.innerHTML = '';
         var title = document.createElement('b');
-        title.textContent = info.icon + ' ' + info.name;
+        title.textContent = info.name ? (info.icon + ' ' + info.name) : '🔒 초대 코드가 맞는 캘린더';
         box.appendChild(title);
         var sub = document.createElement('span');
-        sub.textContent = (info.calType === 'store' ? '🏪 매장·근무형' : '📅 모임·일반형')
-          + (info.staff && info.staff.length ? ' · 근무자 ' + info.staff.length + '명' : '');
+        sub.textContent = info.name
+          ? ((info.calType === 'store' ? '🏪 매장·근무형' : '📅 모임·일반형')
+            + (info.staff && info.staff.length ? ' · 근무자 ' + info.staff.length + '명' : ''))
+          : '참여를 누르면 이 캘린더가 목록에 추가됩니다.';
         box.appendChild(sub);
         box.hidden = false;
       }
@@ -1277,7 +1280,7 @@
       patch.staffId = sid;
     }
     setMe(code, patch);
-    upsertEntry({ code: code, name: info.name, icon: info.icon, type: info.calType, owner: false });
+    upsertEntry({ code: code, name: info.name || '캘린더', icon: info.icon || '📅', type: info.calType || 'general', owner: false });
     renderTabs();
     closeAdd();
     enter(code);

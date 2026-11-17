@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117z5" />
-<link rel="stylesheet" href="store.css?v=20261117z5" />
-<link rel="stylesheet" href="ledger.css?v=20261117z5" />
-<link rel="stylesheet" href="extra.css?v=20261117z5" />
-<link rel="stylesheet" href="polish.css?v=20261117z5" />
+<link rel="stylesheet" href="styles.css?v=20261118a1" />
+<link rel="stylesheet" href="store.css?v=20261118a1" />
+<link rel="stylesheet" href="ledger.css?v=20261118a1" />
+<link rel="stylesheet" href="extra.css?v=20261118a1" />
+<link rel="stylesheet" href="polish.css?v=20261118a1" />
 </head>
 <body>
 <div class="app">
@@ -421,7 +421,7 @@
         <p class="lg-error" id="lgLockError" hidden></p>
         <input class="lg-lock__pin" id="lgLockPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" aria-label="출납부 PIN" />
         <button class="btn-primary lg-lock__go" id="lgUnlockBtn" type="button">열기</button>
-        <p class="lg-lock__hint" id="lgLockHint">처음 PIN은 <b>2026</b>이에요. 들어간 뒤 <b>⚙️ 설정</b>에서 바꿔 주세요.</p>
+        <p class="lg-lock__hint" id="lgLockHint">내가 정한 4자리 PIN을 넣어 주세요.</p>
         <button class="lg-lock__off" id="lgLockOffBtn" type="button" hidden>이 기기에서 출납부 끄기</button>
       </div>
     </section>
@@ -976,8 +976,18 @@
     <p class="room-intro">가족끼리 정한 <b>가족 코드</b>를 넣으면 같은 가족 달력을 함께 봐요.<br />처음 한 번만 넣으면 이 폰에 기억됩니다.</p>
     <div class="field">
       <label for="roomCode">가족 코드</label>
-      <input id="roomCode" type="text" placeholder="예) 우리집2026" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <input id="roomCode" type="text" placeholder="가족에게 받은 코드" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" />
       <p class="field-hint">가족 모두 같은 코드를 써야 같은 달력이 보여요.</p>
+    </div>
+    <div id="roomJoinBox" hidden>
+      <p class="field-hint" style="margin:10px 0 8px;">이 코드의 가족 방이 있어요. 이 기기는 아직 <b>승인되지 않았습니다</b>.<br />아래에 이 기기 이름을 적고 <b>입장 요청</b>을 보내면, 관리자(아빠·엄마)가 승인한 뒤 열립니다.</p>
+      <div class="field">
+        <label for="roomJoinName">이 기기 이름</label>
+        <input id="roomJoinName" type="text" maxlength="20" autocomplete="off" placeholder="예) 엄마 폰" />
+      </div>
+      <p class="form-error" id="roomJoinMsg" hidden></p>
+      <button type="button" class="btn-ghost btn-small" id="roomJoinBtn">입장 요청 보내기</button>
+      <p class="field-hint" id="roomPendingHint" hidden>⏳ 관리자 승인을 기다리는 중이에요. 승인되면 자동으로 열립니다.</p>
     </div>
     <p class="form-error" id="roomError" hidden></p>
     <div class="sheet-actions">
@@ -1062,6 +1072,10 @@
       <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
       <p class="field-hint" id="pinHint"></p>
     </div>
+    <div class="field" id="pinConfirmField" hidden>
+      <label for="pinConfirmInput">새 PIN 한 번 더</label>
+      <input id="pinConfirmInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+    </div>
     <p class="form-error" id="pinError" hidden></p>
     <div class="sheet-actions">
       <button type="submit" class="btn-primary">확인</button>
@@ -1101,6 +1115,12 @@
       <p class="field-hint">새로 추가한 구성원은 <b>일반 구성원</b>으로 들어가고, 일정을 넣으면 승인 요청으로 올라가요.</p>
     </section>
 
+    <section class="admin-block" id="adminJoinBlock" hidden>
+      <h3>👥 기기 입장 요청</h3>
+      <ul class="admin-members" id="adminJoinList"></ul>
+      <p class="field-hint">[승인]하면 그 기기에서 가족 달력을 열 수 있어요. <b>[관리자로 승인]</b>은 관리자 설정까지 같이 쓰는 기기(예: 엄마 폰)에만 눌러 주세요. 두 번째 관리자 기기를 하나 만들어 두면 한 기기를 잃어버려도 가족을 다시 초대할 수 있어요.</p>
+    </section>
+
     <section class="admin-block" id="adminRemovedBlock" hidden>
       <h3>🚪 내보낸 구성원</h3>
       <ul class="admin-members" id="adminRemovedList"></ul>
@@ -1115,7 +1135,7 @@
 
     <section class="admin-block">
       <h3>관리자 PIN 변경</h3>
-      <p class="field-hint">PIN은 4자리 숫자이고, 서버에는 SHA-256 해시만 저장돼요. 처음에는 <b>2026</b>으로 열리고, 여기서 꼭 바꿔 주세요.</p>
+      <p class="field-hint">PIN은 4자리 숫자이고, 서버에는 SHA-256 해시만 저장돼요. PIN은 <b>화면 잠금(편의)</b>이고, 실제 권한은 기기 승인(입장 요청 승인)으로 정해집니다. 처음 쓰는 구성원은 새 PIN을 정하고 들어갑니다.</p>
       <div class="field">
         <label>누구 PIN을 바꿀까요</label>
         <div class="picker" id="pinTargets"></div>
@@ -1368,6 +1388,20 @@
     </section>
 
     <section class="lg-set-block">
+      <h3>🔑 복구 코드</h3>
+      <p class="lg-set-note">출납부는 이 기기에서 만든 <b>복구 코드</b>로 연결됩니다. 가족·매장 코드와 별개이고, 아무도 모르게 이 기기에만 저장됩니다. <b>다른 사람에게 알려 주지 마세요.</b></p>
+      <p class="lg-set-note" id="lgCodeNow"></p>
+      <div class="lg-set-row">
+        <button type="button" class="btn-ghost btn-small" id="lgCodeCopy">복구 코드 복사</button>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label for="lgCodeInput">다른 기기의 복구 코드로 연결 (폰 교체·앱 정리 후)</label>
+        <input id="lgCodeInput" type="text" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="lg-xxxxxxxxxxxxxxxx" />
+      </div>
+      <button type="button" class="btn-ghost btn-small" id="lgCodeApply">이 코드로 연결</button>
+    </section>
+
+    <section class="lg-set-block">
       <h3>이 기기</h3>
       <p class="lg-set-note" id="lgSetTotal"></p>
       <p class="lg-set-note">출납부는 가족 달력·매장 달력과 <b>다른 비공개 방</b>을 써서 가족·알바생 화면에는 보이지 않아요.</p>
@@ -1390,7 +1424,7 @@
     <div class="field">
       <label for="lgGrantPin">사장님 PIN (4자리)</label>
       <input id="lgGrantPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
-      <p class="field-hint">처음 PIN은 <b>2026</b>이에요. 들어간 뒤 출납부 설정에서 바꿔 주세요.</p>
+      <p class="field-hint">아직 PIN이 없으면 <b>지금 넣는 4자리가 새 PIN</b>이 됩니다.</p>
     </div>
     <div class="sheet-actions">
       <button type="button" class="btn-primary" id="lgGrantBtn">이 기기에서 켜기</button>
@@ -1641,19 +1675,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117z5"></script>
-<script src="firebase-auth-compat.js?v=20261117z5"></script>
-<script src="firebase-firestore-compat.js?v=20261117z5"></script>
-<script src="lunar.js?v=20261117z5"></script>
-<script src="cloud.js?v=20261117z5"></script>
-<script src="app.js?v=20261117z5"></script>
-<script src="voice.js?v=20261117z5"></script>
-<script src="media.js?v=20261117z5"></script>
-<script src="store-cloud.js?v=20261117z5"></script>
-<script src="store.js?v=20261117z5"></script>
-<script src="ledger-cloud.js?v=20261117z5"></script>
-<script src="ledger.js?v=20261117z5"></script>
-<script src="extra-cloud.js?v=20261117z5"></script>
-<script src="extra.js?v=20261117z5"></script>
+<script src="firebase-app-compat.js?v=20261118a1"></script>
+<script src="firebase-auth-compat.js?v=20261118a1"></script>
+<script src="firebase-firestore-compat.js?v=20261118a1"></script>
+<script src="lunar.js?v=20261118a1"></script>
+<script src="cloud.js?v=20261118a1"></script>
+<script src="app.js?v=20261118a1"></script>
+<script src="voice.js?v=20261118a1"></script>
+<script src="media.js?v=20261118a1"></script>
+<script src="store-cloud.js?v=20261118a1"></script>
+<script src="store.js?v=20261118a1"></script>
+<script src="ledger-cloud.js?v=20261118a1"></script>
+<script src="ledger.js?v=20261118a1"></script>
+<script src="extra-cloud.js?v=20261118a1"></script>
+<script src="extra.js?v=20261118a1"></script>
 </body>
 </html>

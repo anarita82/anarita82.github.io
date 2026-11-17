@@ -16,7 +16,6 @@
   var MEMBER_COLORS = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#ef4444', '#84cc16', '#0ea5e9', '#a855f7'];
   var ROLE_LABEL = { admin: '메인 관리자', manager: '부매니저', member: '구성원' };
   var PROFILE_KEY = 'family-calendar.me.v2';
-  var INITIAL_PIN = '2026';
 
   var CATEGORIES = [
     { id: 'birthday', label: '생일', emoji: '🎂', color: '#ec4899' },
@@ -56,6 +55,8 @@
     roomPins: {},
     revokedUids: [],
     removedMembers: {},
+    joins: [],
+    gateState: '',
     blocked: '',
     pendingPin: '',
     pinTarget: '',
@@ -423,6 +424,8 @@
     el.pinForm = document.getElementById('pinForm');
     el.pinTitle = document.getElementById('pinTitle');
     el.pinInput = document.getElementById('pinInput');
+    el.pinConfirmField = document.getElementById('pinConfirmField');
+    el.pinConfirmInput = document.getElementById('pinConfirmInput');
     el.pinHint = document.getElementById('pinHint');
     el.pinError = document.getElementById('pinError');
     el.pinClose = document.getElementById('pinClose');
@@ -431,6 +434,13 @@
     el.adminMemberList = document.getElementById('adminMemberList');
     el.adminRemovedBlock = document.getElementById('adminRemovedBlock');
     el.adminRemovedList = document.getElementById('adminRemovedList');
+    el.adminJoinBlock = document.getElementById('adminJoinBlock');
+    el.adminJoinList = document.getElementById('adminJoinList');
+    el.roomJoinBox = document.getElementById('roomJoinBox');
+    el.roomJoinName = document.getElementById('roomJoinName');
+    el.roomJoinBtn = document.getElementById('roomJoinBtn');
+    el.roomJoinMsg = document.getElementById('roomJoinMsg');
+    el.roomPendingHint = document.getElementById('roomPendingHint');
     el.familyBlockedModal = document.getElementById('familyBlockedModal');
     el.familyBlockedMsg = document.getElementById('familyBlockedMsg');
     el.newMemberName = document.getElementById('newMemberName');
@@ -572,6 +582,13 @@
         onData: function (list) { applyEventData(list); },
         onPhotos: function (list) { photos = list; renderAlbum(); },
         onRoom: function (info) { applyRoomMeta(info); },
+        onJoins: function (list) { state.joins = Array.isArray(list) ? list : []; renderAdminJoins(); },
+        onGate: function (res) { handleGate(res); },
+        onMoved: function () {
+          setStatus('pending', '이 방은 새 코드로 옮겨졌어요');
+          openRoomModal(false);
+          showRoomError('이 방 주소는 더 이상 쓰지 않아요. 새 가족 코드를 넣어 주세요.');
+        },
         onRoomError: function (err) {
           var code = (err && err.code) || '';
           /* 일정이 이미 흐르고 있으면 방 문서 읽기는 잠시 뒤 저절로 풀립니다
@@ -584,11 +601,18 @@
         },
         onStatus: function (s) { setStatus(s.kind, s.text); }
       }).then(function (info) {
+        if (info && info.moved) return;
         if (info && info.created) {
           cloudReady = true;
           setStatus('online', '새 가족 방을 만들었어요 · 이 코드를 가족에게 알려 주세요');
           clearTimeout(connectTimer);
         }
+        if (info && info.claimed) {
+          cloudReady = true;
+          setStatus('online', '이 기기로 가족 방 관리를 시작해요');
+          clearTimeout(connectTimer);
+        }
+        if (info && info.joined === false) { clearTimeout(connectTimer); return; }
         updateRoomInfo();
         closeRoomModal();
       }).catch(function (err) {
@@ -632,17 +656,122 @@
     el.roomError.textContent = '';
     el.roomCode.value = FamilyCloud.initialCode() || '';
     el.roomClose.hidden = !!firstRun;
+    if (el.roomJoinBox) el.roomJoinBox.hidden = true;
     el.roomModal.hidden = false;
     try { el.roomCode.focus(); } catch (e) { /* 무시 */ }
   }
 
   function closeRoomModal() {
     if (el.roomModal) el.roomModal.hidden = true;
+    if (el.roomJoinBox) el.roomJoinBox.hidden = true;
   }
 
   function showRoomError(msg) {
     el.roomError.textContent = msg;
     el.roomError.hidden = false;
+  }
+
+  /* ---------------- 기기 입장 게이트 ----------------
+     방은 이제 "승인된 기기"만 열립니다. 승인이 없으면 이 화면에서 입장 요청을 보냅니다. */
+  function handleGate(res) {
+    var st = (res && res.state) || '';
+    state.gateState = st;
+    if (st === 'member') {
+      if (el.roomJoinBox) el.roomJoinBox.hidden = true;
+      setStatus('online', '공유 중');
+      renderAll();
+      return;
+    }
+    if (st !== 'need-request' && st !== 'pending' && st !== 'rejected') return;
+    showJoinGate(st);
+  }
+
+  function showJoinGate(st) {
+    if (!el.roomJoinBox) return;
+    var code = FamilyCloud.storedCode() || (el.roomCode ? FamilyCloud.normalizeCode(el.roomCode.value) : '');
+    el.roomCode.value = code;
+    el.roomJoinBox.hidden = false;
+    var pending = st === 'pending';
+    el.roomJoinName.hidden = pending;
+    el.roomJoinBtn.hidden = pending;
+    el.roomPendingHint.hidden = !pending;
+    el.roomJoinMsg.hidden = true;
+    if (pending) {
+      setStatus('pending', '관리자 승인을 기다리는 중이에요');
+    } else {
+      var saved = '';
+      try { saved = localStorage.getItem('family-calendar.join.name.v1') || ''; } catch (e) { saved = ''; }
+      if (saved && el.roomJoinName) el.roomJoinName.value = saved;
+      setStatus('pending', st === 'rejected' ? '관리자가 입장을 거절했어요 · 다시 요청할 수 있어요' : '이 기기는 아직 승인되지 않았어요');
+    }
+    el.roomModal.hidden = false;
+  }
+
+  function submitFamilyJoin() {
+    if (!el.roomJoinName) return;
+    var name = String(el.roomJoinName.value || '').trim().slice(0, 20);
+    if (!name) {
+      el.roomJoinMsg.textContent = '이 기기를 부를 이름을 넣어 주세요 (예: 엄마 폰).';
+      el.roomJoinMsg.hidden = false;
+      return;
+    }
+    el.roomJoinBtn.disabled = true;
+    el.roomJoinMsg.hidden = true;
+    FamilyCloud.requestJoin({ name: name, device: (navigator.userAgent || '').slice(0, 60) }).then(function () {
+      try { localStorage.setItem('family-calendar.join.name.v1', name); } catch (e) { /* 무시 */ }
+      showJoinGate('pending');
+      toast('입장 요청을 보냈어요 · 관리자(아빠·엄마) 승인을 기다려 주세요');
+    }).catch(function (err) {
+      el.roomJoinMsg.textContent = '요청을 보내지 못했어요 · ' + errorHint(err);
+      el.roomJoinMsg.hidden = false;
+    }).then(function () {
+      el.roomJoinBtn.disabled = false;
+    });
+  }
+
+  /* 관리자 설정 — 기기 입장 요청 목록 */
+  function renderAdminJoins() {
+    if (!el.adminJoinList) return;
+    var serverAdmin = !!(window.FamilyCloud && FamilyCloud.isAdmin && FamilyCloud.isAdmin());
+    var list = serverAdmin ? (state.joins || []).filter(function (j) { return j && j.status === 'pending'; }) : [];
+    if (el.adminJoinBlock) el.adminJoinBlock.hidden = !list.length;
+    el.adminJoinList.innerHTML = '';
+    list.forEach(function (j) {
+      var li = document.createElement('li');
+      li.className = 'admin-member';
+      var label = document.createElement('span');
+      label.className = 'admin-member__name';
+      label.textContent = '📱 ' + (j.name || '기기');
+      li.appendChild(label);
+      var ok = document.createElement('button');
+      ok.type = 'button';
+      ok.className = 'btn-ghost btn-small';
+      ok.textContent = '승인';
+      ok.addEventListener('click', function () { decideFamilyJoin(j, false); });
+      li.appendChild(ok);
+      var okAdmin = document.createElement('button');
+      okAdmin.type = 'button';
+      okAdmin.className = 'btn-ghost btn-small';
+      okAdmin.textContent = '관리자로 승인';
+      okAdmin.addEventListener('click', function () { decideFamilyJoin(j, true); });
+      li.appendChild(okAdmin);
+      var no = document.createElement('button');
+      no.type = 'button';
+      no.className = 'admin-member__out';
+      no.textContent = '거절';
+      no.addEventListener('click', function () { FamilyCloud.rejectJoin(j.uid); });
+      li.appendChild(no);
+      el.adminJoinList.appendChild(li);
+    });
+  }
+
+  function decideFamilyJoin(j, asAdmin) {
+    FamilyCloud.approveJoin(j.uid, { admin: !!asAdmin }).then(function () {
+      toast(asAdmin ? '관리자 권한으로 승인했어요' : '승인했어요 · 그 기기에서 바로 열립니다');
+      renderAdminJoins();
+    }).catch(function (err) {
+      toast('승인하지 못했어요 · ' + errorHint(err));
+    });
   }
 
   function submitRoomCode(e) {
@@ -670,6 +799,7 @@
     document.getElementById('codeBtn').addEventListener('click', function () { openRoomModal(false); });
     el.roomForm.addEventListener('submit', submitRoomCode);
     el.roomClose.addEventListener('click', closeRoomModal);
+    if (el.roomJoinBtn) el.roomJoinBtn.addEventListener('click', submitFamilyJoin);
     var roomBackdrop = el.roomModal.querySelector('[data-close]');
     if (roomBackdrop) roomBackdrop.addEventListener('click', function () { if (!el.roomClose.hidden) closeRoomModal(); });
     document.getElementById('modalClose').addEventListener('click', closeModal);
@@ -3364,16 +3494,54 @@
     renderNotifyBox();
   }
 
-  /* ---------------- 관리자 PIN ---------------- */
+  /* ---------------- 관리자 PIN ----------------
+     PIN은 화면 잠금(편의)입니다. 서버 권한은 방 문서의 adminUids로 판정합니다.
+     처음 쓰는 구성원은 기본 PIN 없이 "새 PIN 정하기"로 들어가고, 오답은 기기에 저장해 제한합니다. */
+  var PIN_MAX_TRY = 5;
+  var PIN_WAIT_MS = 60000;
+  var PIN_GUARD_KEY = 'family-calendar.pin.guard.v1';
+
+  function pinGuard() {
+    try { return JSON.parse(localStorage.getItem(PIN_GUARD_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function pinGuardSave(g) {
+    try { localStorage.setItem(PIN_GUARD_KEY, JSON.stringify(g || {})); } catch (e) { /* 무시 */ }
+  }
+  function pinWaitLeft(id) {
+    var rec = pinGuard()[id];
+    if (!rec || !rec.until) return 0;
+    var left = rec.until - Date.now();
+    return left > 0 ? left : 0;
+  }
+  function pinMiss(id) {
+    var g = pinGuard();
+    var rec = g[id] || { tries: 0, until: 0 };
+    rec.tries = (Number(rec.tries) || 0) + 1;
+    if (rec.tries >= PIN_MAX_TRY) { rec.tries = 0; rec.until = Date.now() + PIN_WAIT_MS; }
+    g[id] = rec;
+    pinGuardSave(g);
+    return rec;
+  }
+  function pinClear(id) {
+    var g = pinGuard();
+    delete g[id];
+    pinGuardSave(g);
+  }
+
   function askPin(m) {
     state.pendingPin = m.id;
     el.pinTitle.textContent = m.name + ' · ' + ROLE_LABEL[m.role || 'manager'];
     el.pinError.hidden = true;
     el.pinInput.value = '';
+    if (el.pinConfirmInput) el.pinConfirmInput.value = '';
     var stored = state.roomPins && state.roomPins[m.id];
+    var wait = pinWaitLeft(m.id);
+    if (el.pinConfirmField) el.pinConfirmField.hidden = !!stored;
     el.pinHint.textContent = stored
       ? '등록된 4자리 PIN을 넣어 주세요.'
-      : '아직 PIN을 바꾸지 않았어요. 처음 PIN은 2026이에요. 들어간 뒤 설정에서 바꿔 주세요.';
+      : (wait
+        ? '너무 여러 번 틀렸어요. ' + Math.ceil(wait / 1000) + '초 뒤에 다시 넣어 주세요.'
+        : '이 기기에서 처음 쓰는 관리자 PIN이에요. 새 PIN(4자리)을 정해 아래에 한 번 더 넣어 주세요.');
     el.pinModal.hidden = false;
     try { el.pinInput.focus(); } catch (e) { /* 무시 */ }
   }
@@ -3387,16 +3555,40 @@
     if (e) e.preventDefault();
     var m = memberById(state.pendingPin);
     if (!m) { el.pinModal.hidden = true; return; }
+    var wait = pinWaitLeft(m.id);
+    if (wait) { showPinError('너무 여러 번 틀렸어요. ' + Math.ceil(wait / 1000) + '초 뒤에 다시 넣어 주세요.'); return; }
     var pin = el.pinInput.value.replace(/\D/g, '');
     if (pin.length !== 4) { showPinError('4자리 숫자를 넣어 주세요.'); return; }
     var stored = state.roomPins && state.roomPins[m.id];
-    var ok = stored ? (FamilyCloud.pinHash(m.id, pin) === stored) : (pin === INITIAL_PIN);
-    if (!ok) { showPinError('PIN이 맞지 않아요.'); return; }
+    if (!stored) {
+      var again = el.pinConfirmInput ? el.pinConfirmInput.value.replace(/\D/g, '') : '';
+      if (again !== pin) { showPinError('두 번 넣은 PIN이 달라요.'); return; }
+      FamilyCloud.setPin(m.id, pin).then(function () {
+        state.roomPins = state.roomPins || {};
+        state.roomPins[m.id] = FamilyCloud.pinHash(m.id, pin);
+        pinClear(m.id);
+        el.pinError.hidden = true;
+        el.pinModal.hidden = true;
+        state.pendingPin = '';
+        switchProfile(m);
+        toast('관리자 PIN을 새로 정했어요 · 다음부터 이 PIN으로 들어옵니다');
+      }).catch(function () {
+        showPinError('PIN을 저장하지 못했어요. 잠시 뒤 다시 해 주세요.');
+      });
+      return;
+    }
+    var ok = FamilyCloud.pinHash(m.id, pin) === stored;
+    if (!ok) {
+      var rec = pinMiss(m.id);
+      if (rec.until) showPinError('5번 틀렸어요. 1분 뒤에 다시 넣어 주세요.');
+      else showPinError('PIN이 맞지 않아요. (' + rec.tries + '/' + PIN_MAX_TRY + ')');
+      return;
+    }
+    pinClear(m.id);
     el.pinError.hidden = true;
     el.pinModal.hidden = true;
     state.pendingPin = '';
     switchProfile(m);
-    if (!stored) toast('처음 PIN(2026)으로 들어왔어요 · 관리자 설정에서 바꿔 주세요');
   }
 
   /* ---------------- 관리자 설정 ---------------- */
@@ -3411,6 +3603,7 @@
     renderAdminMembers();
     renderMemberColors();
     renderPinTargets();
+    renderAdminJoins();
     el.adminModal.hidden = false;
   }
 
