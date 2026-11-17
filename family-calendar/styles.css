@@ -909,6 +909,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .admin-member__telinput:focus { border-color: #a5a3f5; outline: none; }
 .admin-member__dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
 .admin-member__name { flex: 1; font-size: 13px; font-weight: 700; }
+.admin-member__namerow { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; }
 .admin-member__role {
   border: 1px solid #e3e5ec; border-radius: 9px;
   background: #fff; color: #4b5160;
@@ -917,15 +918,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-family: inherit;
 }
 .admin-member__role.is-locked { background: #f3f4f8; color: #9aa1ad; border-color: #eceef3; }
-/* 🚪 구성원 내보내기 */
+/* 🚪 구성원 내보내기 — 전화번호 줄 끝의 작은 버튼 */
 .admin-member__out {
-  flex: 0 0 100%;
+  flex: 0 0 auto;
   border: 1px solid #fecaca; background: #fff5f5; color: #b91c1c;
-  border-radius: 9px; font-family: inherit; font-size: 11px; font-weight: 800;
-  padding: 5px 8px; cursor: pointer; margin-top: 2px;
+  border-radius: 9px; font-family: inherit; font-size: 12px; line-height: 1;
+  padding: 7px 8px; cursor: pointer;
 }
 .admin-member__out:active { background: #fee2e2; }
 .admin-member--out { background: #f7f7fa; }
+/* 내보낸 구성원 목록의 이름은 글자만 (입력칸 모양이 아니게) */
+.admin-member--out .admin-member__name { border: 0; background: transparent; padding: 0 2px; }
 .admin-member__badge {
   font-size: 10px; font-weight: 800; color: #6b7280;
   background: #eef0f4; border-radius: 5px; padding: 1px 5px;
@@ -1073,16 +1076,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border: 0; background: transparent; padding: 0; cursor: pointer;
   display: inline-flex; align-items: center;
 }
+
+/* ✏️ 이름 고치기 — 누를 수 있는 칸임이 한눈에 보이도록 테두리를 둡니다. */
+.admin-member__namerow {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 4px;
+}
+.admin-member__pen { font-size: 11px; line-height: 1; flex: 0 0 auto; opacity: .75; }
 .admin-member__name {
-  flex: 1; min-width: 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
+  flex: 1; min-width: 0; width: 100%;
+  border: 1px solid #e3e5ec;
+  border-radius: 9px;
+  background: #fff;
+  color: #2b3040;
   font-size: 13px; font-weight: 700;
-  padding: 4px 6px;
+  padding: 7px 9px;
   font-family: inherit;
 }
-.admin-member__name:focus { border-color: #a5a3f5; background: #fff; outline: none; }
+.admin-member__name:focus { border-color: #a5a3f5; box-shadow: 0 0 0 3px rgba(99, 102, 241, .12); outline: none; }
+/* 이름을 고친 줄 — 저장 버튼이 같이 보입니다. */
+.admin-member--dirty { background: #f6f5ff; border-color: #ddd9fb; }
+.admin-member__save {
+  flex: 0 0 100%;
+  border: 0; border-radius: 9px;
+  background: #4f46e5; color: #fff;
+  font-family: inherit; font-size: 12px; font-weight: 800;
+  padding: 8px 10px; cursor: pointer;
+}
+.admin-member__save:active { background: #4338ca; }
+.admin-members__hint { margin: 0 0 10px; }
 
 .admin-member__photo-clear {
   border: 0; background: #f1f2f7; color: #8b93a3;

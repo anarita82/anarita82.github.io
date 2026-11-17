@@ -432,6 +432,7 @@
     el.adminModal = document.getElementById('adminModal');
     el.adminClose = document.getElementById('adminClose');
     el.adminMemberList = document.getElementById('adminMemberList');
+    el.adminMembersBlock = document.getElementById('adminMembersBlock');
     el.adminRemovedBlock = document.getElementById('adminRemovedBlock');
     el.adminRemovedList = document.getElementById('adminRemovedList');
     el.adminJoinBlock = document.getElementById('adminJoinBlock');
@@ -827,6 +828,13 @@
       closeSettingsModal();
       openAdminModal();
     });
+    /* ✏️ 가족 이름·번호 바꾸기 — 관리자 설정의 구성원 목록으로 바로 */
+    var setMembersRow = document.getElementById('setMembersRow');
+    if (setMembersRow) setMembersRow.addEventListener('click', function () {
+      if (!canManage()) { toast('아빠·엄마만 바꿀 수 있어요'); return; }
+      closeSettingsModal();
+      openAdminModal(true);
+    });
     /* 일정 추가 — [+ 더보기] 접기/펼치기 */
     var moreBtn = document.getElementById('eventMoreBtn');
     if (moreBtn) moreBtn.addEventListener('click', function () { toggleMore(!state.moreOpen); });
@@ -924,8 +932,10 @@
   function openSettingsModal() {
     var modal = document.getElementById('settingsModal');
     if (!modal) return;
-    var row = document.getElementById('setAdminRow');
-    if (row) row.hidden = !canManage();
+    var setAdminRow = document.getElementById('setAdminRow');
+    if (setAdminRow) setAdminRow.hidden = !canManage();
+    var setMembersRow = document.getElementById('setMembersRow');
+    if (setMembersRow) setMembersRow.hidden = !canManage();
     paintStatus();
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -2927,6 +2937,14 @@
       });
     });
     MEMBERS = next.length ? next : DEFAULT_MEMBERS.slice();
+    /* 새로 만든 방은 구성원 목록이 비어 있습니다. 화면에 보이는 기본 구성원을 방에 한 번
+       저장해, 신상정보 변경 요청의 '바뀌기 전 이름'과 승인이 어긋나지 않게 합니다. */
+    if (info && Array.isArray(info.members) && !info.members.length && !state.membersSeedSent) {
+      state.membersSeedSent = true;
+      FamilyCloud.saveMembers(MEMBERS.map(plainMember)).catch(function () {
+        state.membersSeedSent = false;
+      });
+    }
     state.roomPins = info && info.pins && typeof info.pins === 'object' ? info.pins : {};
     state.revokedUids = info && Array.isArray(info.revokedUids) ? info.revokedUids : [];
     state.removedMembers = info && info.removedMembers && typeof info.removedMembers === 'object' ? info.removedMembers : {};
@@ -3029,10 +3047,16 @@
     if (el.codeBtn) el.codeBtn.hidden = !manage;
     var setAdminRow = document.getElementById('setAdminRow');
     if (setAdminRow) setAdminRow.hidden = !manage;
+    var setMembersRow = document.getElementById('setMembersRow');
+    if (setMembersRow) setMembersRow.hidden = !manage;
     renderMyRequests();
     if (el.approveModal && !el.approveModal.hidden) renderApproveCards();
     if (el.adminModal && !el.adminModal.hidden) {
-      renderAdminMembers();
+      /* 이름을 고치는 중이면 입력하던 글자를 지우지 않도록 그 줄은 다시 그리지 않습니다. */
+      var ae = document.activeElement;
+      var typing = ae && el.adminMemberList.contains(ae)
+        && ae.classList && ae.classList.contains('admin-member__name');
+      if (!typing) renderAdminMembers();
       renderPinTargets();
     }
     if (el.profileModal && !el.profileModal.hidden) renderProfileList();
@@ -3214,7 +3238,7 @@
     var who = r.requesterName || '구성원';
     if (!approve && !window.confirm(who + ' 님의 신상정보 변경 요청을 거절할까요?\n구성원 정보는 바뀌지 않아요.')) return;
     var run = approve ? FamilyCloud.approveProfileRequest : FamilyCloud.rejectProfileRequest;
-    run(r, { id: me.id, name: me.name }).then(function () {
+    run(r, { id: me.id, name: me.name }, MEMBERS.map(plainMember)).then(function () {
       toast(approve ? who + ' 님 신상정보를 바꿨어요' : '거절했어요 · 구성원 정보는 그대로예요');
     }).catch(function (err) {
       window.alert('처리하지 못했어요 · ' + profileErrorHint(err));
@@ -3595,7 +3619,7 @@
   }
 
   /* ---------------- 관리자 설정 ---------------- */
-  function openAdminModal() {
+  function openAdminModal(scrollToMembers) {
     if (!canManage()) return;
     el.memberError.hidden = true;
     el.pinChangeError.hidden = true;
@@ -3608,6 +3632,18 @@
     renderPinTargets();
     renderAdminJoins();
     el.adminModal.hidden = false;
+    /* ⚙️ → 가족 이름·번호 바꾸기 로 들어오면 구성원 목록부터 보여 줍니다. */
+    if (scrollToMembers === true && el.adminMembersBlock) {
+      try {
+        var sheet = el.adminModal.querySelector('.modal__sheet');
+        if (sheet && sheet.scrollTo) {
+          var top = el.adminMembersBlock.getBoundingClientRect().top - sheet.getBoundingClientRect().top;
+          sheet.scrollTo({ top: Math.max(0, sheet.scrollTop + top - 10) });
+        } else {
+          el.adminMembersBlock.scrollIntoView({ block: 'start' });
+        }
+      } catch (e) { /* 무시 */ }
+    }
   }
 
   /* 구성원 사진 지우기 */
@@ -3645,15 +3681,47 @@
         li.appendChild(clear);
       }
 
+      var nameRow = document.createElement('span');
+      nameRow.className = 'admin-member__namerow';
+      var pen = document.createElement('span');
+      pen.className = 'admin-member__pen';
+      pen.textContent = '✏️';
+      pen.setAttribute('aria-hidden', 'true');
+      nameRow.appendChild(pen);
+
       var name = document.createElement('input');
       name.type = 'text';
       name.className = 'admin-member__name';
       name.value = m.name;
       name.maxLength = 12;
       name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
-      name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
+      name.setAttribute('autocomplete', 'off');
+      name.title = '이름을 고치고 Enter 또는 [✓ 저장]을 누르면 저장돼요';
+      nameRow.appendChild(name);
+      li.appendChild(nameRow);
+
+      /* 이름을 고치면 줄 아래 [✓ 이름 저장] 이 나타났다가, 저장되면 사라집니다. */
+      var saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'admin-member__save';
+      saveBtn.textContent = '✓ 이름 저장';
+      saveBtn.hidden = true;
+      saveBtn.setAttribute('aria-label', m.name + ' 새 이름 저장');
+      saveBtn.addEventListener('click', function () { changeMemberName(m, name.value); });
+
+      function syncDirty() {
+        var typed = String(name.value || '').trim().slice(0, 12);
+        var dirty = typed !== m.name && typed.length > 0;
+        li.classList.toggle('admin-member--dirty', dirty);
+        saveBtn.hidden = !dirty;
+      }
+      name.addEventListener('input', syncDirty);
       name.addEventListener('change', function () { changeMemberName(m, name.value); });
-      li.appendChild(name);
+      name.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        changeMemberName(m, name.value);
+      });
 
       var select = document.createElement('select');
       select.className = 'admin-member__role';
@@ -3688,19 +3756,21 @@
       tel.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
       tel.addEventListener('change', function () { changeMemberTel(m, tel.value); });
       telRow.appendChild(tel);
-      li.appendChild(telRow);
 
-      /* 메인 관리자만 일반 구성원을 내보낼 수 있어요 */
+      /* 메인 관리자만 일반 구성원을 내보낼 수 있어요 — 전화번호 줄 끝에 작게 */
       if (isAdmin() && (m.role || 'member') !== 'admin') {
         var outBtn = document.createElement('button');
         outBtn.type = 'button';
         outBtn.className = 'admin-member__out';
-        outBtn.textContent = '🚪 내보내기';
+        outBtn.textContent = '🚪';
         outBtn.title = m.name + ' 님을 가족 달력에서 내보내기';
         outBtn.setAttribute('aria-label', m.name + ' 가족 달력에서 내보내기');
         outBtn.addEventListener('click', function () { removeFamilyMember(m); });
-        li.appendChild(outBtn);
+        telRow.appendChild(outBtn);
       }
+
+      li.appendChild(telRow);
+      li.appendChild(saveBtn);
 
       el.adminMemberList.appendChild(li);
     });
@@ -3847,12 +3917,36 @@
     saveMemberList(next, m.name + ' 님 역할을 ' + ROLE_LABEL[role] + '(으)로 바꿨어요');
   }
 
+  /* 저장한 구성을 바로 화면에 반영합니다 — 서버 응답(실시간 반영)을 기다리지 않아도
+     구성원 칩·일정 담당자·내 정보·관리자 목록이 즉시 바뀝니다. */
+  function applyMembersLocal(list) {
+    MEMBERS = (list || []).map(function (m) {
+      return {
+        id: m.id,
+        name: String(m.name || '').slice(0, 12),
+        color: /^#[0-9a-fA-F]{3,8}$/.test(m.color || '') ? m.color : '#64748b',
+        bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : '#f1f5f9',
+        role: m.role === 'admin' || m.role === 'manager' ? m.role : 'member',
+        tel: FamilyCloud.normalizeTel(m.tel || ''),
+        uids: Array.isArray(m.uids) ? m.uids.filter(function (u) { return typeof u === 'string' && u; }).slice(0, 8) : [],
+        photoDataUrl: typeof m.photoDataUrl === 'string' ? m.photoDataUrl : ''
+      };
+    });
+    if (!MEMBERS.length) MEMBERS = DEFAULT_MEMBERS.slice();
+    if (state.member !== 'all' && !memberById(state.member)) state.member = 'all';
+    renderAll();
+    if (el.adminModal && !el.adminModal.hidden) renderAdminMembers();
+  }
+
   function saveMemberList(next, okMsg) {
+    var before = MEMBERS.map(plainMember);
+    applyMembersLocal(next);
+    if (okMsg) toast(okMsg);
+    renderPinTargets();
     FamilyCloud.saveMembers(next).then(function () {
-      if (okMsg) toast(okMsg);
-      renderAdminMembers();
-      renderPinTargets();
+      /* 서버 저장 완료 — 실시간 반영(onRoom)이 최종 값을 한 번 더 맞춰 줍니다. */
     }).catch(function (err) {
+      applyMembersLocal(before);
       window.alert('저장하지 못했어요 · ' + errorHint(err));
     });
   }
@@ -3899,12 +3993,7 @@
     el.memberError.hidden = true;
     el.newMemberName.value = '';
     if (el.newMemberTel) el.newMemberTel.value = '';
-    FamilyCloud.saveMembers(next).then(function () {
-      toast(name + ' 님을 구성원으로 추가했어요');
-      renderAdminMembers();
-    }).catch(function (err) {
-      showMemberError('추가하지 못했어요 · ' + errorHint(err));
-    });
+    saveMemberList(next, name + ' 님을 구성원으로 추가했어요');
   }
 
   function renderPinTargets() {

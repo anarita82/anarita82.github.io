@@ -1235,7 +1235,7 @@
 
   /* 승인하면 members[] 의 그 구성원 이름·번호를 요청 값으로 바꿉니다.
      현재 문서를 트랜잭션 안에서 다시 읽어, 그 사이 다른 곳에서 저장한 내용을 지우지 않습니다. */
-  function decideProfileRequest(req, me, approve) {
+  function decideProfileRequest(req, me, approve, knownMembers) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     if (!req || !req.id) return Promise.reject(new Error('no-request'));
     var base = 'profileRequests.' + req.id + '.';
@@ -1254,9 +1254,18 @@
         if (approve) {
           var targetId = String(cur.targetId || req.targetId || '');
           var members = Array.isArray(d.members) ? d.members.slice() : [];
-          var idx = -1, i;
-          for (i = 0; i < members.length; i++) {
-            if (members[i] && String(members[i].id || '') === targetId) { idx = i; break; }
+          function findIdx(list) {
+            for (var k = 0; k < list.length; k++) {
+              if (list[k] && String(list[k].id || '') === targetId) return k;
+            }
+            return -1;
+          }
+          var idx = findIdx(members);
+          var i;
+          /* 구성원 목록이 아직 방에 없던 새 방 — 화면에 있는 기본 구성원으로 한 번 풀어 둡니다. */
+          if (idx < 0 && !members.length && Array.isArray(knownMembers) && knownMembers.length) {
+            members = knownMembers.map(cleanMember);
+            idx = findIdx(members);
           }
           if (idx < 0) throw new Error('member-missing');
           var next = cleanMember(members[idx]);
@@ -1333,8 +1342,8 @@
     approveRequest: function (req, me) { return decideRequest(req, me, true); },
     rejectRequest: function (req, me) { return decideRequest(req, me, false); },
     submitProfileRequest: submitProfileRequest,
-    approveProfileRequest: function (req, me) { return decideProfileRequest(req, me, true); },
-    rejectProfileRequest: function (req, me) { return decideProfileRequest(req, me, false); },
+    approveProfileRequest: function (req, me, known) { return decideProfileRequest(req, me, true, known); },
+    rejectProfileRequest: function (req, me, known) { return decideProfileRequest(req, me, false, known); },
     parseProfileRequests: parseProfileRequests,
     bindMemberAccount: bindMemberAccount,
     removeMember: removeMember,

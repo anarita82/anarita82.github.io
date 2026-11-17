@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118a2" />
-<link rel="stylesheet" href="store.css?v=20261118a2" />
-<link rel="stylesheet" href="ledger.css?v=20261118a2" />
-<link rel="stylesheet" href="extra.css?v=20261118a2" />
-<link rel="stylesheet" href="polish.css?v=20261118a2" />
+<link rel="stylesheet" href="styles.css?v=20261118a3" />
+<link rel="stylesheet" href="store.css?v=20261118a3" />
+<link rel="stylesheet" href="ledger.css?v=20261118a3" />
+<link rel="stylesheet" href="extra.css?v=20261118a3" />
+<link rel="stylesheet" href="polish.css?v=20261118a3" />
 </head>
 <body>
 <div class="app">
@@ -497,6 +497,11 @@
       <button type="button" class="set-row" id="setProfileRow">
         <span class="set-row__i">🙋</span>
         <span class="set-row__t">내 정보·알림<small>이름·휴대폰 번호, 알림 설정</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button type="button" class="set-row" id="setMembersRow" hidden>
+        <span class="set-row__i">✏️</span>
+        <span class="set-row__t">가족 이름·번호 바꾸기<small>첫째 → 성민처럼 이름·휴대폰 번호 수정</small></span>
         <span class="set-row__chev">›</span>
       </button>
       <button type="button" class="set-row" id="setAdminRow" hidden>
@@ -1201,8 +1206,9 @@
       <button class="sheet-close" id="adminClose" type="button" aria-label="닫기">✕</button>
     </div>
 
-    <section class="admin-block">
+    <section class="admin-block" id="adminMembersBlock">
       <h3>구성원 관리</h3>
+      <p class="field-hint admin-members__hint">이름·휴대폰 번호를 고치면 <b>[✓ 저장]</b> 버튼이 생겨요. Enter를 누르거나 다른 곳을 눌러도 저장되고, <b>달력 위 구성원 칩·일정 담당자·내 정보</b>에 바로 바뀝니다.</p>
       <ul class="admin-members" id="adminMemberList"></ul>
       <div class="admin-add">
         <div class="field">
@@ -1783,19 +1789,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118a2"></script>
-<script src="firebase-auth-compat.js?v=20261118a2"></script>
-<script src="firebase-firestore-compat.js?v=20261118a2"></script>
-<script src="lunar.js?v=20261118a2"></script>
-<script src="cloud.js?v=20261118a2"></script>
-<script src="app.js?v=20261118a2"></script>
-<script src="voice.js?v=20261118a2"></script>
-<script src="media.js?v=20261118a2"></script>
-<script src="store-cloud.js?v=20261118a2"></script>
-<script src="store.js?v=20261118a2"></script>
-<script src="ledger-cloud.js?v=20261118a2"></script>
-<script src="ledger.js?v=20261118a2"></script>
-<script src="extra-cloud.js?v=20261118a2"></script>
-<script src="extra.js?v=20261118a2"></script>
+<script src="firebase-app-compat.js?v=20261118a3"></script>
+<script src="firebase-auth-compat.js?v=20261118a3"></script>
+<script src="firebase-firestore-compat.js?v=20261118a3"></script>
+<script src="lunar.js?v=20261118a3"></script>
+<script src="cloud.js?v=20261118a3"></script>
+<script src="app.js?v=20261118a3"></script>
+<script src="voice.js?v=20261118a3"></script>
+<script src="media.js?v=20261118a3"></script>
+<script src="store-cloud.js?v=20261118a3"></script>
+<script src="store.js?v=20261118a3"></script>
+<script src="ledger-cloud.js?v=20261118a3"></script>
+<script src="ledger.js?v=20261118a3"></script>
+<script src="extra-cloud.js?v=20261118a3"></script>
+<script src="extra.js?v=20261118a3"></script>
 </body>
 </html>
