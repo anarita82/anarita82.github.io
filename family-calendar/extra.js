@@ -220,6 +220,8 @@
     S.lastStatus = { kind: kind || 'pending', text: text || '' };
     if (!S.active) return;
     if (el.note) el.note.textContent = text || '';
+    var bar = $('appBarNote');
+    if (bar) bar.textContent = text || '';
     var pill = $('statusPill');
     if (pill) {
       var label = (kind === 'online') ? '공유 중' : (kind === 'offline') ? '오프라인' : (kind === 'error') ? '확인 필요' : '연결 중';
@@ -349,6 +351,10 @@
     if (el.addBtn) el.addBtn.hidden = true;
     closeModals();
     paintTabs();
+    /* 가족·매장 화면으로 돌아갈 때 상단 상태 문구를 그 화면 것으로 되돌립니다. */
+    if (window.FamilyCalendar && typeof window.FamilyCalendar.paintStatus === 'function') {
+      try { window.FamilyCalendar.paintStatus(); } catch (e) { /* 무시 */ }
+    }
   }
 
   function closeModals() {
