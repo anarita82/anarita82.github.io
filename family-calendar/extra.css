@@ -1,0 +1,224 @@
+/* ➕ 추가 캘린더 — 상단 탭 확장 + 직접 만든 캘린더 화면·모달 스타일 */
+
+/* ---------- 상단 탭 줄 (가로 스크롤 + [＋ 추가]) ---------- */
+.mode-tabs-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 10px;
+}
+.mode-tabs-row .mode-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mode-tabs-row .mode-tabs::-webkit-scrollbar { display: none; }
+.mode-tabs-row .mode-tab { flex: 1 0 auto; }
+.mode-tab--custom { max-width: 168px; overflow: hidden; text-overflow: ellipsis; }
+.mode-tab-add {
+  flex: 0 0 auto;
+  border: 1px dashed rgba(255, 255, 255, .55);
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.3px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mode-tab-add:active { background: rgba(255, 255, 255, .26); }
+body.custom-mode .mode-tab.is-active { color: #6d28d9; }
+body.custom-mode .app-bar {
+  background: linear-gradient(135deg, #4f46e5 0%, #6d28d9 55%, #8b5cf6 100%);
+  box-shadow: 0 10px 24px -14px rgba(109, 40, 217, .85);
+}
+body.custom-mode .fab {
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+  box-shadow: 0 10px 24px -8px rgba(109, 40, 217, .8);
+}
+body.custom-mode .day--selected { background: #6d28d9; }
+body.custom-mode .day--today .day__num { background: #f1ebff; color: #6d28d9; }
+body.custom-mode .btn-primary { background: #6d28d9; }
+body.custom-mode .btn-primary:active { background: #5b21b6; }
+
+/* ---------- 캘린더 머리 ---------- */
+.calv-view { padding-bottom: 96px; }
+.calv-head { padding-bottom: 12px; }
+.calv-head__main { display: flex; align-items: center; gap: 10px; }
+.calv-head__icon {
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px;
+  border-radius: 13px;
+  background: #f1ebff;
+}
+.calv-head__txt { flex: 1 1 auto; min-width: 0; }
+.calv-head__name {
+  margin: 0;
+  font-size: 17px; font-weight: 900; letter-spacing: -.4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.calv-head__meta { margin: 2px 0 0; font-size: 11.5px; font-weight: 700; color: var(--ink-faint); }
+.calv-head__note { margin: 10px 0 0; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
+.calv-sum__note { margin: 9px 0 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+
+.cal-row-memo {
+  margin: 0;
+  padding: 0 11px 8px 14px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.cal-row-actions { display: flex; gap: 6px; padding: 0 10px 10px 12px; flex-wrap: wrap; }
+
+/* ---------- 캘린더 추가 모달 ---------- */
+.cal-intro { margin: 0 0 12px; font-size: 12px; color: var(--ink-soft); line-height: 1.6; }
+.cal-intro b { color: var(--ink); }
+
+.cal-seg {
+  display: flex; gap: 4px;
+  padding: 3px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: #f2f3f8;
+}
+.cal-seg__btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px; font-weight: 800; letter-spacing: -.3px;
+  color: var(--ink-soft);
+  padding: 8px 4px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.cal-seg__btn.is-active { background: #fff; color: #5b21b6; box-shadow: 0 2px 8px -4px rgba(0, 0, 0, .3); }
+.cal-seg--sm .cal-seg__btn { font-size: 11.5px; padding: 7px 2px; }
+.cal-seg--sm .cal-seg__btn.is-active { color: #0f766e; }
+
+.cal-icon-pick { display: flex; flex-wrap: wrap; gap: 5px; }
+.cal-icon-pick__btn {
+  width: 38px; height: 38px;
+  border: 1px solid #e8eaf2;
+  background: #fff;
+  border-radius: 11px;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.cal-icon-pick__btn.is-active { border-color: #6d28d9; background: #f5f0ff; box-shadow: 0 0 0 2px rgba(109, 40, 217, .16); }
+.cal-icon-pick__btn:disabled { opacity: .55; }
+
+.cal-type { display: flex; flex-direction: column; gap: 6px; }
+.cal-type__btn {
+  display: flex; flex-direction: column; gap: 2px;
+  text-align: left;
+  border: 1px solid #e8eaf2;
+  background: #fff;
+  border-radius: 13px;
+  padding: 10px 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cal-type__btn b { font-size: 13px; font-weight: 800; letter-spacing: -.3px; }
+.cal-type__btn span { font-size: 11px; color: var(--ink-soft); }
+.cal-type__btn.is-active { border-color: #6d28d9; background: #f7f3ff; box-shadow: 0 0 0 2px rgba(109, 40, 217, .12); }
+
+.cal-found {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f5f0ff;
+  border: 1px solid #e2d6ff;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cal-found b { font-size: 13.5px; font-weight: 900; letter-spacing: -.3px; }
+.cal-found span { font-size: 11px; color: var(--ink-soft); }
+
+/* ---------- 설정 모달 ---------- */
+.cal-set-block {
+  padding: 12px 0;
+  border-top: 1px solid #f0f1f6;
+}
+.cal-set-block:first-of-type { border-top: 0; padding-top: 0; }
+.cal-set-block h3 { margin: 0 0 6px; font-size: 13px; font-weight: 900; letter-spacing: -.3px; }
+.cal-set-note { margin: 0 0 8px; font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; }
+.cal-code-line { margin: 0 0 8px; font-size: 12px; color: var(--ink-soft); }
+.cal-code-line b {
+  font-size: 13px; font-weight: 900; color: #5b21b6;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+}
+.cal-set-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cal-set-pin {
+  width: 92px;
+  text-align: center;
+  font-size: 17px; font-weight: 800; letter-spacing: 7px;
+  padding: 8px 10px;
+  border: 1px solid #e2e4ee;
+  border-radius: 11px;
+  font-family: inherit;
+}
+.cal-set-block .field { margin-bottom: 10px; }
+
+.cal-staff-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.cal-staff {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  background: #fafbff;
+  border: 1px solid #eef0f6;
+}
+.cal-staff i { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; }
+.cal-staff b { flex: 1 1 auto; min-width: 0; font-size: 12.5px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-staff__wage {
+  flex: 0 0 76px;
+  text-align: right;
+  font-family: inherit;
+  font-size: 12px; font-weight: 700;
+  padding: 5px 7px;
+  border: 1px solid #e2e4ee;
+  border-radius: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.cal-staff-add { display: flex; gap: 6px; }
+.cal-staff-add input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border: 1px solid #e2e4ee;
+  border-radius: 11px;
+}
+
+/* ---------- 근무 모달 ---------- */
+.cal-pick { display: flex; flex-wrap: wrap; gap: 5px; }
+.cal-pick__btn {
+  border: 1px solid #e8eaf2;
+  background: #fff;
+  color: #3b4152;
+  font-family: inherit;
+  font-size: 12px; font-weight: 800;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cal-pick__btn.is-active {
+  background: var(--pc, #0d9488);
+  border-color: var(--pc, #0d9488);
+  color: #fff;
+}
+.cal-time-row { display: flex; gap: 8px; }
+.cal-time-row .field { flex: 1 1 0; min-width: 0; }

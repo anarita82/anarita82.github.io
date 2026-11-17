@@ -498,6 +498,7 @@
   function paintStatus() {
     if (!el.statusPill) return;
     if (window.StoreMode && window.StoreMode.isStoreActive()) return;
+    if (window.ExtraMode && typeof window.ExtraMode.isActive === 'function' && window.ExtraMode.isActive()) return;
     var kind = lastStatus.kind, text = lastStatus.text;
     el.statusPill.textContent = kind === 'online' ? '공유 중' : (kind === 'offline' ? '오프라인' : (kind === 'error' ? '오류' : '연결 중'));
     el.statusPill.className = 'app-bar__status app-bar__status--' + (kind || 'pending');

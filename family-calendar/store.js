@@ -546,6 +546,10 @@
   }
 
   function activate() {
+    /* 추가 캘린더(➕) 화면이 떠 있으면 먼저 닫습니다 — 두 화면이 겹치지 않게 */
+    if (window.ExtraMode && typeof window.ExtraMode.isActive === 'function' && window.ExtraMode.isActive()) {
+      try { window.ExtraMode.leave(); } catch (e) { /* 무시 */ }
+    }
     S.active = true;
     document.body.classList.add('store-mode');
     if (el.familyView) el.familyView.hidden = true;
@@ -3192,6 +3196,7 @@
     isStoreActive: function () { return S.active; },
     shouldSkipFamily: function () { return isLocked(); },
     open: function () { activate('api'); },
+    close: function () { if (S.active) deactivate('api'); },
     render: function () { renderAll(); },
     applyVoice: function (text) { applyVoiceShift(text); },
     /* 읽기 전용 상태 (검증·디버깅용) */

@@ -194,6 +194,10 @@
   }
 
   function enterLedger() {
+    /* 추가 캘린더(➕) 화면이 떠 있으면 먼저 닫습니다 — 두 화면이 겹치지 않게 */
+    if (window.ExtraMode && typeof window.ExtraMode.isActive === 'function' && window.ExtraMode.isActive()) {
+      try { window.ExtraMode.leave(); } catch (e) { /* 무시 */ }
+    }
     S.active = true;
     document.body.classList.add('ledger-mode');
     closeOtherModals();
@@ -1468,6 +1472,7 @@
   window.LedgerMode = {
     requestOpen: requestOpen,
     open: enterLedger,
+    leave: leaveLedger,
     isActive: function () { return S.active; },
     isOwnerDevice: function () { return S.owner; },
     isUnlocked: function () { return S.unlocked; },

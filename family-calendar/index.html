@@ -12,9 +12,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117z3" />
-<link rel="stylesheet" href="store.css?v=20261117z3" />
-<link rel="stylesheet" href="ledger.css?v=20261117z3" />
+<link rel="stylesheet" href="styles.css?v=20261117z4" />
+<link rel="stylesheet" href="store.css?v=20261117z4" />
+<link rel="stylesheet" href="ledger.css?v=20261117z4" />
+<link rel="stylesheet" href="extra.css?v=20261117z4" />
 </head>
 <body>
 <div class="app">
@@ -23,10 +24,14 @@
       <h1 class="app-bar__title" id="appTitle">📅 우리 가족 달력</h1>
       <span class="app-bar__status app-bar__status--pending" id="statusPill">연결 중</span>
     </div>
-    <div class="mode-tabs" id="modeTabs" hidden>
-      <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족 캘린더</button>
-      <button type="button" class="mode-tab" id="tabStore">🏪 매장 캘린더</button>
-      <button type="button" class="mode-tab" id="tabLedger" hidden>💰 출납부</button>
+    <div class="mode-tabs-row" id="modeTabs" hidden>
+      <div class="mode-tabs">
+        <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족 캘린더</button>
+        <button type="button" class="mode-tab" id="tabStore">🏪 매장 캘린더</button>
+        <button type="button" class="mode-tab" id="tabLedger" hidden>💰 출납부</button>
+        <span id="calTabs" style="display:contents"></span>
+      </div>
+      <button type="button" class="mode-tab-add" id="tabAddCal" aria-label="캘린더 추가" title="캘린더 추가">＋ 추가</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="familySubRow">
       <button class="profile-badge" id="profileBtn" type="button">
@@ -310,6 +315,123 @@
   </main>
 
   <button class="fab" id="storeAddBtn" type="button" hidden>＋ 근무 등록</button>
+
+  <!-- ➕ 추가 캘린더 (사용자가 직접 만든 캘린더 — 가족·매장·출납부와 방이 다릅니다) -->
+  <div id="customView" hidden>
+    <main class="content calv-view">
+      <section class="card calv-head">
+        <div class="calv-head__main">
+          <span class="calv-head__icon" id="calvIcon">📅</span>
+          <div class="calv-head__txt">
+            <h2 class="calv-head__name" id="calvName">캘린더</h2>
+            <p class="calv-head__meta" id="calvMeta">일반형</p>
+          </div>
+          <button class="btn-ghost btn-small" id="calvSettingsBtn" type="button">⚙️ 설정</button>
+        </div>
+        <p class="calv-head__note" id="calvNote">연결하는 중…</p>
+      </section>
+
+      <!-- 일반형 (모임·일정) -->
+      <div id="calvGeneral" hidden>
+        <section class="card calendar">
+          <div class="cal-head">
+            <div class="cal-head__side">
+              <button class="btn-today" id="calvTodayBtn" type="button">오늘</button>
+            </div>
+            <div class="cal-title">
+              <strong id="calvCalTitle">-</strong>
+              <span id="calvCalSub" class="cal-sub"></span>
+            </div>
+            <div class="cal-head__side">
+              <button class="cal-nav" id="calvPrev" type="button" aria-label="이전 달">‹</button>
+              <button class="cal-nav" id="calvNext" type="button" aria-label="다음 달">›</button>
+            </div>
+          </div>
+          <div class="weekdays" aria-hidden="true">
+            <span class="wd wd--sun">일</span><span class="wd">월</span><span class="wd">화</span>
+            <span class="wd">수</span><span class="wd">목</span><span class="wd">금</span><span class="wd wd--sat">토</span>
+          </div>
+          <div class="grid" id="calvGrid"></div>
+        </section>
+
+        <section class="card" id="calvDayCard"></section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>⏰ 다가오는 일정</h2>
+            <span class="card-head__hint">오늘부터 2달</span>
+          </div>
+          <ul class="dday-list" id="calvUpcoming"></ul>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>💬 카톡 요약 복사</h2>
+            <span class="card-head__hint">붙여넣기만 하면 돼요</span>
+          </div>
+          <div class="kakao-actions">
+            <button type="button" class="btn-primary btn-small" id="calvKakaoToday">오늘 요약 복사</button>
+            <button type="button" class="btn-ghost btn-small" id="calvKakaoWeek">이번 주 요약 복사</button>
+          </div>
+          <pre class="kakao-preview" id="calvKakaoPreview" hidden></pre>
+        </section>
+      </div>
+
+      <!-- 근무형 (매장·알바) -->
+      <div id="calvStore" hidden>
+        <section class="card">
+          <div class="card-head">
+            <h2>📊 근무·인건비</h2>
+            <span class="card-head__hint" id="calvSumHint">-</span>
+          </div>
+          <div class="lg-sum">
+            <div class="lg-sum__box"><span class="lg-sum__k">오늘 근무</span><span class="lg-sum__v" id="calvTodayHours">0시간</span></div>
+            <div class="lg-sum__box"><span class="lg-sum__k">오늘 인건비</span><span class="lg-sum__v" id="calvTodayWage">0원</span></div>
+            <div class="lg-sum__box"><span class="lg-sum__k">이번 달 인건비</span><span class="lg-sum__v" id="calvMonthWage">0원</span></div>
+          </div>
+          <p class="calv-sum__note" id="calvMonthNote"></p>
+        </section>
+
+        <section class="card calendar">
+          <div class="cal-head">
+            <div class="cal-head__side">
+              <button class="btn-today" id="calvSTodayBtn" type="button">오늘</button>
+            </div>
+            <div class="cal-title">
+              <strong id="calvSCalTitle">-</strong>
+              <span id="calvSCalSub" class="cal-sub"></span>
+            </div>
+            <div class="cal-head__side">
+              <button class="cal-nav" id="calvSPrev" type="button" aria-label="이전 달">‹</button>
+              <button class="cal-nav" id="calvSNext" type="button" aria-label="다음 달">›</button>
+            </div>
+          </div>
+          <div class="weekdays" aria-hidden="true">
+            <span class="wd wd--sun">일</span><span class="wd">월</span><span class="wd">화</span>
+            <span class="wd">수</span><span class="wd">목</span><span class="wd">금</span><span class="wd wd--sat">토</span>
+          </div>
+          <div class="grid" id="calvSGrid"></div>
+          <div class="cal-legend" id="calvSLegend" aria-hidden="true"></div>
+        </section>
+
+        <section class="card" id="calvShiftDay"></section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>💬 카톡 요약 복사</h2>
+            <span class="card-head__hint">근무·출퇴근</span>
+          </div>
+          <div class="kakao-actions">
+            <button type="button" class="btn-primary btn-small" id="calvSKakaoToday">오늘 근무 복사</button>
+            <button type="button" class="btn-ghost btn-small" id="calvSKakaoWeek">이번 주 근무 복사</button>
+          </div>
+          <pre class="kakao-preview" id="calvSKakaoPreview" hidden></pre>
+        </section>
+      </div>
+    </main>
+
+    <button class="fab" id="calvAddBtn" type="button" hidden>＋ 일정 추가</button>
+  </div>
 
   <!-- 💰 금전출납부 (사장님 전용 · 이 기기에서 켠 경우에만 보입니다) -->
   <div class="content ledger-view" id="ledgerView" hidden>
@@ -1194,21 +1316,262 @@
   </div>
 </div>
 
+<!-- ➕ 캘린더 추가 (새로 만들기 / 초대 코드로 참여) -->
+<div class="modal" id="calAddModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>➕ 캘린더 추가</h2>
+      <button class="sheet-close" id="calAddClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="cal-intro">가족·매장 달력과 <b>서버 방이 완전히 다른</b> 캘린더를 만들어 쓸 수 있어요.<br />동호회·학교·여행·다른 매장처럼 따로 관리하고 싶은 일정을 넣어 두세요.</p>
+
+    <div class="cal-seg" id="calAddSeg">
+      <button type="button" class="cal-seg__btn is-active" data-pane="new">새로 만들기</button>
+      <button type="button" class="cal-seg__btn" data-pane="join">초대 코드로 참여</button>
+    </div>
+
+    <div id="calNewPane">
+      <div class="field">
+        <label for="calNewName">캘린더 이름 <span class="req">*</span></label>
+        <input id="calNewName" type="text" maxlength="16" placeholder="예) 동호회, 둘째 학원, 2호점" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>아이콘</label>
+        <div class="cal-icon-pick" id="calNewIcons"></div>
+      </div>
+      <div class="field">
+        <label>종류</label>
+        <div class="cal-type" id="calNewType">
+          <button type="button" class="cal-type__btn is-active" data-type="general">
+            <b>📅 모임·일반형</b><span>일정·모임·행사 달력</span>
+          </button>
+          <button type="button" class="cal-type__btn" data-type="store">
+            <b>🏪 매장·근무형</b><span>알바·근무시간·인건비·출퇴근</span>
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="calNewPin">관리자 PIN (4자리)</label>
+        <input id="calNewPin" type="password" inputmode="numeric" maxlength="4" placeholder="2026" autocomplete="off" />
+        <p class="field-hint">이름·아이콘 바꾸기와 직원 관리에 씁니다. 비워 두면 <b>2026</b>이에요.</p>
+      </div>
+      <div class="field">
+        <label for="calNewMe">내 이름 (선택)</label>
+        <input id="calNewMe" type="text" maxlength="12" placeholder="이 캘린더에서 쓸 이름" autocomplete="off" />
+      </div>
+      <p class="form-error" id="calNewError" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-primary" id="calNewCreate">만들기</button>
+      </div>
+    </div>
+
+    <div id="calJoinPane" hidden>
+      <div class="field">
+        <label for="calJoinCode">초대 코드</label>
+        <input id="calJoinCode" type="text" maxlength="40" placeholder="cal-abcde" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" />
+        <p class="field-hint">초대 링크를 받았다면 링크를 누르기만 하면 돼요. 코드만 받았다면 여기에 넣어 주세요.</p>
+      </div>
+      <button type="button" class="btn-ghost btn-small" id="calJoinLookup">코드 확인</button>
+      <div class="cal-found" id="calFound" hidden></div>
+      <div class="field" style="margin-top:12px">
+        <label for="calJoinMe">내 이름 (선택)</label>
+        <input id="calJoinMe" type="text" maxlength="12" placeholder="이 캘린더에서 쓸 이름" autocomplete="off" />
+      </div>
+      <p class="form-error" id="calJoinError" hidden></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-primary" id="calJoinGo" disabled>참여하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ➕ 추가 캘린더 설정 -->
+<div class="modal" id="calSettingsModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 캘린더 설정</h2>
+      <button class="sheet-close" id="calSetClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <section class="cal-set-block">
+      <h3>📨 초대</h3>
+      <p class="cal-set-note">같이 쓰는 사람에게 <b>초대 링크</b>를 보내면 그 폰에서 바로 이 캘린더가 열려요.</p>
+      <p class="cal-code-line">초대 코드 <b id="calSetCode">-</b></p>
+      <div class="cal-set-row">
+        <button type="button" class="btn-primary btn-small" id="calSetInviteBtn">초대 링크 복사</button>
+        <button type="button" class="btn-ghost btn-small" id="calSetCodeBtn">코드 복사</button>
+      </div>
+    </section>
+
+    <section class="cal-set-block">
+      <h3>👤 내 정보</h3>
+      <div class="field">
+        <label for="calSetMe">이 캘린더에서 쓸 내 이름</label>
+        <input id="calSetMe" type="text" maxlength="12" placeholder="예) 아빠" autocomplete="off" />
+      </div>
+      <div class="field" id="calSetMeStaffWrap" hidden>
+        <label for="calSetMeStaff">내 근무자</label>
+        <select id="calSetMeStaff"></select>
+      </div>
+      <button type="button" class="btn-ghost btn-small" id="calSetMeSave">내 정보 저장</button>
+    </section>
+
+    <section class="cal-set-block">
+      <h3>✏️ 이름·아이콘</h3>
+      <div class="field">
+        <label for="calSetName">캘린더 이름</label>
+        <input id="calSetName" type="text" maxlength="16" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>아이콘</label>
+        <div class="cal-icon-pick" id="calSetIcons"></div>
+      </div>
+      <p class="cal-set-note" id="calSetMetaNote"></p>
+      <button type="button" class="btn-primary btn-small" id="calSetSave">저장</button>
+    </section>
+
+    <section class="cal-set-block" id="calSetPinBlock">
+      <h3>🔑 관리자 PIN</h3>
+      <p class="cal-set-note" id="calSetPinNote">관리자로 바꾸면 이름·아이콘과 직원 관리가 열립니다.</p>
+      <div class="cal-set-row">
+        <input class="cal-set-pin" id="calSetPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" aria-label="관리자 PIN" />
+        <button type="button" class="btn-ghost btn-small" id="calSetPinBtn">관리자로 잠금 풀기</button>
+      </div>
+      <p class="form-error" id="calSetPinError" hidden></p>
+    </section>
+
+    <section class="cal-set-block" id="calStaffBlock" hidden>
+      <h3>👥 근무자 관리</h3>
+      <p class="cal-set-note">이름과 시급을 넣어 두면 근무 등록 때 담당을 고르고 인건비를 바로 계산해요.</p>
+      <ul class="cal-staff-list" id="calStaffList"></ul>
+      <div class="cal-staff-add">
+        <input id="calStaffName" type="text" maxlength="12" placeholder="이름" autocomplete="off" />
+        <input id="calStaffWage" type="text" inputmode="numeric" maxlength="8" placeholder="시급" autocomplete="off" />
+        <button type="button" class="btn-ghost btn-small" id="calStaffAdd">추가</button>
+      </div>
+      <p class="form-error" id="calStaffError" hidden></p>
+    </section>
+
+    <section class="cal-set-block">
+      <h3>이 기기</h3>
+      <p class="cal-set-note">나가도 서버의 일정·근무는 지우지 않아요. 다시 초대 코드로 들어오면 그대로 보여요.</p>
+      <button type="button" class="btn-ghost btn-small btn-danger" id="calSetLeave">이 기기에서 캘린더 나가기</button>
+    </section>
+  </div>
+</div>
+
+<!-- ➕ 일반형 일정 등록 -->
+<div class="modal" id="calEventModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="calEvTitle">일정 추가</h2>
+      <button class="sheet-close" id="calEvClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="field">
+      <label for="calEvTitleInput">제목 <span class="req">*</span></label>
+      <input id="calEvTitleInput" type="text" maxlength="80" placeholder="예) 정기 모임, 발표회" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="calEvDate">날짜 <span class="req">*</span></label>
+      <input id="calEvDate" type="date" />
+    </div>
+    <div class="field">
+      <label for="calEvTime">시각 (선택)</label>
+      <input id="calEvTime" type="time" />
+    </div>
+    <div class="field">
+      <label for="calEvMemo">메모</label>
+      <textarea id="calEvMemo" maxlength="300" placeholder="장소·준비물·연락처 등"></textarea>
+    </div>
+    <p class="form-error" id="calEvError" hidden></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="calEvSave">저장</button>
+      <button type="button" class="btn-ghost btn-danger" id="calEvDelete" hidden>삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- ➕ 근무형 근무 등록 -->
+<div class="modal" id="calShiftModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="calShTitle">근무 등록</h2>
+      <button class="sheet-close" id="calShClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="field">
+      <label>담당 <span class="req">*</span></label>
+      <div class="cal-pick" id="calShStaff"></div>
+      <p class="field-hint" id="calShStaffHint" hidden>먼저 ⚙️ 설정에서 근무자를 등록해 주세요.</p>
+    </div>
+    <div class="field">
+      <label for="calShDate">날짜 <span class="req">*</span></label>
+      <input id="calShDate" type="date" />
+    </div>
+    <div class="cal-time-row">
+      <div class="field">
+        <label for="calShStart">시작</label>
+        <input id="calShStart" type="time" />
+      </div>
+      <div class="field">
+        <label for="calShEnd">종료</label>
+        <input id="calShEnd" type="time" />
+      </div>
+      <div class="field">
+        <label for="calShBreak">휴게(분)</label>
+        <input id="calShBreak" type="text" inputmode="numeric" maxlength="3" placeholder="0" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="calShWage">적용 시급</label>
+      <input id="calShWage" type="text" inputmode="numeric" maxlength="8" placeholder="10000" />
+      <p class="field-hint" id="calShCalc">근무 시간과 인건비를 계산해요.</p>
+    </div>
+    <div class="field">
+      <label>상태</label>
+      <div class="cal-seg cal-seg--sm" id="calShStatus">
+        <button type="button" class="cal-seg__btn is-active" data-status="planned">예정</button>
+        <button type="button" class="cal-seg__btn" data-status="done">근무완료</button>
+        <button type="button" class="cal-seg__btn" data-status="absent">결근</button>
+        <button type="button" class="cal-seg__btn" data-status="canceled">취소</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="calShMemo">메모</label>
+      <input id="calShMemo" type="text" maxlength="200" placeholder="예) 주말 대타" autocomplete="off" />
+    </div>
+    <p class="form-error" id="calShError" hidden></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="calShSave">저장</button>
+      <button type="button" class="btn-ghost btn-danger" id="calShDelete" hidden>삭제</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117z3"></script>
-<script src="firebase-auth-compat.js?v=20261117z3"></script>
-<script src="firebase-firestore-compat.js?v=20261117z3"></script>
-<script src="lunar.js?v=20261117z3"></script>
-<script src="cloud.js?v=20261117z3"></script>
-<script src="app.js?v=20261117z3"></script>
-<script src="voice.js?v=20261117z3"></script>
-<script src="media.js?v=20261117z3"></script>
-<script src="store-cloud.js?v=20261117z3"></script>
-<script src="store.js?v=20261117z3"></script>
-<script src="ledger-cloud.js?v=20261117z3"></script>
-<script src="ledger.js?v=20261117z3"></script>
+<script src="firebase-app-compat.js?v=20261117z4"></script>
+<script src="firebase-auth-compat.js?v=20261117z4"></script>
+<script src="firebase-firestore-compat.js?v=20261117z4"></script>
+<script src="lunar.js?v=20261117z4"></script>
+<script src="cloud.js?v=20261117z4"></script>
+<script src="app.js?v=20261117z4"></script>
+<script src="voice.js?v=20261117z4"></script>
+<script src="media.js?v=20261117z4"></script>
+<script src="store-cloud.js?v=20261117z4"></script>
+<script src="store.js?v=20261117z4"></script>
+<script src="ledger-cloud.js?v=20261117z4"></script>
+<script src="ledger.js?v=20261117z4"></script>
+<script src="extra-cloud.js?v=20261117z4"></script>
+<script src="extra.js?v=20261117z4"></script>
 </body>
 </html>
