@@ -267,6 +267,25 @@
   function shiftsOn(dateISO) {
     return S.shifts.filter(function (s) { return s.date === dateISO && passFilter(s); }).sort(byStart);
   }
+
+  /* ---- 누구에게 무엇을 보여 줄지 ----
+     · 근무자 이름: 매장 사람이면 누구나(사장님·알바생) 그날 누가 나오는지 봅니다.
+     · 근무시간·급여: 사장님과 그 근무자 본인만. 다른 사람 근무는 시간 숫자를 화면에 만들지 않습니다.
+       (알바생 기기는 필터가 본인으로 잡혀 있어, 달력·날짜 상세는 이 함수로 따로 모읍니다) */
+  function shiftInStoreView(sh) {
+    if (!isOwner()) return true;
+    return passFilter(sh);
+  }
+  function canSeeShiftTime(sh) {
+    if (isOwner()) return true;
+    if (!sh) return false;
+    var sid = myStaffId();
+    return !!(sid && sh.staffId === sid);
+  }
+  /* 그날 근무 — 달력 칸·당일 목록·날짜 상세가 함께 씁니다. */
+  function storeDayShifts(dateISO) {
+    return S.shifts.filter(function (s) { return s.date === dateISO && shiftInStoreView(s); }).sort(byStart);
+  }
   function shiftsInMonth(y, m) {
     var key = monthKey(y, m);
     return S.shifts.filter(function (s) { return s.date && s.date.slice(0, 7) === key && passFilter(s); });
@@ -1371,8 +1390,11 @@
     var y = S.year, m = S.month;
     if (title) title.textContent = y + '년 ' + (m + 1) + '월';
     if (sub) {
+      /* 월 합계도 시간은 사장님·본인 몫만 — 알바생에게는 본인 근무 시간을 적습니다. */
       var ms = shiftsInMonth(y, m);
-      sub.textContent = '총 ' + hoursText(sumMinutes(ms)) + (isOwner() ? ' · ' + money(sumPay(ms)) : '');
+      sub.textContent = isOwner()
+        ? '총 ' + hoursText(sumMinutes(ms)) + ' · ' + money(sumPay(ms))
+        : '내 근무 ' + hoursText(sumMinutes(ms));
     }
 
     var first = new Date(y, m, 1);
@@ -1401,8 +1423,9 @@
       num.textContent = String(dt.getDate());
       cell.appendChild(num);
 
-      var dayShifts = S.shifts.filter(function (s) { return s.date === dateISO && passFilter(s); }).sort(byStart);
-      /* 달력 칸 안 근무 미리보기 — 알바 이름·시간 최대 2줄 + 남은 개수(+N) */
+      var dayShifts = storeDayShifts(dateISO);
+      /* 달력 칸에는 근무자 이름만 — 근무시간은 날짜를 눌렀을 때 보여 줍니다.
+         (이름은 staff 목록의 현재 이름이 우선이라 이름을 고치면 칸도 바로 바뀝니다) */
       if (dayShifts.length) {
         var evs = document.createElement('span');
         evs.className = 'day__evs';
@@ -1413,17 +1436,12 @@
           var bar = document.createElement('i');
           bar.style.background = st ? st.color : '#94a3b8';
           row.appendChild(bar);
-          /* 누가 근무하는지 한눈에 — 근무자 이름을 먼저, 시간은 자리가 남을 때만 옆에 붙입니다.
-             (이름은 staff 목록의 현재 이름이 우선이라 이름을 고치면 칸도 바로 바뀝니다) */
           var nm = document.createElement('span');
           nm.className = 'day__ev-n';
           nm.textContent = shiftName(s);
           row.appendChild(nm);
-          var tm = document.createElement('span');
-          tm.className = 'day__ev-h';
-          tm.textContent = cellShiftTime(s);
-          row.appendChild(tm);
-          row.title = shiftName(s) + ' ' + s.start + '~' + s.end;
+          /* 다른 사람 근무 시간은 툴팁에도 남기지 않습니다 */
+          row.title = shiftName(s) + (canSeeShiftTime(s) ? ' ' + s.start + '~' + s.end : '');
           evs.appendChild(row);
         });
         if (dayShifts.length > 2) {
@@ -1451,7 +1469,6 @@
 
       grid.appendChild(cell);
     }
-    fitCellLabels(grid);
 
     var legend = $('storeLegend');
     if (legend) {
@@ -1464,18 +1481,6 @@
         wrap.appendChild(document.createTextNode(m.name));
         legend.appendChild(wrap);
       });
-    }
-  }
-
-  /* 칸이 좁아 '이름 시간'이 다 안 들어가면 시간만 숨깁니다 — 이름이 먼저 보이게. */
-  function fitCellLabels(grid) {
-    var rows = grid.getElementsByClassName('day__ev');
-    for (var i = 0; i < rows.length; i++) {
-      var row = rows[i];
-      var tm = row.getElementsByClassName('day__ev-h')[0];
-      if (!tm || !tm.parentNode) continue;
-      if (!row.clientWidth) continue;   /* 화면에 안 붙어 아직 폭을 못 재는 상태면 건너뜁니다 */
-      if (row.scrollWidth > row.clientWidth + 1) tm.style.display = 'none';
     }
   }
 
@@ -1510,7 +1515,7 @@
     }
     card.appendChild(head);
 
-    var list = shiftsOn(dateISO);
+    var list = storeDayShifts(dateISO);
     if (!list.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
@@ -1526,11 +1531,15 @@
     });
     card.appendChild(ul);
 
-    var min = sumMinutes(list);
     var total = document.createElement('p');
     total.className = 'store-total';
     var heads = list.filter(function (s) { return countsForPay(s); }).length;
-    total.textContent = '당일 ' + heads + '명 근무 · ' + hoursText(min) + (isOwner() ? ' · 인건비 ' + money(sumPay(list)) : '');
+    if (isOwner()) {
+      total.textContent = '당일 ' + heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 인건비 ' + money(sumPay(list));
+    } else {
+      var mineList = list.filter(canSeeShiftTime);
+      total.textContent = '당일 ' + heads + '명 근무' + (mineList.length ? ' · 내 근무 ' + hoursText(sumMinutes(mineList)) : '');
+    }
     card.appendChild(total);
   }
 
@@ -1544,19 +1553,16 @@
   function compactShiftTime(sh) {
     return shortHM(sh.start) + '~' + shortHM(sh.end);
   }
-  /* 달력 칸용 — 한 글자라도 아껴 '9~15' 처럼(이름이 먼저 보이게) */
-  function cellShiftTime(sh) {
-    var trim = function (v) { return String(shortHM(v)).replace(/^0(\d)/, '$1'); };
-    return trim(sh.start) + '~' + trim(sh.end);
-  }
+  /* 근무시간을 볼 수 없는 사람에게 대신 보여 주는 문구 — 숫자는 만들지 않습니다. */
+  var TIME_HIDDEN_TEXT = '근무시간 비공개';
 
   /* 사용자가 날짜를 직접 눌렀을 때만 엽니다(첫 진입 자동 팝업 없음). */
   function openDaySheet(dateISO) {
     var modal = $('storeDaySheetModal');
     if (!modal) return;
     S.sheetDate = dateISO;
-    var list = shiftsOn(dateISO);
-    S.sheetOpen = list.length === 1 ? list[0].id : '';
+    var list = storeDayShifts(dateISO);
+    S.sheetOpen = (list.length === 1 && canSeeShiftTime(list[0])) ? list[0].id : '';
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
     renderDaySheet();
@@ -1581,23 +1587,30 @@
       title.textContent = (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 (' + WEEKDAYS[dt.getDay()] + ')';
     }
 
-    var list = shiftsOn(dateISO);
+    var list = storeDayShifts(dateISO);
     var heads = list.filter(function (s) { return countsForPay(s); }).length;
     var sub = $('storeDaySheetSub');
     if (sub) sub.textContent = list.length ? '근무 ' + list.length + '건' : '등록된 근무 없음';
     var stats = $('storeDaySheetStats');
     if (stats) {
-      stats.textContent = list.length
-        ? heads + '명 근무 · ' + hoursText(sumMinutes(list)) + (isOwner() ? ' · 인건비 ' + money(sumPay(list)) : '')
-        : '';
+      if (!list.length) {
+        stats.textContent = '';
+      } else if (isOwner()) {
+        stats.textContent = heads + '명 근무 · ' + hoursText(sumMinutes(list)) + ' · 인건비 ' + money(sumPay(list));
+      } else {
+        var mineList = list.filter(canSeeShiftTime);
+        stats.textContent = heads + '명 근무' + (mineList.length ? ' · 내 근무 ' + hoursText(sumMinutes(mineList)) : '');
+      }
     }
     var addBtn = $('storeDaySheetAddBtn');
     if (addBtn) addBtn.hidden = !isOwner();
     var hint = $('storeDaySheetHint');
     if (hint) {
-      hint.textContent = list.length > 1
+      if (!list.length) hint.textContent = '';
+      else if (!isOwner()) hint.textContent = '내 근무를 누르면 출퇴근 체크·수정·변경 요청이 펼쳐져요 · 다른 분 근무시간은 비공개예요';
+      else hint.textContent = list.length > 1
         ? '근무를 누르면 출퇴근 체크·수정·변경 요청이 펼쳐져요'
-        : (list.length ? '출퇴근 체크·수정·변경 요청을 여기서 바로 할 수 있어요' : '');
+        : '출퇴근 체크·수정·변경 요청을 여기서 바로 할 수 있어요';
     }
 
     var ul = $('storeDaySheetList');
@@ -1616,7 +1629,8 @@
   function buildSheetShift(sh) {
     var st = staffById(sh.staffId);
     var color = st ? st.color : '#94a3b8';
-    var open = S.sheetOpen === sh.id;
+    var canSee = canSeeShiftTime(sh);
+    var open = canSee && S.sheetOpen === sh.id;
     var li = document.createElement('li');
     li.className = 'sheet-item' + (open ? ' is-open' : '');
 
@@ -1636,8 +1650,8 @@
     row.appendChild(name);
 
     var time = document.createElement('span');
-    time.className = 'sheet-row__time';
-    time.textContent = (sh.start || '--:--') + '~' + (sh.end || '--:--');
+    time.className = 'sheet-row__time' + (canSee ? '' : ' is-private');
+    time.textContent = canSee ? (sh.start || '--:--') + '~' + (sh.end || '--:--') : TIME_HIDDEN_TEXT;
     row.appendChild(time);
 
     var tag = document.createElement('span');
@@ -1645,15 +1659,21 @@
     tag.textContent = STATUS_LABEL[sh.status] || '예정';
     row.appendChild(tag);
 
-    var chev = document.createElement('span');
-    chev.className = 'sheet-row__chev';
-    chev.textContent = open ? '▴' : '▾';
-    row.appendChild(chev);
+    /* 다른 사람 근무는 펼칠 것도, 보여 줄 시간도 없어 접힌 채로 둡니다. */
+    if (canSee) {
+      var chev = document.createElement('span');
+      chev.className = 'sheet-row__chev';
+      chev.textContent = open ? '▴' : '▾';
+      row.appendChild(chev);
 
-    row.addEventListener('click', function () {
-      S.sheetOpen = open ? '' : sh.id;
-      renderDaySheet();
-    });
+      row.addEventListener('click', function () {
+        S.sheetOpen = open ? '' : sh.id;
+        renderDaySheet();
+      });
+    } else {
+      row.classList.add('is-private');
+      row.setAttribute('aria-disabled', 'true');
+    }
     li.appendChild(row);
 
     if (open) li.appendChild(buildSheetShiftDetail(sh, st));
@@ -1664,18 +1684,22 @@
     var box = document.createElement('div');
     box.className = 'sheet-detail';
 
-    var bits = ['근무 ' + hoursText(shiftMinutes(sh))];
-    if (sh.breakMin) bits.push('휴게 ' + sh.breakMin + '분');
-    if (isOwner() || (sh.staffId && sh.staffId === myStaffId())) {
+    var canSee = canSeeShiftTime(sh);
+    var bits = [];
+    if (canSee) {
+      bits.push('근무 ' + hoursText(shiftMinutes(sh)));
+      if (sh.breakMin) bits.push('휴게 ' + sh.breakMin + '분');
       bits.push('시급 ' + money(sh.wage));
       bits.push('예상 ' + money(shiftPay(sh)));
     }
-    var meta = document.createElement('p');
-    meta.className = 'sheet-detail__meta';
-    meta.textContent = bits.join(' · ');
-    box.appendChild(meta);
+    if (bits.length) {
+      var meta = document.createElement('p');
+      meta.className = 'sheet-detail__meta';
+      meta.textContent = bits.join(' · ');
+      box.appendChild(meta);
+    }
 
-    if (sh.actualStart) {
+    if (canSee && sh.actualStart) {
       var act = document.createElement('p');
       act.className = 'sheet-detail__meta';
       act.textContent = '🕒 실제 ' + sh.actualStart + ' ~ ' + (sh.actualEnd || '근무 중')
@@ -1773,10 +1797,11 @@
   function buildShiftItem(sh) {
     var st = staffById(sh.staffId);
     var color = st ? st.color : '#94a3b8';
+    var canSee = canSeeShiftTime(sh);
     var li = document.createElement('li');
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'shift';
+    btn.className = 'shift' + (canSee ? '' : ' shift--locked');
     btn.style.setProperty('--sc', color);
 
     var body = document.createElement('div');
@@ -1800,13 +1825,13 @@
     var meta = document.createElement('div');
     meta.className = 'shift__meta';
     var time = document.createElement('span');
-    time.className = 'shift__time';
-    time.textContent = (sh.start || '--:--') + ' ~ ' + (sh.end || '--:--');
+    time.className = 'shift__time' + (canSee ? '' : ' is-private');
+    time.textContent = canSee ? (sh.start || '--:--') + ' ~ ' + (sh.end || '--:--') : TIME_HIDDEN_TEXT;
     meta.appendChild(time);
-    var dur = document.createElement('span');
-    dur.textContent = hoursText(shiftMinutes(sh)) + (sh.breakMin ? ' (휴게 ' + sh.breakMin + '분)' : '');
-    meta.appendChild(dur);
-    if (isOwner() || (sh.staffId && sh.staffId === myStaffId())) {
+    if (canSee) {
+      var dur = document.createElement('span');
+      dur.textContent = hoursText(shiftMinutes(sh)) + (sh.breakMin ? ' (휴게 ' + sh.breakMin + '분)' : '');
+      meta.appendChild(dur);
       var pay = document.createElement('span');
       pay.className = 'shift__pay';
       pay.textContent = money(shiftPay(sh));
@@ -1820,7 +1845,7 @@
     }
     body.appendChild(meta);
 
-    if (sh.memo) {
+    if (canSee && sh.memo) {
       var memo = document.createElement('div');
       memo.className = 'shift__memo';
       memo.textContent = sh.memo;
@@ -1828,7 +1853,7 @@
     }
 
     /* 실제 출퇴근 시각 */
-    if (sh.actualStart) {
+    if (canSee && sh.actualStart) {
       var act = document.createElement('div');
       act.className = 'shift__actual';
       act.textContent = '🕒 실제 ' + sh.actualStart + ' ~ ' + (sh.actualEnd || '근무 중')
@@ -1846,10 +1871,14 @@
     }
 
     btn.appendChild(body);
-    btn.addEventListener('click', function () {
-      if (isOwner()) openShift(sh, null);
-      else openShift(sh, null, true);
-    });
+    if (canSee) {
+      btn.addEventListener('click', function () {
+        if (isOwner()) openShift(sh, null);
+        else openShift(sh, null, true);
+      });
+    } else {
+      btn.setAttribute('aria-disabled', 'true');
+    }
     li.appendChild(btn);
     var attRow = buildAttendanceRow(sh);
     if (attRow) li.appendChild(attRow);

@@ -106,15 +106,18 @@ body.store-mode .btn-primary:active { background: #0f766e; }
 }
 .day--selected .store-cell__hours { color: rgba(255, 255, 255, .92); }
 .day__ev.store i { border-radius: 2px; }
-/* 매장 칸은 근무자 이름이 먼저 보이고, 시간은 자리가 남을 때만 옆에 붙습니다
-   (넘치면 fitCellLabels 가 시간만 숨김) */
+/* 매장 칸에는 근무자 이름만 보입니다 — 근무시간은 날짜를 눌러 상세에서 봅니다. */
 body.store-mode .day__ev > .day__ev-n { color: #134e4a; }
-.day__ev > .day__ev-h {
-  flex: 0 0 auto; color: #0f766e;
-  font-variant-numeric: tabular-nums;
-}
 body.store-mode .day--selected .day__ev > .day__ev-n { color: #fff; }
-body.store-mode .day--selected .day__ev > .day__ev-h { color: rgba(255, 255, 255, .92); }
+
+/* 근무시간 비공개(다른 알바생 근무) — 숫자 대신 글자만 */
+.sheet-row--shift .sheet-row__time.is-private,
+.shift__time.is-private {
+  color: #97a2b3; font-weight: 700; letter-spacing: -.2px;
+}
+.sheet-row--shift.is-private { cursor: default; }
+.shift--locked { cursor: default; }
+.shift--locked:active { background: #fafbfe; }
 
 /* ---------- 📅 날짜 한눈에 보기 (매장) ---------- */
 .sheet-row--shift { border-left-color: var(--sc, #94a3b8); }
