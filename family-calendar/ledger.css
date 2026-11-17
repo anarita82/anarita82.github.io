@@ -363,3 +363,6 @@ body.ledger-mode .fab { background: linear-gradient(135deg, #b45309, #f59e0b); b
   .lg-amt { font-size: 8px; }
   .lg-day { min-height: 54px; }
 }
+
+/* 출납부 화면에서는 가족 달력 연결 상태 문구를 감춥니다(사장님 전용 화면) */
+body.ledger-mode #appBarNote { display: none !important; }
