@@ -715,7 +715,7 @@
           StoreCloud.stop();
           S.blocked = '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
           S.role = 'none';
-          lsSet(STAFF_KEY, '');
+          /* STAFF_KEY 는 지우지 않습니다 — 복직하면 그 폰이 다시 '내 근무'로 이어지도록. */
           showBlocked(S.blocked);
           return;
         }
@@ -729,7 +729,6 @@
         S.connecting = false;
         S.blocked = '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
         S.role = 'none';
-        lsSet(STAFF_KEY, '');
         showBlocked(S.blocked);
         return;
       }
@@ -748,6 +747,8 @@
   }
 
   function applyRoom(info) {
+    /* 이미 차단 화면이면, 늦게 도착한 스냅샷이 화면을 되돌리지 않게 합니다. */
+    if (S.blocked) return;
     if (info && info.moved) {
       S.connected = false;
       S.connecting = false;
@@ -770,7 +771,6 @@
     if (blocked) {
       S.blocked = blocked;
       S.role = 'none';
-      lsSet(STAFF_KEY, '');
       showBlocked(blocked);
       return;
     }
@@ -786,13 +786,13 @@
   }
 
   function resolveIdentity() {
+    if (S.blocked) return;
     var sid = myStaffId();
     if (isOwnerDevice()) { S.role = 'owner'; afterIdentity(); return; }
     var blocked = blockReason();
     if (blocked) {
       S.blocked = blocked;
       S.role = 'none';
-      lsSet(STAFF_KEY, '');
       showBlocked(blocked);
       return;
     }
