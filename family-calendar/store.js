@@ -1374,12 +1374,17 @@
           var bar = document.createElement('i');
           bar.style.background = st ? st.color : '#94a3b8';
           row.appendChild(bar);
-          /* 칸이 좁아서 이름 대신 색 점 + 근무 시간만 보여 줍니다(누르면 이름 확인). */
+          /* 누가 근무하는지 한눈에 — 근무자 이름을 먼저, 시간은 자리가 남을 때만 옆에 붙입니다.
+             (이름은 staff 목록의 현재 이름이 우선이라 이름을 고치면 칸도 바로 바뀝니다) */
+          var nm = document.createElement('span');
+          nm.className = 'day__ev-n';
+          nm.textContent = shiftName(s);
+          row.appendChild(nm);
           var tm = document.createElement('span');
           tm.className = 'day__ev-h';
-          tm.textContent = compactShiftTime(s);
-          tm.title = shiftName(s) + ' ' + s.start + '~' + s.end;
+          tm.textContent = cellShiftTime(s);
           row.appendChild(tm);
+          row.title = shiftName(s) + ' ' + s.start + '~' + s.end;
           evs.appendChild(row);
         });
         if (dayShifts.length > 2) {
@@ -1407,6 +1412,7 @@
 
       grid.appendChild(cell);
     }
+    fitCellLabels(grid);
 
     var legend = $('storeLegend');
     if (legend) {
@@ -1419,6 +1425,17 @@
         wrap.appendChild(document.createTextNode(m.name));
         legend.appendChild(wrap);
       });
+    }
+  }
+
+  /* 칸이 좁아 '이름 시간'이 다 안 들어가면 시간만 숨깁니다 — 이름이 먼저 보이게. */
+  function fitCellLabels(grid) {
+    var rows = grid.getElementsByClassName('day__ev');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var tm = row.getElementsByClassName('day__ev-h')[0];
+      if (!tm || !tm.parentNode) continue;
+      if (row.scrollWidth > row.clientWidth + 1) tm.style.display = 'none';
     }
   }
 
@@ -1486,6 +1503,11 @@
   }
   function compactShiftTime(sh) {
     return shortHM(sh.start) + '~' + shortHM(sh.end);
+  }
+  /* 달력 칸용 — 한 글자라도 아껴 '9~15' 처럼(이름이 먼저 보이게) */
+  function cellShiftTime(sh) {
+    var trim = function (v) { return String(shortHM(v)).replace(/^0(\d)/, '$1'); };
+    return trim(sh.start) + '~' + trim(sh.end);
   }
 
   /* 사용자가 날짜를 직접 눌렀을 때만 엽니다(첫 진입 자동 팝업 없음). */

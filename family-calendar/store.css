@@ -106,12 +106,15 @@ body.store-mode .btn-primary:active { background: #0f766e; }
 }
 .day--selected .store-cell__hours { color: rgba(255, 255, 255, .92); }
 .day__ev.store i { border-radius: 2px; }
-/* 매장 칸은 이름은 줄고 시간은 항상 보이게 */
+/* 매장 칸은 근무자 이름이 먼저 보이고, 시간은 자리가 남을 때만 옆에 붙습니다
+   (넘치면 fitCellLabels 가 시간만 숨김) */
+body.store-mode .day__ev > .day__ev-n { color: #134e4a; }
 .day__ev > .day__ev-h {
   flex: 0 0 auto; color: #0f766e;
-  font-variant-numeric: tabular-nums; letter-spacing: -.3px;
+  font-variant-numeric: tabular-nums;
 }
-.day--selected .day__ev > .day__ev-h { color: rgba(255, 255, 255, .92); }
+body.store-mode .day--selected .day__ev > .day__ev-n { color: #fff; }
+body.store-mode .day--selected .day__ev > .day__ev-h { color: rgba(255, 255, 255, .92); }
 
 /* ---------- 📅 날짜 한눈에 보기 (매장) ---------- */
 .sheet-row--shift { border-left-color: var(--sc, #94a3b8); }

@@ -203,10 +203,19 @@
   font-weight: 700; color: #0f766e; opacity: .82;
 }
 
-/* 매장 달력 칸 글자 정리 */
-.day__ev.store { gap: 3px; }
-.day__ev > .day__ev-h {
-  font-size: 9.5px; font-weight: 800; letter-spacing: -.4px;
+/* 매장 달력 칸 글자 정리 — 근무자 이름 먼저, 시간은 남는 자리에만 */
+body.store-mode .day__ev.store { gap: 2px; }
+body.store-mode .day__ev.store i { flex: 0 0 2.5px; height: 9px; }
+body.store-mode .day__ev > .day__ev-n {
+  flex: 0 0 auto; max-width: 100%; min-width: 0;
+  font-size: 9.5px; font-weight: 800; line-height: 1.25;
+  letter-spacing: -.45px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.store-mode .day__ev > .day__ev-h {
+  flex: 0 0 auto; min-width: 0;
+  font-size: 9px; font-weight: 800; line-height: 1.25;
+  letter-spacing: -.5px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .day__evs { gap: 1px; }
