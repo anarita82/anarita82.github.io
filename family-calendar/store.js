@@ -699,7 +699,16 @@
       onShifts: function (list) { S.shifts = list; S.connected = true; S.connecting = false; renderAll(); },
       onHandovers: function (list) { S.handovers = list || []; renderHandover(); },
       onRoom: function (info) { applyRoom(info); },
-      onJoins: function (list) { S.joins = Array.isArray(list) ? list : []; if (S.role === 'owner') renderApprovalCards(); },
+      onJoins: function (list) {
+        S.joins = Array.isArray(list) ? list : [];
+        if (S.role === 'owner') renderApprovalCards();
+        /* 승인 직후 입장 목록이 조금 늦게 도착해 '입장 요청' 화면에 머무는 경우를 바로잡습니다. */
+        if (S.role === 'none' && !S.blocked) {
+          var mine = S.joins.filter(function (r) { return r.deviceId === deviceId(); })
+            .sort(function (a, b) { return (b.requestedAt || 0) - (a.requestedAt || 0); })[0];
+          if (mine && mine.status === 'approved') resolveIdentity();
+        }
+      },
       onGate: function (res) {
         var st = (res && res.state) || '';
         S.connecting = false;
