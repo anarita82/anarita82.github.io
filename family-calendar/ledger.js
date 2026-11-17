@@ -819,7 +819,10 @@
     try { items = JSON.parse(raw) || []; } catch (e) { items = []; }
     var parsed = [];
     items.forEach(function (it) {
-      var text = ((it && it.title ? it.title + ' ' : '') + (it && it.text ? it.text : '')).trim();
+      var body = (it && it.text ? String(it.text) : '').trim();
+      var title = (it && it.title ? String(it.title) : '').trim();
+      /* 알림 본문에 금액이 있으면 제목(보통 카드사·보낸 사람 이름)은 빼고 본문만 읽습니다. */
+      var text = /[\d,]+\s*원/.test(body) ? body : (title + ' ' + body).trim();
       if (!text) return;
       var p = parseLine(text);
       if (!p) return;
@@ -1375,19 +1378,19 @@
     /* 이 기기에서 켜기(설정에서 진입) */
     var grantBtn = $('lgGrantBtn');
     if (grantBtn) grantBtn.addEventListener('click', function () { grantDevice(digits(el.grantPin && el.grantPin.value)); });
+    el.grantModal = $('lgGrantModal');
+    el.grantPin = $('lgGrantPin');
+    el.grantError = $('lgGrantError');
     if (el.grantPin) {
       el.grantPin.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); grantDevice(digits(el.grantPin.value)); }
       });
     }
     var grantClose = $('lgGrantClose'); if (grantClose) grantClose.addEventListener('click', function () { el.grantModal.hidden = true; });
-    el.grantModal = $('lgGrantModal');
     if (el.grantModal) {
       var gb = el.grantModal.querySelector('[data-close]');
       if (gb) gb.addEventListener('click', function () { el.grantModal.hidden = true; });
     }
-    el.grantPin = $('lgGrantPin');
-    el.grantError = $('lgGrantError');
 
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
