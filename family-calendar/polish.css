@@ -203,6 +203,93 @@
   font-weight: 700; color: #0f766e; opacity: .82;
 }
 
+/* ---------- 🗑️ 근무 일괄 삭제 (사장님 전용) ---------- */
+.store-owner-actions {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+.store-owner-actions__hint { font-size: 11px; font-weight: 700; color: #94a3b8; }
+
+#bulkDelModal .bulk-lead { margin-bottom: 11px; }
+#bulkDelPresets button.is-on {
+  background: #0d9488; border-color: #0d9488; color: #fff;
+}
+#bulkDelRange { margin-top: 8px; }
+
+.bulk-del-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 4px 0 6px; padding-top: 9px; border-top: 1px solid #eef0f5;
+}
+.bulk-del-all {
+  display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer;
+  font-size: 12.5px; font-weight: 800; color: #2b3040;
+}
+.bulk-del-all input { position: absolute; opacity: 0; pointer-events: none; }
+.bulk-del-count {
+  font-size: 11.5px; font-weight: 800; color: #0f766e;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+.bulk-del-list {
+  list-style: none; margin: 0 0 8px; padding: 0;
+  max-height: min(44vh, 320px); overflow-y: auto;
+  border: 1px solid #e6e9f0; border-radius: 14px; background: #fbfbfd;
+  -webkit-overflow-scrolling: touch;
+}
+.bulk-del-row { border-bottom: 1px solid #f1f3f7; }
+.bulk-del-row:last-child { border-bottom: 0; }
+.bulk-del-row__tap {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px; margin: 0; cursor: pointer;
+}
+.bulk-del-row__tap input { position: absolute; opacity: 0; pointer-events: none; }
+.bulk-del-row__box { width: 21px; height: 21px; }
+.bulk-del-row__main {
+  display: flex; flex-direction: column; gap: 1px;
+  flex: 1 1 auto; min-width: 0;
+}
+.bulk-del-row__date {
+  font-size: 11.5px; font-weight: 800; color: var(--c, #475569);
+  font-variant-numeric: tabular-nums;
+}
+.bulk-del-row__name {
+  font-size: 12.5px; font-weight: 700; color: #2b3040;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bulk-del-row__time {
+  flex: 0 0 auto; font-size: 11.5px; font-weight: 700; color: #64748b;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bulk-del-row__tag {
+  display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 6px;
+  background: #fef3c7; color: #b45309; font-size: 9.5px; font-style: normal;
+}
+.bulk-del-empty {
+  padding: 18px 12px; text-align: center;
+  font-size: 12px; font-weight: 700; line-height: 1.5; color: #94a3b8;
+}
+/* 전체/개별 선택 체크박스 — 일괄 등록 구역과 같은 모양 */
+.bulk-del-all input:checked + .bulk-sec__box,
+.bulk-del-row__tap input:checked + .bulk-sec__box { background: #0d9488; border-color: #0d9488; }
+.bulk-del-all input:checked + .bulk-sec__box::after,
+.bulk-del-row__tap input:checked + .bulk-sec__box::after {
+  content: "✓"; position: absolute; inset: 0; color: #fff;
+  font-size: 12px; font-weight: 900; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.bulk-del-all input:indeterminate + .bulk-sec__box { background: #99f6e4; border-color: #0d9488; }
+.bulk-del-all input:indeterminate + .bulk-sec__box::after {
+  content: ""; position: absolute; left: 4px; right: 4px; top: 50%;
+  height: 2px; margin-top: -1px; border-radius: 2px; background: #0f766e;
+}
+.btn-danger-solid {
+  flex: 1 1 auto; width: 100%; min-height: 48px;
+  border: 0; border-radius: 14px; background: #dc2626; color: #fff;
+  font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.btn-danger-solid:active { background: #b91c1c; }
+.btn-danger-solid:disabled { background: #f1f2f6; color: #a9aebb; cursor: default; }
+
 /* 매장 달력 칸 글자 정리 — 근무자 이름만(시간은 날짜를 눌렀을 때) */
 body.store-mode .day__ev.store { gap: 3px; align-items: flex-start; }
 body.store-mode .day__ev.store i { flex: 0 0 2.5px; height: 9px; margin-top: 2px; }

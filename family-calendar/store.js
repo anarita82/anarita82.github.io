@@ -541,6 +541,46 @@
     var pPrev = $('payrollPrev'); if (pPrev) pPrev.addEventListener('click', function () { shiftPayMonth(-1); });
     var pNext = $('payrollNext'); if (pNext) pNext.addEventListener('click', function () { shiftPayMonth(1); });
 
+    /* 🗑️ 근무 일괄 삭제 — 사장님 전용(알바생 기기에서는 열리지 않음) */
+    var bulkDelOpenBtn = $('storeBulkDelBtn');
+    if (bulkDelOpenBtn) bulkDelOpenBtn.addEventListener('click', bulkDelOpen);
+    var hubBulkDelRow = $('storeHubBulkDelRow');
+    if (hubBulkDelRow) hubBulkDelRow.addEventListener('click', bulkDelOpen);
+    var bulkDelCloseBtn = $('bulkDelClose');
+    if (bulkDelCloseBtn) bulkDelCloseBtn.addEventListener('click', closeBulkDel);
+    var bulkDelBackdrop = $('bulkDelModal') && $('bulkDelModal').querySelector('[data-close]');
+    if (bulkDelBackdrop) bulkDelBackdrop.addEventListener('click', closeBulkDel);
+    var bulkDelForm = $('bulkDelForm');
+    if (bulkDelForm) bulkDelForm.addEventListener('submit', function (e) { e.preventDefault(); runBulkDel(); });
+    var bulkDelPresets = $('bulkDelPresets');
+    if (bulkDelPresets) bulkDelPresets.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-preset]');
+      if (!b) return;
+      BULK_DEL.preset = b.getAttribute('data-preset');
+      BULK_DEL.sel = {};
+      renderBulkDel();
+    });
+    var bulkDelPeriod = $('bulkDelPeriod');
+    if (bulkDelPeriod) bulkDelPeriod.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-period]');
+      if (!b) return;
+      BULK_DEL.period = b.getAttribute('data-period');
+      BULK_DEL.sel = {};
+      renderBulkDel();
+    });
+    ['bulkDelStart', 'bulkDelEnd'].forEach(function (id) {
+      var f = $(id);
+      if (f) f.addEventListener('change', function () {
+        BULK_DEL.preset = 'custom';
+        BULK_DEL.sel = {};
+        renderBulkDel();
+      });
+    });
+    var bulkDelAllBox = $('bulkDelAll');
+    if (bulkDelAllBox) bulkDelAllBox.addEventListener('click', function (e) { e.preventDefault(); toggleBulkDelAll(); });
+    var bulkDelRunBtn = $('bulkDelBtn');
+    if (bulkDelRunBtn) bulkDelRunBtn.addEventListener('click', runBulkDel);
+
     /* 매장 설정 */
     var copyCode = $('storeCopyCodeBtn');
     if (copyCode) copyCode.addEventListener('click', function () {
@@ -1097,6 +1137,9 @@
     if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.main) el.main.hidden = false;
     if (el.storeAddBtn) el.storeAddBtn.hidden = !isOwner() || !S.active;
+    /* 🗑️ 근무 일괄 삭제 — 사장님 기기에서만 보입니다 */
+    var ownerActions = $('storeOwnerActions');
+    if (ownerActions) ownerActions.hidden = !isOwner() || !S.active;
     if (el.storeSubRow) {
       var who = isOwner() ? '사장님' : (me() ? me().name : '알바생');
       if (el.storeWho) el.storeWho.textContent = who;
@@ -1289,6 +1332,9 @@
     renderDaySheet();
     var apModal = $('storeApproveModal');
     if (apModal && !apModal.hidden) renderApprovalCards();
+    /* 🗑️ 근무 일괄 삭제 창이 열려 있으면 목록·건수도 새 근무에 맞춰 바로 갱신 */
+    var bulkDelModalEl = $('bulkDelModal');
+    if (bulkDelModalEl && !bulkDelModalEl.hidden) renderBulkDel();
     paintStoreStatus();
   }
 
@@ -1308,6 +1354,8 @@
     moveCardsToHub();
     var hub = $('storeHubModal');
     if (!hub) return;
+    var hubBulkDel = $('storeHubBulkDelRow');
+    if (hubBulkDel) hubBulkDel.hidden = !isOwner();
     renderPayroll();
     renderStaffList();
     renderGuide();
@@ -3115,6 +3163,339 @@
     });
   }
 
+  /* ---------------- 🗑️ 근무 일괄 삭제 (사장님 전용) ---------------- */
+  /* 근무 전체·일부를 한 번에 지웁니다.
+     ① 근무자(전체/여러 명) ② 근무 구분(전체·오전·오후·야간·주말)
+     ③ 기간(오늘 이후 전체·이번 달 전체·직접 지정)으로 조건을 만들고,
+     ④ 조건에 맞는 근무를 날짜순으로 보여 준 뒤 전체 선택/개별 체크로 지웁니다.
+     알바생 기기에서는 이 화면이 열리지 않습니다(isOwner()). */
+  var BULK_DEL = {
+    staffIds: [],       /* 빈 배열 = 전체 */
+    period: 'all',
+    preset: 'future',   /* future | month | custom */
+    sel: {},            /* 근무 id → true */
+    hubPaused: false
+  };
+
+  function bulkDelOpen() {
+    if (!isOwner()) return;
+    var m = $('bulkDelModal');
+    if (!m) return;
+    BULK_DEL.staffIds = [];
+    BULK_DEL.period = 'all';
+    BULK_DEL.preset = 'future';
+    BULK_DEL.sel = {};
+    var now = new Date();
+    setVal('bulkDelStart', todayISO());
+    setVal('bulkDelEnd', iso(now.getFullYear(), now.getMonth() + 1, daysInMonth(now.getFullYear(), now.getMonth())));
+    var hub = $('storeHubModal');
+    BULK_DEL.hubPaused = !!(hub && !hub.hidden);
+    if (BULK_DEL.hubPaused) hub.hidden = true;
+    m.hidden = false;
+    document.body.style.overflow = 'hidden';
+    paintBulkDelPresets();
+    renderBulkDel();
+  }
+
+  function closeBulkDel() {
+    var m = $('bulkDelModal');
+    if (!m || m.hidden) return;
+    m.hidden = true;
+    BULK_DEL.sel = {};
+    document.body.style.overflow = '';
+    if (BULK_DEL.hubPaused) {
+      var hub = $('storeHubModal');
+      if (hub) hub.hidden = false;
+      BULK_DEL.hubPaused = false;
+    }
+  }
+
+  /* 기간 조건 — 오늘 이후 전체 / 이번 달 전체 / 직접 지정(시작~끝) */
+  function bulkDelRange() {
+    var now = new Date();
+    if (BULK_DEL.preset === 'future') return { start: todayISO(), end: '9999-12-31' };
+    if (BULK_DEL.preset === 'month') {
+      var y = now.getFullYear(), m = now.getMonth();
+      return { start: iso(y, m + 1, 1), end: iso(y, m + 1, daysInMonth(y, m)) };
+    }
+    var start = getVal('bulkDelStart'), end = getVal('bulkDelEnd');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < start) return null;
+    return { start: start, end: end };
+  }
+
+  function bulkDelRangeText() {
+    if (BULK_DEL.preset === 'future') return '오늘(' + mdText(todayISO()) + ')부터 그 뒤로 등록된 근무 모두';
+    if (BULK_DEL.preset === 'month') {
+      var now = new Date();
+      return (now.getMonth() + 1) + '월 1일 ~ ' + (now.getMonth() + 1) + '월 말일';
+    }
+    var range = bulkDelRange();
+    if (!range) return '시작일과 종료일을 골라 주세요.';
+    return mdText(range.start) + ' ~ ' + mdText(range.end) + (range.start === range.end ? ' (하루)' : '');
+  }
+
+  /* 지금 조건에 맞는 근무 — 날짜 → 시작 시간 순 */
+  function bulkDelTargets() {
+    var range = bulkDelRange();
+    if (!range) return [];
+    return S.shifts.filter(function (sh) {
+      if (!sh || !sh.id || !/^\d{4}-\d{2}-\d{2}$/.test(sh.date || '')) return false;
+      if (sh.date < range.start || sh.date > range.end) return false;
+      if (BULK_DEL.staffIds.length && BULK_DEL.staffIds.indexOf(sh.staffId) < 0) return false;
+      if (BULK_DEL.period !== 'all' && shiftPeriodCode(sh) !== BULK_DEL.period) return false;
+      return true;
+    }).sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      var ta = a.start || '', tb = b.start || '';
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    });
+  }
+
+  /* 체크한 근무 id — 조건이 바뀌어 목록에서 빠진 근무는 자동으로 빠집니다 */
+  function bulkDelSelected(list) {
+    var targets = list || bulkDelTargets();
+    var live = {};
+    targets.forEach(function (sh) { live[sh.id] = true; });
+    Object.keys(BULK_DEL.sel).forEach(function (id) { if (!live[id]) delete BULK_DEL.sel[id]; });
+    return targets.filter(function (sh) { return BULK_DEL.sel[sh.id]; });
+  }
+
+  function paintBulkDelPresets() {
+    var wrap = $('bulkDelPresets');
+    if (wrap) {
+      Array.prototype.forEach.call(wrap.children, function (b) {
+        var on = b.getAttribute('data-preset') === BULK_DEL.preset;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+    }
+    var range = $('bulkDelRange');
+    if (range) range.hidden = BULK_DEL.preset !== 'custom';
+    var seg = $('bulkDelPeriod');
+    if (seg) {
+      Array.prototype.forEach.call(seg.children, function (b) {
+        var on = b.getAttribute('data-period') === BULK_DEL.period;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+    }
+  }
+
+  /* 근무자 칩 — '전체' + 실제 근무가 있는 근무자(퇴사자·사장님 포함) */
+  function renderBulkDelStaff() {
+    var wrap = $('bulkDelStaffPicker');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    var ids = {};
+    S.shifts.forEach(function (sh) { if (sh && sh.staffId) ids[sh.staffId] = true; });
+    /* 고른 근무자는 근무를 다 지운 뒤에도 칩을 남겨 둡니다 — 필터가 숨어서
+       '왜 0건인지' 알 수 없게 되는 것을 막습니다. */
+    var people = S.staff.filter(function (m) {
+      return ids[m.id] || BULK_DEL.staffIds.indexOf(m.id) >= 0;
+    });
+    if (ids.owner || BULK_DEL.staffIds.indexOf('owner') >= 0) people.push(OWNER_STAFF);
+
+    var allOn = !BULK_DEL.staffIds.length;
+    var allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'pick pick--all' + (allOn ? ' is-on' : '');
+    allBtn.setAttribute('aria-pressed', String(allOn));
+    allBtn.textContent = '전체';
+    allBtn.addEventListener('click', function () {
+      BULK_DEL.staffIds = [];
+      BULK_DEL.sel = {};
+      renderBulkDel();
+    });
+    wrap.appendChild(allBtn);
+
+    people.forEach(function (m) {
+      var on = BULK_DEL.staffIds.indexOf(m.id) >= 0;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick' + (on ? ' is-on' : '');
+      b.setAttribute('aria-pressed', String(on));
+      b.style.setProperty('--c', m.color);
+      b.style.setProperty('--bgc', m.bg);
+      b.style.setProperty('--fgc', m.color);
+      var dot = document.createElement('i');
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(m.name + (m.retired ? ' ·퇴사' : '')));
+      b.addEventListener('click', function () {
+        var at = BULK_DEL.staffIds.indexOf(m.id);
+        if (at >= 0) BULK_DEL.staffIds.splice(at, 1);
+        else BULK_DEL.staffIds.push(m.id);
+        BULK_DEL.sel = {};
+        renderBulkDel();
+      });
+      wrap.appendChild(b);
+    });
+
+    if (!people.length) {
+      var empty = document.createElement('span');
+      empty.className = 'field-hint';
+      empty.textContent = '등록된 근무가 없어요.';
+      wrap.appendChild(empty);
+    }
+  }
+
+  /* 목록 + 머리말(전체 선택·건수) + 삭제 버튼 글자 */
+  function renderBulkDel() {
+    paintBulkDelPresets();
+    renderBulkDelStaff();
+    var listEl = $('bulkDelList');
+    var err = $('bulkDelError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    var hint = $('bulkDelRangeText');
+    if (hint) hint.textContent = bulkDelRangeText();
+    if (!listEl) return;
+
+    var targets = bulkDelTargets();
+    var picked = bulkDelSelected(targets);
+    var keepScroll = listEl.scrollTop;
+    listEl.innerHTML = '';
+
+    if (!targets.length) {
+      var li = document.createElement('li');
+      li.className = 'bulk-del-empty';
+      li.textContent = BULK_DEL.preset === 'custom' && !bulkDelRange()
+        ? '시작일과 종료일을 골라 주세요.'
+        : '조건에 맞는 근무가 없어요 · 근무자·구분·기간을 바꿔 보세요.';
+      listEl.appendChild(li);
+    } else {
+      targets.forEach(function (sh) {
+        var st = staffById(sh.staffId);
+        var d = parseISO(sh.date);
+        var li = document.createElement('li');
+        li.className = 'bulk-del-row';
+        var label = document.createElement('label');
+        label.className = 'bulk-del-row__tap';
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.setAttribute('data-id', sh.id);
+        box.checked = !!BULK_DEL.sel[sh.id];
+        box.setAttribute('aria-label', mdText(sh.date) + ' ' + shiftLabel(sh) + ' 근무 선택');
+        var inline = document.createElement('span');
+        inline.className = 'bulk-sec__box bulk-del-row__box';
+        inline.setAttribute('aria-hidden', 'true');
+        var main = document.createElement('span');
+        main.className = 'bulk-del-row__main';
+        var when = document.createElement('span');
+        when.className = 'bulk-del-row__date';
+        when.style.setProperty('--c', st ? st.color : '#94a3b8');
+        when.textContent = mdText(sh.date) + ' (' + WEEKDAYS[d.getDay()] + ')';
+        main.appendChild(when);
+        var who = document.createElement('span');
+        who.className = 'bulk-del-row__name';
+        who.textContent = shiftLabel(sh);
+        main.appendChild(who);
+        var time = document.createElement('span');
+        time.className = 'bulk-del-row__time';
+        time.textContent = (sh.start || '--:--') + '~' + (sh.end || '--:--');
+        if (sh.status && sh.status !== 'planned') {
+          var tag = document.createElement('em');
+          tag.className = 'bulk-del-row__tag';
+          tag.textContent = STATUS_LABEL[sh.status] || '예정';
+          time.appendChild(tag);
+        }
+        label.appendChild(box);
+        label.appendChild(inline);
+        label.appendChild(main);
+        label.appendChild(time);
+        box.addEventListener('change', function () {
+          if (box.checked) BULK_DEL.sel[sh.id] = true;
+          else delete BULK_DEL.sel[sh.id];
+          paintBulkDelFoot(targets);
+        });
+        li.appendChild(label);
+        listEl.appendChild(li);
+      });
+    }
+    paintBulkDelFoot(targets);
+    listEl.scrollTop = keepScroll;
+  }
+
+  /* 전체 선택 체크·건수·삭제 버튼만 다시 칠합니다(목록 스크롤을 건드리지 않게) */
+  function paintBulkDelFoot(targets) {
+    var list = targets || bulkDelTargets();
+    var picked = bulkDelSelected(list);
+    var n = picked.length;
+    var allBox = $('bulkDelAll');
+    if (allBox) {
+      allBox.checked = n > 0 && n === list.length;
+      allBox.indeterminate = n > 0 && n < list.length;
+      allBox.disabled = !list.length;
+    }
+    var allLabel = $('bulkDelAllLabel');
+    if (allLabel) allLabel.textContent = n && n === list.length ? '전체 해제' : '전체 선택';
+    var count = $('bulkDelCount');
+    if (count) {
+      count.textContent = list.length
+        ? (n ? n + ' / ' + list.length + '건 선택' : list.length + '건')
+        : '0건';
+    }
+    var btn = $('bulkDelBtn');
+    if (btn) {
+      btn.disabled = !n;
+      btn.textContent = n ? '선택한 ' + n + '건 삭제' : '선택한 0건 삭제';
+    }
+    var preview = $('bulkDelPreview');
+    if (preview) {
+      if (!list.length) { preview.hidden = true; }
+      else {
+        preview.hidden = false;
+        var minutes = 0, pay = 0;
+        picked.forEach(function (sh) { minutes += shiftMinutes(sh); pay += shiftPay(sh); });
+        preview.className = 'bulk-preview';
+        preview.innerHTML = '<span class="bulk-preview__sum">조건에 맞는 근무 ' + list.length + '건 · 선택 ' + n + '건</span>'
+          + '<span class="bulk-preview__meta">' + (n ? '고른 근무 ' + hoursText(minutes) + ' · 기본급 ' + money(pay) + ' · ' : '')
+          + '지운 근무는 되돌릴 수 없어요</span>';
+      }
+    }
+  }
+
+  function toggleBulkDelAll() {
+    var targets = bulkDelTargets();
+    var picked = bulkDelSelected(targets);
+    var allOn = targets.length && picked.length === targets.length;
+    BULK_DEL.sel = {};
+    if (!allOn) targets.forEach(function (sh) { BULK_DEL.sel[sh.id] = true; });
+    var listEl = $('bulkDelList');
+    if (listEl) {
+      Array.prototype.forEach.call(listEl.querySelectorAll('input[type="checkbox"][data-id]'), function (box) {
+        box.checked = !allOn;
+      });
+    }
+    paintBulkDelFoot(targets);
+  }
+
+  function runBulkDel() {
+    if (!isOwner()) return;
+    var targets = bulkDelSelected();
+    if (!targets.length) return;
+    var first = targets[0].date, last = targets[targets.length - 1].date;
+    var msg = targets.length + '건의 근무를 삭제할까요?\n\n'
+      + (first === last ? mdText(first) : mdText(first) + ' ~ ' + mdText(last))
+      + (targets.length === 1 ? ' · ' + shiftLabel(targets[0]) + ' ' + (targets[0].start || '') + '~' + (targets[0].end || '') : '')
+      + '\n지운 근무는 되돌릴 수 없어요.';
+    if (!window.confirm(msg)) return;
+    var ids = targets.map(function (sh) { return sh.id; });
+    var btn = $('bulkDelBtn');
+    if (btn) btn.disabled = true;
+    var run = (window.StoreCloud && typeof StoreCloud.deleteShifts === 'function')
+      ? StoreCloud.deleteShifts(ids)
+      : Promise.all(ids.map(function (id) { return StoreCloud.deleteShift(id); }));
+    run.then(function () {
+      ids.forEach(function (id) { delete BULK_DEL.sel[id]; });
+      toast(ids.length + '건 근무를 삭제했어요 · 달력·대시보드·급여명세서에 바로 반영돼요');
+      renderAll();          /* 달력·오늘 근무·급여명세서·날짜 상세 즉시 갱신 */
+      renderBulkDel();
+    }).catch(function (err) {
+      if (btn) btn.disabled = false;
+      var box = $('bulkDelError');
+      if (box) { box.textContent = '삭제하지 못했어요 · ' + errorHint(err); box.hidden = false; }
+    });
+  }
+
   /* ---------------- 매장 말로 입력 ---------------- */
   function resetShiftVoiceBox() {
     var status = $('shiftVoiceStatus');
@@ -4759,6 +5140,8 @@
     boot();
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        var bulkDelModal = $('bulkDelModal');
+        if (bulkDelModal && !bulkDelModal.hidden) { closeBulkDel(); return; }
         var hub = $('storeHubModal');
         if (hub && !hub.hidden) closeHub();
       }

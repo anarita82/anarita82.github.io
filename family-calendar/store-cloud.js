@@ -494,6 +494,31 @@
     return shiftCollection().doc(id).delete();
   }
 
+  /* 여러 근무를 묶음(batch)으로 한 번에 삭제 — 근무 일괄 삭제용.
+     450건씩 나눠 커밋하고, 묶음 삭제가 안 되는 환경에서는 한 건씩 지웁니다. */
+  function deleteShifts(ids) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var list = (ids || []).filter(Boolean);
+    if (!list.length) return Promise.resolve(0);
+    var col = shiftCollection();
+    var db = state.db;
+    if (!db || typeof db.batch !== 'function') {
+      return Promise.all(list.map(function (id) { return col.doc(id).delete(); }))
+        .then(function () { return list.length; });
+    }
+    var chain = Promise.resolve();
+    for (var i = 0; i < list.length; i += 450) {
+      (function (chunk) {
+        chain = chain.then(function () {
+          var batch = db.batch();
+          chunk.forEach(function (id) { batch.delete(col.doc(id)); });
+          return batch.commit();
+        });
+      })(list.slice(i, i + 450));
+    }
+    return chain.then(function () { return list.length; });
+  }
+
   /* 방 문서 병합 저장 (staff[], joinRequests{...}, payrollSettings{...}, storeName 등) */
   function saveRoom(patch) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
@@ -940,6 +965,7 @@
     saveShift: saveShift,
     saveShifts: saveShifts,
     deleteShift: deleteShift,
+    deleteShifts: deleteShifts,
     saveRoom: saveRoom,
     updateRoom: updateRoom,
     submitJoinRequest: submitJoinRequest,

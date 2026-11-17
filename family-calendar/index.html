@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118b2" />
-<link rel="stylesheet" href="store.css?v=20261118b2" />
-<link rel="stylesheet" href="ledger.css?v=20261118b2" />
-<link rel="stylesheet" href="extra.css?v=20261118b2" />
-<link rel="stylesheet" href="polish.css?v=20261118b2" />
+<link rel="stylesheet" href="styles.css?v=20261118b3" />
+<link rel="stylesheet" href="store.css?v=20261118b3" />
+<link rel="stylesheet" href="ledger.css?v=20261118b3" />
+<link rel="stylesheet" href="extra.css?v=20261118b3" />
+<link rel="stylesheet" href="polish.css?v=20261118b3" />
 </head>
 <body>
 <div class="app">
@@ -192,6 +192,11 @@
           </div>
         </div>
         <div class="store-today" id="storeTodayPanel"></div>
+        <!-- 사장님 전용 빠른 작업 — 알바생 기기에는 hidden 그대로(스크립트가 isOwner()로만 엽니다) -->
+        <div class="store-owner-actions" id="storeOwnerActions" hidden>
+          <button type="button" class="btn-ghost btn-small btn-danger" id="storeBulkDelBtn">🗑️ 근무 일괄 삭제</button>
+          <span class="store-owner-actions__hint">기간·근무자를 골라 전체·일부 한 번에</span>
+        </div>
         <div class="member-filter store-filter" id="storeStaffFilter"></div>
         <p class="dash-person" id="dashPerson" hidden></p>
       </section>
@@ -977,6 +982,65 @@
   </div>
 </div>
 
+<!-- 🗑️ 근무 일괄 삭제 (사장님 전용) -->
+<div class="modal" id="bulkDelModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <form class="modal__sheet settings-sheet" id="bulkDelForm" novalidate>
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>🗑️ 근무 일괄 삭제</h2>
+      <button class="sheet-close" id="bulkDelClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="bulk-lead">근무자·구분·기간을 고르면 <b>해당 근무만 모아</b> 보여 드려요.<br>목록에서 <b>전체 선택</b>하거나 지울 근무만 체크해서 한 번에 지울 수 있어요.</p>
+
+    <div class="field">
+      <label>근무자 <span class="field-hint--inline">전체 또는 여러 명</span></label>
+      <div class="picker" id="bulkDelStaffPicker"></div>
+    </div>
+
+    <div class="field">
+      <label>근무 구분</label>
+      <div class="segmented segmented--wrap" id="bulkDelPeriod" role="group" aria-label="근무 구분">
+        <button type="button" data-period="all" class="is-active">전체</button>
+        <button type="button" data-period="morning">오전알바</button>
+        <button type="button" data-period="afternoon">오후알바</button>
+        <button type="button" data-period="night">야간알바</button>
+        <button type="button" data-period="weekend">주말알바</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>기간</label>
+      <div class="quick-chips" id="bulkDelPresets">
+        <button type="button" data-preset="future" class="is-on">오늘 이후 전체</button>
+        <button type="button" data-preset="month">이번 달 전체</button>
+        <button type="button" data-preset="custom">직접 기간 지정</button>
+      </div>
+      <div class="bulk-range" id="bulkDelRange" hidden>
+        <input id="bulkDelStart" type="date" aria-label="시작일" />
+        <span class="bulk-range__sep">~</span>
+        <input id="bulkDelEnd" type="date" aria-label="종료일" />
+      </div>
+      <p class="field-hint" id="bulkDelRangeText"></p>
+    </div>
+
+    <div class="bulk-del-head">
+      <label class="bulk-del-all">
+        <input type="checkbox" id="bulkDelAll" />
+        <span class="bulk-sec__box" aria-hidden="true"></span>
+        <span id="bulkDelAllLabel">전체 선택</span>
+      </label>
+      <span class="bulk-del-count" id="bulkDelCount">0건</span>
+    </div>
+    <ul class="bulk-del-list" id="bulkDelList"></ul>
+    <p class="bulk-preview" id="bulkDelPreview" hidden></p>
+    <p class="form-error" id="bulkDelError" hidden></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-danger-solid" id="bulkDelBtn" disabled>선택한 0건 삭제</button>
+    </div>
+  </form>
+</div>
+
 <!-- 🏪 급여명세서 -->
 <div class="modal" id="payrollModal" hidden>
   <div class="modal__backdrop" data-close="1"></div>
@@ -1092,6 +1156,11 @@
       <button class="sheet-close" id="storeHubClose" type="button" aria-label="닫기">✕</button>
     </div>
     <div class="set-rows" id="storeHubRows">
+      <button type="button" class="set-row" id="storeHubBulkDelRow" hidden>
+        <span class="set-row__i">🗑️</span>
+        <span class="set-row__t">근무 일괄 삭제<small>기간·근무자·구분을 골라 전체·일부 한 번에 지우기</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
       <button type="button" class="set-row" data-scroll="storeStaffCard">
         <span class="set-row__i">👥</span>
         <span class="set-row__t">근무자 관리 (이름·번호·퇴사)<small>등록·이름·시급·번호 고치기, 퇴사·복직</small></span>
@@ -1846,19 +1915,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118b2"></script>
-<script src="firebase-auth-compat.js?v=20261118b2"></script>
-<script src="firebase-firestore-compat.js?v=20261118b2"></script>
-<script src="lunar.js?v=20261118b2"></script>
-<script src="cloud.js?v=20261118b2"></script>
-<script src="app.js?v=20261118b2"></script>
-<script src="voice.js?v=20261118b2"></script>
-<script src="media.js?v=20261118b2"></script>
-<script src="store-cloud.js?v=20261118b2"></script>
-<script src="store.js?v=20261118b2"></script>
-<script src="ledger-cloud.js?v=20261118b2"></script>
-<script src="ledger.js?v=20261118b2"></script>
-<script src="extra-cloud.js?v=20261118b2"></script>
-<script src="extra.js?v=20261118b2"></script>
+<script src="firebase-app-compat.js?v=20261118b3"></script>
+<script src="firebase-auth-compat.js?v=20261118b3"></script>
+<script src="firebase-firestore-compat.js?v=20261118b3"></script>
+<script src="lunar.js?v=20261118b3"></script>
+<script src="cloud.js?v=20261118b3"></script>
+<script src="app.js?v=20261118b3"></script>
+<script src="voice.js?v=20261118b3"></script>
+<script src="media.js?v=20261118b3"></script>
+<script src="store-cloud.js?v=20261118b3"></script>
+<script src="store.js?v=20261118b3"></script>
+<script src="ledger-cloud.js?v=20261118b3"></script>
+<script src="ledger.js?v=20261118b3"></script>
+<script src="extra-cloud.js?v=20261118b3"></script>
+<script src="extra.js?v=20261118b3"></script>
 </body>
 </html>
