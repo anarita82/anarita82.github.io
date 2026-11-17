@@ -12,8 +12,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117v" />
-<link rel="stylesheet" href="store.css?v=20261117v" />
+<link rel="stylesheet" href="styles.css?v=20261117w" />
+<link rel="stylesheet" href="store.css?v=20261117w" />
+<link rel="stylesheet" href="ledger.css?v=20261117w" />
 </head>
 <body>
 <div class="app">
@@ -25,6 +26,7 @@
     <div class="mode-tabs" id="modeTabs" hidden>
       <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족 캘린더</button>
       <button type="button" class="mode-tab" id="tabStore">🏪 매장 캘린더</button>
+      <button type="button" class="mode-tab" id="tabLedger" hidden>💰 출납부</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="familySubRow">
       <button class="profile-badge" id="profileBtn" type="button">
@@ -308,6 +310,77 @@
   </main>
 
   <button class="fab" id="storeAddBtn" type="button" hidden>＋ 근무 등록</button>
+
+  <!-- 💰 금전출납부 (사장님 전용 · 이 기기에서 켠 경우에만 보입니다) -->
+  <div class="content ledger-view" id="ledgerView" hidden>
+    <section class="card" id="lgLockCard" hidden>
+      <div class="lg-lock">
+        <div class="lg-lock__icon">🔒</div>
+        <h2 class="lg-lock__title">금전출납부</h2>
+        <p class="lg-lock__desc">사장님만 보는 비공개 장부예요.<br />PIN 4자리를 넣어 주세요.</p>
+        <p class="lg-error" id="lgLockError" hidden></p>
+        <input class="lg-lock__pin" id="lgLockPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" aria-label="출납부 PIN" />
+        <button class="btn-primary lg-lock__go" id="lgUnlockBtn" type="button">열기</button>
+        <p class="lg-lock__hint" id="lgLockHint">처음 PIN은 <b>2026</b>이에요. 들어간 뒤 <b>⚙️ 설정</b>에서 바꿔 주세요.</p>
+        <button class="lg-lock__off" id="lgLockOffBtn" type="button" hidden>이 기기에서 출납부 끄기</button>
+      </div>
+    </section>
+
+    <div id="lgMain" hidden>
+      <section class="card" style="margin-bottom:12px">
+        <div class="card-head">
+          <h2>💰 이번 달 정산</h2>
+          <span class="card-head__hint" id="lgMonthHint">-</span>
+        </div>
+        <div class="lg-sum">
+          <div class="lg-sum__box"><span class="lg-sum__k">총 수입</span><span class="lg-sum__v lg-sum__v--in" id="lgSumIn">+0</span></div>
+          <div class="lg-sum__box"><span class="lg-sum__k">총 지출</span><span class="lg-sum__v lg-sum__v--out" id="lgSumOut">-0</span></div>
+          <div class="lg-sum__box"><span class="lg-sum__k">순수익</span><span class="lg-sum__v lg-sum__v--net" id="lgSumNet">+0</span></div>
+        </div>
+        <div class="lg-filter" id="lgFilter">
+          <button type="button" class="lg-filter__btn is-active" data-filter="all">전체</button>
+          <button type="button" class="lg-filter__btn" data-filter="store">🏪 매장</button>
+          <button type="button" class="lg-filter__btn" data-filter="personal">🙋 개인</button>
+        </div>
+        <div class="lg-tools">
+          <button type="button" class="lg-tool" id="lgPasteBtn">📋 문자·카톡 자동입력</button>
+          <button type="button" class="lg-tool" id="lgNotifySetupBtn">📱 폰 알림 자동 수집</button>
+          <button type="button" class="lg-tool" id="lgKakaoBtn">💬 이번 달 요약 복사</button>
+          <button type="button" class="lg-tool" id="lgSettingsBtn">⚙️ 출납부 설정</button>
+        </div>
+      </section>
+
+      <section class="card" id="lgPendingCard" hidden style="margin-bottom:12px">
+        <div class="lg-pending__head">
+          <h2 style="margin:0;font-size:14px;font-weight:800">📱 자동 수집 대기함 <span class="lg-tool__n" id="lgPendingReady">0건</span></h2>
+        </div>
+        <p class="lg-set-note" style="margin-top:6px">폰으로 온 카드·은행·카톡 입출금 알림을 모았어요. 확인하고 한 번에 넣으세요.</p>
+        <ul class="lg-pending__list" id="lgPendingList"></ul>
+        <div class="lg-pending__actions">
+          <button type="button" class="btn-primary btn-small" id="lgPendingApply">모두 출납부에 넣기</button>
+          <button type="button" class="btn-ghost btn-small" id="lgPendingClear">지우기</button>
+        </div>
+      </section>
+
+      <section class="card calendar">
+        <div class="lg-cal-head">
+          <button class="lg-nav" id="lgPrev" type="button" aria-label="이전 달">‹</button>
+          <div class="lg-cal-title">
+            <strong id="lgCalTitle">-</strong>
+            <span id="lgCalSub">-</span>
+          </div>
+          <button class="lg-nav" id="lgNext" type="button" aria-label="다음 달">›</button>
+        </div>
+        <div class="lg-week" aria-hidden="true">
+          <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+        </div>
+        <div class="lg-grid" id="lgGrid"></div>
+        <p class="footnote" style="text-align:center;margin:10px 0 2px">날짜를 누르면 그날 내역을 보고 바로 고칠 수 있어요 · 금액은 만 단위로 줄여 표시</p>
+      </section>
+    </div>
+  </div>
+
+  <button class="fab" id="lgAddFab" type="button" hidden>＋ 내역 등록</button>
 </div>
 
 <div class="modal" id="modal" hidden>
@@ -652,6 +725,12 @@
     </section>
 
     <section class="settings-block">
+      <h3>💰 비공개 금전출납부</h3>
+      <p class="field-hint">가족·알바생에게 보이지 않는 사장님 전용 장부예요. PIN을 넣으면 <b>이 기기에서만</b> 탭이 생기고, 열 때마다 PIN을 다시 물어봅니다.</p>
+      <button type="button" class="btn-ghost btn-small" id="storeOpenLedgerBtn">출납부 열기 (PIN)</button>
+    </section>
+
+    <section class="settings-block">
       <h3>이 기기 연결</h3>
       <p class="field-hint">기기를 바꿀 때 이 폰에서만 매장 연결을 끊을 수 있어요. 매장 데이터(근무·시급·명세서)는 서버에 그대로 남습니다.</p>
       <button type="button" class="btn-ghost btn-small btn-danger" id="storeLeaveBtn">이 기기에서 매장 연결 해제</button>
@@ -825,6 +904,12 @@
     </section>
 
     <section class="admin-block">
+      <h3>💰 비공개 금전출납부</h3>
+      <p class="field-hint">가족에게 보이지 않는 사장님 전용 장부예요. PIN을 넣으면 <b>이 기기에서만</b> 출납부 탭이 생겨요. 가족·매장 데이터와는 서버 방이 완전히 달라 섞이지 않습니다.</p>
+      <button type="button" class="btn-ghost btn-small" id="openLedgerBtn">출납부 열기 (PIN)</button>
+    </section>
+
+    <section class="admin-block">
       <h3>관리자 PIN 변경</h3>
       <p class="field-hint">PIN은 4자리 숫자이고, 서버에는 SHA-256 해시만 저장돼요. 처음에는 <b>2026</b>으로 열리고, 여기서 꼭 바꿔 주세요.</p>
       <div class="field">
@@ -909,19 +994,221 @@
   </div>
 </div>
 
+<!-- 💰 내역 등록·수정 -->
+<div class="modal" id="lgEntryModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="lgEntryTitle">내역 등록</h2>
+      <button class="sheet-close" id="lgEntryClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="field">
+      <label>구분</label>
+      <div class="lg-seg" id="lgType">
+        <button type="button" class="lg-seg__btn" data-type="expense">지출</button>
+        <button type="button" class="lg-seg__btn" data-type="income">수입</button>
+      </div>
+      <label style="display:inline-block;margin-left:12px;font-size:11px;font-weight:800;color:var(--ink-faint)">영역</label>
+      <div class="lg-seg" id="lgArea" style="margin-left:6px">
+        <button type="button" class="lg-seg__btn" data-area="personal">개인</button>
+        <button type="button" class="lg-seg__btn" data-area="store">매장</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="lgAmount">금액 <span class="req">*</span></label>
+      <div class="lg-amount-row">
+        <input id="lgAmount" type="text" inputmode="numeric" placeholder="0" autocomplete="off" />
+        <span>원</span>
+      </div>
+      <div class="lg-quick" id="lgQuick">
+        <button type="button" data-add="1000">+1천</button>
+        <button type="button" data-add="10000">+1만</button>
+        <button type="button" data-add="50000">+5만</button>
+        <button type="button" data-add="100000">+10만</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="lgDate">날짜 <span class="req">*</span></label>
+      <input id="lgDate" type="date" />
+    </div>
+
+    <div class="field">
+      <label>분류</label>
+      <div class="lg-cat-wrap" id="lgCatWrap"></div>
+    </div>
+
+    <div class="field">
+      <label>결제수단</label>
+      <div class="lg-seg" id="lgMethod">
+        <button type="button" class="lg-seg__btn" data-method="card">카드</button>
+        <button type="button" class="lg-seg__btn" data-method="account">계좌</button>
+        <button type="button" class="lg-seg__btn" data-method="cash">현금</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="lgMemo">내용·메모</label>
+      <input id="lgMemo" type="text" maxlength="120" placeholder="예) 홈플러스 식자재" autocomplete="off" />
+    </div>
+
+    <label class="lg-check" style="margin-bottom:10px">
+      <input type="checkbox" id="lgRepeat" />
+      <span>매월 반복하는 고정지출이에요<br /><span style="font-size:11px;color:var(--ink-faint)">매달 같은 날짜에 자동으로 올라가고, 이 내역을 지우면 반복도 끝나요</span></span>
+    </label>
+
+    <p class="form-error" id="lgEntryError" hidden></p>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="lgEntrySave">저장</button>
+      <button type="button" class="btn-ghost btn-danger" id="lgEntryDelete" hidden>삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 💰 날짜 한눈에 보기 -->
+<div class="modal" id="lgDayModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="lgDayTitle">-</h2>
+      <button class="sheet-close" id="lgDayClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="lg-sheet-sum" id="lgDaySum"></div>
+    <ul class="lg-sheet-list" id="lgDayList"></ul>
+    <p class="empty lg-sheet__empty" id="lgDayEmpty" hidden>이 날은 아직 내역이 없어요</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="lgDayAdd">＋ 이 날 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 💰 문자·카톡 자동입력 -->
+<div class="modal" id="lgPasteModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>📋 문자·카톡 자동입력</h2>
+      <button class="sheet-close" id="lgPasteClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">카드 결제 문자·은행 입출금 문자·카톡 알림을 <b>그대로 붙여넣으세요</b>.<br />여러 건을 한 번에 넣을 수 있고, 금액·날짜·결제수단을 자동으로 나눠요.</p>
+    <textarea class="lg-paste-area" id="lgPasteArea" placeholder="예) [KB국민카드] 11/17 09:12 12,300원 승인 홈플러스 강동점&#10;[NH농협] 11/17 08:00 입금 150,000원"></textarea>
+    <div class="sheet-actions" style="margin-top:8px">
+      <button type="button" class="btn-ghost btn-small" id="lgParseBtn">자동으로 나누기</button>
+      <button type="button" class="btn-ghost btn-small" id="lgPasteSample">예시 넣어 보기</button>
+    </div>
+    <p class="lg-set-note" id="lgPasteCount" style="margin-top:10px"></p>
+    <div id="lgParsedWrap"></div>
+    <div class="sheet-actions" style="margin-top:12px">
+      <button type="button" class="btn-primary" id="lgPasteSave" disabled>한 번에 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 💰 출납부 설정 -->
+<div class="modal" id="lgSettingsModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 출납부 설정</h2>
+      <button class="sheet-close" id="lgSettingsClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <section class="lg-set-block">
+      <h3>📱 폰 알림 자동 수집</h3>
+      <p class="lg-set-note">카드·은행 앱과 카카오톡으로 오는 <b>입출금·결제 알림</b>을 모아 둘게요.<br />금액·승인·입금 같은 <b>금융 키워드가 있는 알림만</b> 모읍니다.</p>
+      <p class="lg-set-note" id="lgNotifyState"></p>
+      <div class="lg-set-row">
+        <button type="button" class="btn-ghost btn-small" id="lgNotifyOpen" hidden>알림 접근 권한 설정 열기</button>
+        <button type="button" class="btn-ghost btn-small" id="lgRefreshBtn">대기 내역 새로 확인</button>
+      </div>
+      <label class="lg-check" style="margin-top:10px">
+        <input type="checkbox" id="lgAutoImmediate" />
+        <span>새 알림을 받으면 <b>바로</b> 출납부에 넣기<br /><span style="font-size:11px;color:var(--ink-faint)">끄면 대기함에서 확인하고 넣어요</span></span>
+      </label>
+    </section>
+
+    <section class="lg-set-block">
+      <h3>💰 내보내기</h3>
+      <p class="lg-set-note">이번 달 요약은 카톡에 그대로 붙여넣을 수 있고, CSV는 엑셀에서 열립니다.</p>
+      <div class="lg-set-row">
+        <button type="button" class="btn-ghost btn-small" id="lgCsvBtn">CSV(엑셀) 내보내기</button>
+        <button type="button" class="btn-ghost btn-small" id="lgCsvCopyBtn">CSV 복사</button>
+        <button type="button" class="btn-ghost btn-small" id="lgKakaoBtn2">이번 달 요약 복사</button>
+      </div>
+    </section>
+
+    <section class="lg-set-block">
+      <h3>🔐 PIN 변경</h3>
+      <p class="lg-set-note">PIN은 4자리 숫자이고 서버에는 해시만 저장돼요. 출납부 탭을 열 때마다 물어봅니다.</p>
+      <div class="field">
+        <label for="lgPinCur">지금 PIN</label>
+        <input id="lgPinCur" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <div class="field">
+        <label for="lgPinNew">새 PIN (4자리)</label>
+        <input id="lgPinNew" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <div class="field">
+        <label for="lgPinNew2">한 번 더</label>
+        <input id="lgPinNew2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      </div>
+      <p class="form-error" id="lgPinError" hidden></p>
+      <button type="button" class="btn-ghost btn-small" id="lgPinSave">PIN 저장</button>
+    </section>
+
+    <section class="lg-set-block">
+      <h3>이 기기</h3>
+      <p class="lg-set-note" id="lgSetTotal"></p>
+      <p class="lg-set-note">출납부는 가족 달력·매장 달력과 <b>다른 비공개 방</b>을 써서 가족·알바생 화면에는 보이지 않아요.</p>
+      <button type="button" class="btn-ghost btn-small btn-danger" id="lgOwnerOffBtn">이 기기에서 출납부 숨기기</button>
+    </section>
+  </div>
+</div>
+
+<!-- 💰 이 기기에서 출납부 켜기 -->
+<div class="modal" id="lgGrantModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>💰 금전출납부 열기</h2>
+      <button class="sheet-close" id="lgGrantClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="room-intro">사장님 PIN을 넣으면 <b>이 기기에서만</b> 출납부 탭이 보여요.<br />가족·알바생 기기에는 탭 자체가 생기지 않아요. 열 때마다 PIN을 다시 물어봅니다.</p>
+    <p class="form-error" id="lgGrantError" hidden></p>
+    <div class="field">
+      <label for="lgGrantPin">사장님 PIN (4자리)</label>
+      <input id="lgGrantPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+      <p class="field-hint">처음 PIN은 <b>2026</b>이에요. 들어간 뒤 출납부 설정에서 바꿔 주세요.</p>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-primary" id="lgGrantBtn">이 기기에서 켜기</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117v"></script>
-<script src="firebase-auth-compat.js?v=20261117v"></script>
-<script src="firebase-firestore-compat.js?v=20261117v"></script>
-<script src="lunar.js?v=20261117v"></script>
-<script src="cloud.js?v=20261117v"></script>
-<script src="app.js?v=20261117v"></script>
-<script src="voice.js?v=20261117v"></script>
-<script src="media.js?v=20261117v"></script>
-<script src="store-cloud.js?v=20261117v"></script>
-<script src="store.js?v=20261117v"></script>
+<script src="firebase-app-compat.js?v=20261117w"></script>
+<script src="firebase-auth-compat.js?v=20261117w"></script>
+<script src="firebase-firestore-compat.js?v=20261117w"></script>
+<script src="lunar.js?v=20261117w"></script>
+<script src="cloud.js?v=20261117w"></script>
+<script src="app.js?v=20261117w"></script>
+<script src="voice.js?v=20261117w"></script>
+<script src="media.js?v=20261117w"></script>
+<script src="store-cloud.js?v=20261117w"></script>
+<script src="store.js?v=20261117w"></script>
+<script src="ledger-cloud.js?v=20261117w"></script>
+<script src="ledger.js?v=20261117w"></script>
 </body>
 </html>

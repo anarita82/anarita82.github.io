@@ -1,0 +1,365 @@
+/* 💰 금전출납부 — 사장님(본인)만 보는 비공개 장부 스타일 */
+
+/* ---------- 모드 탭 · 상단 바 (장부 모드) ---------- */
+body.ledger-mode .app-bar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+  box-shadow: 0 10px 24px -14px rgba(15, 23, 42, .9);
+}
+body.ledger-mode .mode-tab.is-active { color: #b45309; }
+body.ledger-mode .app-bar__status { background: rgba(245, 158, 11, .18); color: #fde68a; }
+body.ledger-mode .fab { background: linear-gradient(135deg, #b45309, #f59e0b); box-shadow: 0 10px 24px -8px rgba(180, 83, 9, .8); }
+.mode-tab__badge {
+  display: inline-block;
+  min-width: 15px;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #3b1d00;
+  font-size: 9.5px;
+  font-weight: 900;
+  line-height: 15px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* ---------- 잠금 화면 ---------- */
+.lg-lock { text-align: center; padding: 26px 14px 20px; }
+.lg-lock__icon { font-size: 38px; line-height: 1; margin-bottom: 10px; }
+.lg-lock__title { margin: 0 0 6px; font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
+.lg-lock__desc { margin: 0 0 16px; font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; }
+.lg-lock__pin {
+  width: 150px;
+  margin: 0 auto 12px;
+  display: block;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.lg-lock__pin:focus { outline: none; border-color: #f59e0b; background: #fff; box-shadow: 0 0 0 3px rgba(245, 158, 11, .16); }
+.lg-lock__go { width: 150px; margin: 0 auto; display: block; }
+.lg-lock__hint { margin: 12px 0 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.6; }
+.lg-lock__hint b { color: #b45309; }
+.lg-lock__off { margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.lg-error { margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #dc2626; }
+
+/* ---------- 요약 ---------- */
+.lg-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.lg-sum__box {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 9px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e8edf3;
+  min-width: 0;
+}
+.lg-sum__k { font-size: 10.5px; font-weight: 800; color: var(--ink-soft); letter-spacing: -.2px; }
+.lg-sum__v {
+  font-size: 15px; font-weight: 900; letter-spacing: -.7px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.lg-sum__v--in { color: #059669; }
+.lg-sum__v--out { color: #dc2626; }
+.lg-sum__v--net { color: #1d4ed8; }
+.lg-sum__v--neg { color: #b91c1c; }
+.lg-sum--store .lg-sum__box { background: #f3fbf8; border-color: #dff3ec; }
+
+.lg-filter { display: flex; gap: 6px; margin-top: 10px; }
+.lg-filter__btn {
+  flex: 1;
+  padding: 7px 4px;
+  border-radius: 10px;
+  border: 1px solid #e8edf3;
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.lg-filter__btn.is-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fde68a;
+}
+
+/* ---------- 월 이동 · 도구 ---------- */
+.lg-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+.lg-cal-title { text-align: center; flex: 1 1 auto; }
+.lg-cal-title strong { font-size: 16.5px; font-weight: 800; letter-spacing: -.3px; }
+.lg-cal-title span { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.lg-nav {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 16px;
+  cursor: pointer;
+}
+.lg-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.lg-tool {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 9px 6px;
+  border-radius: 12px;
+  border: 1px solid #e8edf3;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lg-tool:active { background: #f1f5f9; }
+.lg-tool__n {
+  display: inline-block; min-width: 16px; padding: 0 4px;
+  border-radius: 999px; background: #f59e0b; color: #3b1d00;
+  font-size: 9.5px; font-weight: 900; line-height: 16px;
+}
+
+/* ---------- 달력 ---------- */
+.lg-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 3px; }
+.lg-week span { text-align: center; font-size: 10.5px; font-weight: 800; color: var(--ink-faint); }
+.lg-week span:first-child { color: var(--sun); }
+.lg-week span:last-child { color: var(--sat); }
+.lg-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.lg-day {
+  position: relative;
+  min-height: 58px;
+  padding: 4px 3px 3px;
+  border-radius: 10px;
+  border: 1px solid #eef1f6;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.lg-day--out { background: #fafbfd; border-color: transparent; opacity: .5; }
+.lg-day--sun .lg-day__n { color: var(--sun); }
+.lg-day--sat .lg-day__n { color: var(--sat); }
+.lg-day__n { font-size: 10.5px; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.lg-day--today { border-color: #f59e0b; box-shadow: 0 0 0 1.5px rgba(245, 158, 11, .28) inset; }
+.lg-day--today .lg-day__n { color: #b45309; }
+.lg-day--sel { background: #0f172a; border-color: #0f172a; }
+.lg-day--sel .lg-day__n { color: #fde68a; }
+.lg-amt {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: -.4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.lg-amt--in { color: #059669; }
+.lg-amt--out { color: #dc2626; }
+.lg-day--sel .lg-amt--in { color: #6ee7b7; }
+.lg-day--sel .lg-amt--out { color: #fca5a5; }
+.lg-amt--more { color: #94a3b8; font-size: 8px; }
+.lg-day--sel .lg-amt--more { color: rgba(255, 255, 255, .6); }
+.lg-dot { position: absolute; top: 5px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: #f59e0b; }
+
+/* ---------- 날짜 바텀시트 ---------- */
+.lg-sheet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.lg-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border-radius: 13px;
+  background: #f8fafc;
+  border: 1px solid #eef1f6;
+  border-left: 3px solid #94a3b8;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+}
+.lg-row--in { border-left-color: #059669; }
+.lg-row--out { border-left-color: #dc2626; }
+.lg-row__main { flex: 1 1 auto; min-width: 0; }
+.lg-row__title {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 800; letter-spacing: -.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lg-row__meta {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lg-row__amt {
+  flex: 0 0 auto;
+  font-size: 13.5px; font-weight: 900; letter-spacing: -.4px;
+  font-variant-numeric: tabular-nums;
+}
+.lg-row__amt--in { color: #059669; }
+.lg-row__amt--out { color: #dc2626; }
+.lg-tag {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 800;
+  background: #eef2ff;
+  color: #4338ca;
+}
+.lg-tag--store { background: #ecfdf5; color: #047857; }
+.lg-tag--repeat { background: #fff7ed; color: #c2410c; }
+.lg-tag--auto { background: #f5f3ff; color: #6d28d9; }
+.lg-sheet-sum {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 10px;
+  font-size: 12px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.lg-sheet-sum .in { color: #059669; }
+.lg-sheet-sum .out { color: #dc2626; }
+.lg-sheet__empty { margin: 6px 0 14px; }
+
+/* ---------- 자동 수집 대기함 ---------- */
+.lg-pending__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lg-pending__list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 258px; overflow-y: auto; }
+.lg-pending__row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 11px;
+  background: #f8fafc; border: 1px dashed #dbe3ec;
+  font-size: 12px;
+}
+.lg-pending__row b { font-variant-numeric: tabular-nums; }
+.lg-pending__row span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+.lg-pending__actions { display: flex; gap: 6px; margin-top: 10px; }
+
+/* ---------- 자동입력(붙여넣기) ---------- */
+.lg-paste-area {
+  width: 100%;
+  min-height: 108px;
+  padding: 11px 12px;
+  border-radius: 13px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+  font-family: inherit;
+}
+.lg-paste-area:focus { outline: none; border-color: #f59e0b; background: #fff; box-shadow: 0 0 0 3px rgba(245, 158, 11, .14); }
+.lg-parsed { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lg-card {
+  border: 1px solid #e8edf3;
+  border-radius: 13px;
+  padding: 9px 10px;
+  background: #fff;
+}
+.lg-card--dup { border-color: #fecaca; background: #fffafa; }
+.lg-card__top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lg-card__raw {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  line-height: 1.45;
+  max-height: 28px;
+  overflow: hidden;
+}
+.lg-card__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 7px; }
+.lg-mini {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 9.5px; font-weight: 800; color: var(--ink-faint);
+}
+.lg-mini input, .lg-mini select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.lg-mini input:focus, .lg-mini select:focus { outline: none; border-color: #f59e0b; background: #fff; }
+.lg-seg { display: inline-flex; border: 1px solid #e2e8f0; border-radius: 999px; overflow: hidden; background: #f8fafc; }
+.lg-seg__btn {
+  border: 0; background: transparent; padding: 4px 9px;
+  font-size: 11px; font-weight: 800; color: var(--ink-soft);
+  cursor: pointer; font-family: inherit;
+}
+.lg-seg__btn.is-on { background: #0f172a; color: #fde68a; }
+.lg-seg__btn.is-on.lg-seg__btn--in { background: #059669; color: #fff; }
+.lg-seg__btn.is-on.lg-seg__btn--out { background: #dc2626; color: #fff; }
+.lg-dup-note { font-size: 10.5px; font-weight: 800; color: #dc2626; }
+
+/* ---------- 등록/수정 모달 ---------- */
+.lg-amount-row { display: flex; align-items: center; gap: 8px; }
+.lg-amount-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -.6px;
+  font-variant-numeric: tabular-nums;
+  padding: 10px 12px;
+  border-radius: 13px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+}
+.lg-amount-row input:focus { outline: none; border-color: #f59e0b; background: #fff; }
+.lg-amount-row span { font-size: 15px; font-weight: 800; color: var(--ink-soft); }
+.lg-quick { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.lg-quick button {
+  padding: 4px 8px; border-radius: 8px;
+  border: 1px solid #e8edf3; background: #fff;
+  font-size: 11px; font-weight: 800; color: var(--ink-soft);
+  cursor: pointer; font-family: inherit;
+}
+.lg-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+.lg-check input { margin-top: 2px; width: 16px; height: 16px; accent-color: #b45309; }
+.lg-cat-wrap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.lg-cat {
+  padding: 7px 8px; border-radius: 10px;
+  border: 1px solid #e8edf3; background: #fff;
+  font-size: 11.5px; font-weight: 800; color: var(--ink-soft);
+  cursor: pointer; font-family: inherit; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lg-cat.is-on { background: #0f172a; border-color: #0f172a; color: #fde68a; }
+
+/* ---------- 설정 ---------- */
+.lg-set-block { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.lg-set-block:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.lg-set-block h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; letter-spacing: -.2px; }
+.lg-set-note { margin: 0 0 8px; font-size: 11.5px; color: var(--ink-faint); line-height: 1.55; }
+.lg-set-note b { color: var(--ink-soft); }
+.lg-set-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.lg-badge {
+  display: inline-block; padding: 2px 7px; border-radius: 7px;
+  font-size: 10.5px; font-weight: 800; background: #f1f5f9; color: var(--ink-soft);
+}
+.lg-badge--on { background: #ecfdf5; color: #047857; }
+.lg-badge--off { background: #fef2f2; color: #b91c1c; }
+.lg-total { margin: 4px 0 0; font-size: 11.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width: 360px) {
+  .lg-sum__v { font-size: 13.5px; }
+  .lg-amt { font-size: 8px; }
+  .lg-day { min-height: 54px; }
+}
