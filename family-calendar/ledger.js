@@ -147,11 +147,11 @@
     return out;
   }
 
-  function totals(list) {
+  function totals(list, ignoreFilter) {
     var t = { income: 0, expense: 0 };
     list.forEach(function (item) {
       var e = item.e || item;
-      var hit = S.filter === 'all' || e.area === S.filter;
+      var hit = ignoreFilter || S.filter === 'all' || e.area === S.filter;
       if (!hit) return;
       if (e.type === 'income') t.income += e.amount;
       else t.expense += e.amount;
@@ -406,14 +406,26 @@
       type: 'expense', area: 'personal', category: 'living', amount: 0,
       date: dateISO || S.day || todayISO(), method: 'card', memo: '', repeatMonthly: false
     };
+    S.formFresh = true;
     renderEntryForm();
     if (el.entryModal) el.entryModal.hidden = false;
     setTimeout(function () { try { el.amountInput.focus(); } catch (e) { /* 무시 */ } }, 60);
   }
 
+  /* 입력 중인 금액·날짜·메모를 잃지 않도록, 다시 그리기 전에 초안에 옮겨 담습니다. */
+  function syncDraftInputs() {
+    if (!S.draft) return;
+    if (el.amountInput) S.draft.amount = Number(digits(el.amountInput.value)) || 0;
+    if (el.dateInput && /^\d{4}-\d{2}-\d{2}$/.test(el.dateInput.value || '')) S.draft.date = el.dateInput.value;
+    if (el.memoInput) S.draft.memo = el.memoInput.value;
+    if (el.repeatCheck) S.draft.repeatMonthly = !!el.repeatCheck.checked;
+  }
+
   function renderEntryForm() {
     var d = S.draft;
     if (!d) return;
+    if (!S.formFresh) syncDraftInputs();
+    S.formFresh = false;
     if (el.entryTitle) el.entryTitle.textContent = S.editing ? '내역 수정' : '내역 등록';
     Array.prototype.forEach.call(document.querySelectorAll('#lgType .lg-seg__btn'), function (b) {
       var on = b.getAttribute('data-type') === d.type;
@@ -440,7 +452,6 @@
     if (el.entryError) el.entryError.hidden = true;
     if (el.repeatHint) el.repeatHint.hidden = true;
   }
-
   function saveEntry() {
     var d = S.draft;
     if (!d) return;
@@ -856,9 +867,9 @@
   /* ---------------- 요약 복사 · CSV ---------------- */
   function buildKakao() {
     var occ = monthOccurrences(S.y, S.m);
-    var all = totals(occ);
-    var store = totals(occ.filter(function (i) { return i.e.area === 'store'; }));
-    var personal = totals(occ.filter(function (i) { return i.e.area === 'personal'; }));
+    var all = totals(occ, true);
+    var store = totals(occ.filter(function (i) { return i.e.area === 'store'; }), true);
+    var personal = totals(occ.filter(function (i) { return i.e.area === 'personal'; }), true);
     var byCat = {};
     occ.forEach(function (item) {
       var e = item.e;
@@ -1165,6 +1176,7 @@
         S.entries.forEach(function (e) { if (e.id === id) hit = e; });
         if (!hit) return;
         closeDaySheet();
+        if (hit.repeatMonthly && hit.date !== S.day) toast('매월 반복하는 내역이라 원래 날짜(' + hit.date + ')로 열었어요');
         openEntry(hit);
       });
     }
