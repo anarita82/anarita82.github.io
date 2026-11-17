@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118a3" />
-<link rel="stylesheet" href="store.css?v=20261118a3" />
-<link rel="stylesheet" href="ledger.css?v=20261118a3" />
-<link rel="stylesheet" href="extra.css?v=20261118a3" />
-<link rel="stylesheet" href="polish.css?v=20261118a3" />
+<link rel="stylesheet" href="styles.css?v=20261118a4" />
+<link rel="stylesheet" href="store.css?v=20261118a4" />
+<link rel="stylesheet" href="ledger.css?v=20261118a4" />
+<link rel="stylesheet" href="extra.css?v=20261118a4" />
+<link rel="stylesheet" href="polish.css?v=20261118a4" />
 </head>
 <body>
 <div class="app">
@@ -273,9 +273,21 @@
       </section>
 
       <section class="card" id="storeStaffCard" hidden>
-        <div class="card-head"><h2>👥 알바생 관리</h2><span class="card-head__hint">기본 시급</span></div>
+        <div class="card-head"><h2>👥 근무자 관리</h2><span class="card-head__hint">이름·번호·퇴사</span></div>
+        <p class="field-hint staff-hint">이름·시급·번호를 고치면 <b>[✓ 저장]</b> 버튼이 생겨요. Enter나 다른 곳을 눌러도 저장되고, <b>오늘 근무·상단 이름·달력·급여명세서</b>에 바로 바뀝니다.</p>
+        <div class="staff-add">
+          <div class="staff-add__row">
+            <input id="staffAddName" class="staff-add__name" type="text" maxlength="12" autocomplete="off" placeholder="이름 (예: 오후 알바)" aria-label="새 근무자 이름" />
+            <input id="staffAddWage" class="staff-add__wage" type="text" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="시급" aria-label="새 근무자 시급" />
+          </div>
+          <div class="staff-add__row">
+            <input id="staffAddTel" class="staff-add__tel" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="010-1234-5678" aria-label="새 근무자 전화번호" />
+            <button type="button" class="btn-primary btn-small staff-add__btn" id="staffAddBtn">＋ 등록</button>
+          </div>
+          <p class="form-error" id="staffAddError" hidden></p>
+        </div>
         <ul class="staff-list" id="staffList"></ul>
-        <p class="field-hint">초대 링크로 들어온 알바생은 위 <b>🔔 입장·승인</b>에서 승인해요. 시급·휴대폰 번호를 고친 뒤 다른 곳을 누르면 자동 저장돼요.</p>
+        <p class="field-hint">근무자는 <b>이렇게 등록</b>하고, 그 폰에서 매장 달력을 보려면 <b>초대 링크</b>를 보낸 뒤 위 <b>🔔 입장·승인</b>에서 승인해 주세요.<br>일을 그만두면 <b>🚪 퇴사</b> — 지난 근무·급여는 남기고 접속만 막아요.</p>
       </section>
 
       <section class="card" id="storeGuideCard" hidden>
@@ -1035,14 +1047,14 @@
       <button class="sheet-close" id="storeHubClose" type="button" aria-label="닫기">✕</button>
     </div>
     <div class="set-rows" id="storeHubRows">
-      <button type="button" class="set-row" data-scroll="storePayrollCard">
-        <span class="set-row__i">🧾</span>
-        <span class="set-row__t">급여명세서<small>알바생별 월 급여·카톡·PDF</small></span>
-        <span class="set-row__chev">›</span>
-      </button>
       <button type="button" class="set-row" data-scroll="storeStaffCard">
         <span class="set-row__i">👥</span>
-        <span class="set-row__t">알바생 관리<small>시급·휴대폰 번호</small></span>
+        <span class="set-row__t">근무자 관리 (이름·번호·퇴사)<small>등록·이름·시급·번호 고치기, 퇴사·복직</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button type="button" class="set-row" data-scroll="storePayrollCard">
+        <span class="set-row__i">🧾</span>
+        <span class="set-row__t">급여명세서<small>근무자별 월 급여·카톡·PDF</small></span>
         <span class="set-row__chev">›</span>
       </button>
       <button type="button" class="set-row" data-scroll="storeGuideCard">
@@ -1789,19 +1801,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118a3"></script>
-<script src="firebase-auth-compat.js?v=20261118a3"></script>
-<script src="firebase-firestore-compat.js?v=20261118a3"></script>
-<script src="lunar.js?v=20261118a3"></script>
-<script src="cloud.js?v=20261118a3"></script>
-<script src="app.js?v=20261118a3"></script>
-<script src="voice.js?v=20261118a3"></script>
-<script src="media.js?v=20261118a3"></script>
-<script src="store-cloud.js?v=20261118a3"></script>
-<script src="store.js?v=20261118a3"></script>
-<script src="ledger-cloud.js?v=20261118a3"></script>
-<script src="ledger.js?v=20261118a3"></script>
-<script src="extra-cloud.js?v=20261118a3"></script>
-<script src="extra.js?v=20261118a3"></script>
+<script src="firebase-app-compat.js?v=20261118a4"></script>
+<script src="firebase-auth-compat.js?v=20261118a4"></script>
+<script src="firebase-firestore-compat.js?v=20261118a4"></script>
+<script src="lunar.js?v=20261118a4"></script>
+<script src="cloud.js?v=20261118a4"></script>
+<script src="app.js?v=20261118a4"></script>
+<script src="voice.js?v=20261118a4"></script>
+<script src="media.js?v=20261118a4"></script>
+<script src="store-cloud.js?v=20261118a4"></script>
+<script src="store.js?v=20261118a4"></script>
+<script src="ledger-cloud.js?v=20261118a4"></script>
+<script src="ledger.js?v=20261118a4"></script>
+<script src="extra-cloud.js?v=20261118a4"></script>
+<script src="extra.js?v=20261118a4"></script>
 </body>
 </html>

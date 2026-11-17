@@ -199,13 +199,44 @@ body.store-mode .day-sheet__hint { color: #6b817e; }
   font-family: inherit;
 }
 
-/* ---------- 알바생 관리 ---------- */
-.staff-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+/* ---------- 근무자(알바생) 관리 ---------- */
+.staff-hint { margin: 0 0 8px; }
+.staff-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .staff-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   background: #fafbfe; border: 1px solid #f0f1f6; border-radius: 11px;
   padding: 8px 10px;
 }
+/* 1줄 — 사진 + 이름 */
+.staff-row__top { flex: 1 0 100%; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.staff-row__namerow { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.staff-row__pen { font-size: 11px; line-height: 1; flex: 0 0 auto; opacity: .75; }
+.staff-row__nametext {
+  flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: #6b7280;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.staff-row__name {
+  flex: 1; width: 100%; min-width: 0;
+  border: 1px solid #e3e5ec; border-radius: 9px;
+  background: #fff; padding: 5px 8px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #2b3040;
+}
+.staff-row__name:focus { border-color: #2dd4bf; box-shadow: 0 0 0 3px rgba(13, 148, 136, .12); outline: none; }
+.staff-row__photo { border: 0; background: transparent; padding: 0; cursor: pointer; display: inline-flex; align-items: center; flex: 0 0 auto; }
+.staff-row__photo:disabled { cursor: default; }
+/* 2줄 — 시급 + 🚪 퇴사 */
+.staff-row__money { flex: 1 0 100%; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.staff-row__wage-label { flex: 0 0 auto; font-size: 11.5px; font-weight: 800; color: #6b7280; }
+.staff-row__won { flex: 0 0 auto; font-size: 11.5px; font-weight: 700; color: #8b93a3; }
+.staff-row__wage {
+  flex: 1 1 auto; width: auto; min-width: 0;
+  border: 1px solid #e3e5ec; border-radius: 9px;
+  background: #fff; padding: 5px 7px; font-family: inherit;
+  font-size: 12px; font-weight: 700; color: #2b3040;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.staff-row__wage:focus { border-color: #2dd4bf; outline: none; }
+/* 3줄 — 📞 번호 */
 .staff-row__telrow {
   flex: 1 0 100%;
   display: flex; align-items: center; gap: 5px;
@@ -229,35 +260,65 @@ body.store-mode .day-sheet__hint { color: #6b817e; }
 }
 .staff-row__call:active { opacity: .6; }
 .staff-row__dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
-.staff-row__name { flex: 1; font-size: 13px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.staff-row__wage {
-  width: 96px; border: 1px solid #e3e5ec; border-radius: 9px;
-  background: #fff; padding: 5px 7px; font-size: 12px; font-weight: 700;
-  text-align: right; font-variant-numeric: tabular-nums;
-}
-.staff-row__del {
-  border: 0; background: transparent; color: #cbd0da;
-  font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1;
-}
-.staff-row__del:active { color: #dc2626; }
-.staff-row__off { font-size: 10px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 5px; padding: 1px 5px; }
+.staff-row__off { font-size: 10px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 5px; padding: 1px 5px; flex: 0 0 auto; }
 
-/* 🚪 퇴사(강제 탈퇴) */
+/* 고친 것을 저장하는 [✓ 저장] — 고친 줄이 있으면 나타납니다 */
+.staff-row--dirty { background: #f0fdfa; border-color: #99f6e4; }
+.staff-row__save {
+  flex: 1 0 100%;
+  border: 0; border-radius: 10px;
+  background: #0d9488; color: #fff;
+  font-family: inherit; font-size: 13px; font-weight: 800;
+  min-height: 42px; padding: 10px; cursor: pointer;
+}
+.staff-row__save:active { background: #0f766e; }
+
+/* 🚪 퇴사 · ↩️ 복직 · ✕ 완전 삭제 */
 .staff-row--retired { background: #f7f7fa; }
-.staff-row--retired .staff-row__name { color: #6b7280; }
 .staff-row__retire {
+  flex: 0 0 auto;
   border: 1px solid #fecaca; background: #fff5f5; color: #b91c1c;
-  border-radius: 9px; font-family: inherit; font-size: 11px; font-weight: 800;
-  padding: 5px 8px; cursor: pointer; white-space: nowrap;
+  border-radius: 9px; font-family: inherit; font-size: 11.5px; font-weight: 800;
+  min-height: 38px; padding: 6px 9px; cursor: pointer; white-space: nowrap;
 }
 .staff-row__retire:active { background: #fee2e2; }
 .staff-row__act {
+  flex: 1 1 auto;
   border: 1px solid #ccfbf1; background: #ecfdf8; color: #0f766e;
-  border-radius: 9px; font-family: inherit; font-size: 11px; font-weight: 800;
-  padding: 5px 8px; cursor: pointer; white-space: nowrap;
+  border-radius: 10px; font-family: inherit; font-size: 12.5px; font-weight: 800;
+  min-height: 40px; padding: 8px 12px; cursor: pointer; white-space: nowrap;
 }
+.staff-row__act:active { background: #ccfbf1; }
+.staff-row__purge {
+  flex: 0 0 auto;
+  border: 1px solid #eceef3; background: #fff; color: #b0b7c3;
+  border-radius: 9px; font-family: inherit; font-size: 13px; line-height: 1;
+  min-height: 40px; min-width: 38px; padding: 0 8px; cursor: pointer;
+}
+.staff-row__purge:active { color: #dc2626; border-color: #fecaca; }
 .staff-row__note { flex: 1 0 100%; font-size: 11.5px; color: #6b7280; font-weight: 700; }
-.staff-list__head { font-size: 11.5px; font-weight: 800; color: #6b7280; padding: 10px 2px 2px; }
+.staff-list__head { font-size: 11.5px; font-weight: 800; color: #6b7280; padding: 10px 2px 2px; line-height: 1.5; }
+
+/* ➕ 새 근무자 등록 */
+.staff-add {
+  border: 1px dashed #d6dae3; border-radius: 12px;
+  background: #fbfcfe; padding: 8px; margin: 0 0 10px;
+}
+.staff-add__row { display: flex; align-items: center; gap: 6px; }
+.staff-add__row + .staff-add__row { margin-top: 6px; }
+.staff-add input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: 1px solid #e3e5ec; border-radius: 10px;
+  background: #fff; padding: 9px 10px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #2b3040;
+}
+.staff-add input:focus { border-color: #2dd4bf; outline: none; }
+.staff-add input::placeholder { color: #b8bec9; font-weight: 600; }
+.staff-add__wage { flex: 0 0 92px; width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+.staff-add__btn { flex: 0 0 auto; min-height: 40px; }
+.staff-add .form-error { margin: 6px 2px 0; }
+.req-card__warn {
+  color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
 .req-card__warn {
   color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
   border-radius: 8px; padding: 6px 8px; margin-top: 4px; font-weight: 700;

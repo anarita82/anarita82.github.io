@@ -460,6 +460,19 @@
     var settingsBtn = $('storeSettingsBtn');
     if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
 
+    /* 👥 근무자 등록 — 위 칸에 이름·시급·번호를 넣고 [＋ 등록] */
+    var staffAddBtn = $('staffAddBtn');
+    if (staffAddBtn) staffAddBtn.addEventListener('click', addStaffMember);
+    ['staffAddName', 'staffAddWage', 'staffAddTel'].forEach(function (id) {
+      var inp = $(id);
+      if (!inp) return;
+      inp.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        addStaffMember();
+      });
+    });
+
     var addBtn = el.storeAddBtn;
     if (addBtn) addBtn.addEventListener('click', function () {
       if (!isOwner()) return;
@@ -1125,7 +1138,7 @@
   }
 
   /* ---------------- ⚙️ 매장 설정 허브 ---------------- */
-  /* 급여명세서·알바생 관리·매장 설정 카드는 화면에서 옮겨 이 시트 안에서 보여 줍니다.
+  /* 급여명세서·근무자 관리·매장 설정 카드는 화면에서 옮겨 이 시트 안에서 보여 줍니다.
      (요소 id는 그대로라 기존 렌더 코드가 그대로 동작해요) */
   function moveCardsToHub() {
     var body = $('storeHubBody');
@@ -1335,7 +1348,7 @@
           var tm = document.createElement('span');
           tm.className = 'day__ev-h';
           tm.textContent = compactShiftTime(s);
-          tm.title = (s.staffName || (st ? st.name : '알바')) + ' ' + s.start + '~' + s.end;
+          tm.title = shiftName(s) + ' ' + s.start + '~' + s.end;
           row.appendChild(tm);
           evs.appendChild(row);
         });
@@ -1527,7 +1540,7 @@
 
     var name = document.createElement('span');
     name.className = 'sheet-row__title';
-    name.textContent = sh.staffName || (st ? st.name : '알바');
+    name.textContent = shiftName(sh);
     row.appendChild(name);
 
     var time = document.createElement('span');
@@ -1639,7 +1652,7 @@
 
   function deleteShiftFromSheet(sh) {
     if (!isOwner()) return;
-    var label = sh.date.slice(5) + ' ' + (sh.staffName || '') + ' ' + (sh.start || '') + '~' + (sh.end || '');
+    var label = sh.date.slice(5) + ' ' + shiftName(sh) + ' ' + (sh.start || '') + '~' + (sh.end || '');
     if (!window.confirm(label + ' 근무를 지울까요?\n매장 달력에서 사라져요.')) return;
     StoreCloud.deleteShift(sh.id).then(function () {
       toast('근무를 지웠어요');
@@ -1674,7 +1687,7 @@
     top.appendChild(av);
     var name = document.createElement('span');
     name.className = 'shift__name';
-    name.textContent = sh.staffName || (st ? st.name : '알바');
+    name.textContent = shiftName(sh);
     top.appendChild(name);
     var tag = document.createElement('span');
     tag.className = 'store-tag store-tag--' + (sh.status || 'planned');
@@ -2050,7 +2063,7 @@
 
   /* ---------------- 💬 카톡 요약 복사 ---------------- */
   function storeSummaryLine(sh) {
-    var line = '· ' + (sh.start || '--:--') + '~' + (sh.end || '--:--') + ' ' + (sh.staffName || '알바') + ' (' + hoursText(shiftMinutes(sh)) + ')';
+    var line = '· ' + (sh.start || '--:--') + '~' + (sh.end || '--:--') + ' ' + shiftName(sh) + ' (' + hoursText(shiftMinutes(sh)) + ')';
     if (sh.status && sh.status !== 'planned') line += ' ' + (STATUS_LABEL[sh.status] || '');
     if (sh.actualStart) line += '\n   실제 ' + sh.actualStart + '~' + (sh.actualEnd || '근무 중');
     return line;
@@ -2725,7 +2738,7 @@
     var id = S.shiftEditingId;
     var target = null;
     S.shifts.forEach(function (s) { if (s.id === id) target = s; });
-    var label = target ? target.date.slice(5) + ' ' + (target.staffName || '') + ' ' + target.start + '~' + target.end : '이 근무';
+    var label = target ? target.date.slice(5) + ' ' + shiftName(target) + ' ' + target.start + '~' + target.end : '이 근무';
     if (!window.confirm(label + ' 근무를 지울까요?\n매장 달력에서 사라져요.')) return;
     closeShift();
     StoreCloud.deleteShift(id).then(function () {
@@ -2988,7 +3001,7 @@
     window.print();
   }
 
-  /* ---------------- 알바생 관리·승인 ---------------- */
+  /* ---------------- 근무자(알바생) 관리·승인 ---------------- */
   function renderStaffList() {
     var card = $('storeStaffCard');
     if (!card) return;
@@ -2996,9 +3009,12 @@
     if (!isOwner()) return;
     var list = $('staffList');
     if (!list) return;
+    /* 고치는 중인 칸이 있으면 다시 그리지 않습니다 — 입력하던 글자가 지워지지 않게. */
+    var ae = document.activeElement;
+    if (ae && ae.tagName === 'INPUT' && list.contains(ae) && ae.dataset && ae.dataset.dirty === '1') return;
     list.innerHTML = '';
     if (!S.staff.length) {
-      list.innerHTML = '<li class="empty">아직 알바생이 없어요.<br><b>초대 링크</b>를 보내고 승인하면 여기에 나와요.</li>';
+      list.innerHTML = '<li class="empty">아직 등록된 근무자가 없어요.<br>위 칸에 <b>이름·시급·번호</b>를 넣고 <b>[＋ 등록]</b>을 눌러 주세요.</li>';
       return;
     }
     var working = S.staff.filter(function (m) { return !m.retired; });
@@ -3006,24 +3022,28 @@
     if (!working.length) {
       var none = document.createElement('li');
       none.className = 'empty';
-      none.textContent = '지금 일하는 알바생은 없어요.';
+      none.textContent = '지금 일하는 근무자는 없어요.';
       list.appendChild(none);
     }
     working.forEach(function (m) { list.appendChild(staffRow(m, false)); });
     if (retired.length) {
       var head = document.createElement('li');
       head.className = 'staff-list__head';
-      head.textContent = '🚪 퇴사자 ' + retired.length + '명 · 지난 근무·급여 기록은 그대로 남아 있어요';
+      head.textContent = '🚪 퇴사자 ' + retired.length + '명 · 지난 근무·급여 기록은 그대로 남아 있어요 · [↩️ 복직]으로 되돌릴 수 있어요';
       list.appendChild(head);
       retired.forEach(function (m) { list.appendChild(staffRow(m, true)); });
     }
   }
 
-  /* 알바생 한 줄 — 퇴사한 사람은 이름·시급을 잠그고 [복직]·[완전 삭제]만 보여 줍니다. */
+  /* 근무자 한 줄 — 이름·시급·번호를 그 자리에서 고치고 [✓ 저장].
+     퇴사한 사람은 이름을 잠그고 [↩️ 복직]·[✕]만 보여 줍니다. */
   function staffRow(m, isRetired) {
     var li = document.createElement('li');
     li.className = 'staff-row' + (isRetired ? ' staff-row--retired' : '');
 
+    /* 1줄 — 사진 + 이름 */
+    var top = document.createElement('div');
+    top.className = 'staff-row__top';
     var photoBtn = document.createElement('button');
     photoBtn.type = 'button';
     photoBtn.className = 'staff-row__photo';
@@ -3031,7 +3051,7 @@
     photoBtn.appendChild(storeAvatar(m, 30));
     if (isRetired) photoBtn.disabled = true;
     else photoBtn.addEventListener('click', function () { pickStaffPhoto(m); });
-    li.appendChild(photoBtn);
+    top.appendChild(photoBtn);
     if (m.photoDataUrl && !isRetired) {
       var clearPh = document.createElement('button');
       clearPh.type = 'button';
@@ -3039,28 +3059,32 @@
       clearPh.textContent = '✕';
       clearPh.title = '사진 지우기';
       clearPh.addEventListener('click', function () { clearStaffPhoto(m); });
-      li.appendChild(clearPh);
+      top.appendChild(clearPh);
     }
 
+    /* 퇴사자 — 이름·시급은 잠그고 복직만 */
     if (isRetired) {
       var nameText = document.createElement('span');
-      nameText.className = 'staff-row__name';
+      nameText.className = 'staff-row__nametext';
       nameText.textContent = m.name;
-      li.appendChild(nameText);
+      top.appendChild(nameText);
       var off = document.createElement('span');
       off.className = 'staff-row__off';
       off.textContent = '퇴사';
-      li.appendChild(off);
+      top.appendChild(off);
+      li.appendChild(top);
+
       var back = document.createElement('button');
       back.type = 'button';
       back.className = 'staff-row__act';
-      back.textContent = '복직';
-      back.title = m.name + ' 님을 다시 일하는 알바생으로 되돌리기';
+      back.textContent = '↩️ 복직';
+      back.title = m.name + ' 님을 다시 일하는 근무자로 되돌리기';
+      back.setAttribute('aria-label', m.name + ' 복직시키기');
       back.addEventListener('click', function () { restoreStaffMember(m); });
       li.appendChild(back);
       var purge = document.createElement('button');
       purge.type = 'button';
-      purge.className = 'staff-row__del';
+      purge.className = 'staff-row__purge';
       purge.textContent = '✕';
       purge.setAttribute('aria-label', m.name + ' 목록에서 완전히 삭제');
       purge.title = '목록에서 완전 삭제 (근무·급여 기록은 남음)';
@@ -3068,47 +3092,72 @@
       li.appendChild(purge);
       var wageText = document.createElement('span');
       wageText.className = 'staff-row__note';
-      wageText.textContent = '시급 ' + money(m.hourly || 0);
+      wageText.textContent = '시급 ' + money(m.hourly || 0)
+        + (m.retiredAt ? ' · ' + shortDay(m.retiredAt) + ' 퇴사' : '')
+        + ' · 지난 근무·급여 기록은 그대로';
       li.appendChild(wageText);
       return li;
     }
 
+    /* 이름 — 누를 수 있는 칸임이 보이도록 ✏️와 테두리 */
+    var nameRow = document.createElement('div');
+    nameRow.className = 'staff-row__namerow';
+    var pen = document.createElement('span');
+    pen.className = 'staff-row__pen';
+    pen.textContent = '✏️';
+    pen.setAttribute('aria-hidden', 'true');
+    nameRow.appendChild(pen);
     var name = document.createElement('input');
     name.type = 'text';
     name.className = 'staff-row__name';
     name.value = m.name;
     name.maxLength = 12;
+    name.setAttribute('autocomplete', 'off');
     name.setAttribute('aria-label', m.name + ' 이름 바꾸기');
-    name.title = '이름을 고치고 다른 곳을 누르면 저장돼요';
-    name.addEventListener('change', function () { saveStaffName(m, name.value); });
-    li.appendChild(name);
-
+    name.title = '이름을 고치고 Enter 또는 [✓ 저장]을 누르면 저장돼요';
+    nameRow.appendChild(name);
+    top.appendChild(nameRow);
     if (m.active === false) {
       var paused = document.createElement('span');
       paused.className = 'staff-row__off';
       paused.textContent = '정지';
-      li.appendChild(paused);
+      top.appendChild(paused);
     }
+    li.appendChild(top);
+
+    /* 2줄 — 시급 + 🚪 퇴사 */
+    var moneyRow = document.createElement('div');
+    moneyRow.className = 'staff-row__money';
+    var wageLabel = document.createElement('span');
+    wageLabel.className = 'staff-row__wage-label';
+    wageLabel.textContent = '시급';
+    moneyRow.appendChild(wageLabel);
     var wage = document.createElement('input');
-    wage.type = 'number';
+    wage.type = 'text';
     wage.className = 'staff-row__wage';
-    wage.min = '0';
-    wage.step = '100';
     wage.inputMode = 'numeric';
+    wage.maxLength = 8;
     wage.value = String(m.hourly || '');
+    wage.placeholder = '10030';
+    wage.setAttribute('autocomplete', 'off');
     wage.setAttribute('aria-label', m.name + ' 기본 시급');
-    wage.addEventListener('change', function () { saveStaffHourly(m.id, wage.value); });
-    li.appendChild(wage);
+    wage.title = '시급을 숫자로 고치고 Enter 또는 [✓ 저장]을 누르면 저장돼요';
+    moneyRow.appendChild(wage);
+    var won = document.createElement('span');
+    won.className = 'staff-row__won';
+    won.textContent = '원';
+    moneyRow.appendChild(won);
     var retire = document.createElement('button');
     retire.type = 'button';
     retire.className = 'staff-row__retire';
     retire.textContent = '🚪 퇴사';
-    retire.setAttribute('aria-label', m.name + ' 퇴사(강제 탈퇴) 처리');
-    retire.title = '퇴사 처리 — 그 직원 폰에서 매장 접근을 막고, 지난 근무·급여는 남겨요';
+    retire.setAttribute('aria-label', m.name + ' 퇴사(내보내기) 처리');
+    retire.title = '퇴사 처리 — 지난 근무·급여는 남기고 그 직원 폰의 매장 접속만 막아요';
     retire.addEventListener('click', function () { retireStaff(m); });
-    li.appendChild(retire);
+    moneyRow.appendChild(retire);
+    li.appendChild(moneyRow);
 
-    /* 휴대폰 번호 — 알바생 카드에서 바로 보이고 고칠 수 있어요 */
+    /* 3줄 — 📞 전화번호 */
     var telRow = document.createElement('div');
     telRow.className = 'staff-row__telrow';
     var telIcon = document.createElement('span');
@@ -3124,8 +3173,7 @@
     telInput.setAttribute('inputmode', 'tel');
     telInput.setAttribute('autocomplete', 'off');
     telInput.setAttribute('aria-label', m.name + ' 휴대폰 번호');
-    telInput.title = '번호를 넣고 다른 곳을 누르면 저장돼요';
-    telInput.addEventListener('change', function () { saveStaffTel(m, telInput.value); });
+    telInput.title = '번호를 넣고 Enter 또는 [✓ 저장]을 누르면 저장돼요';
     telRow.appendChild(telInput);
     if (telOf(m)) {
       var call = document.createElement('a');
@@ -3137,48 +3185,107 @@
       telRow.appendChild(call);
     }
     li.appendChild(telRow);
+
+    /* 고친 것이 있으면 [✓ 저장] 버튼이 나타납니다 (버튼·Enter·다른 곳 누르기 모두 저장) */
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'staff-row__save';
+    saveBtn.textContent = '✓ 저장';
+    saveBtn.hidden = true;
+    saveBtn.setAttribute('aria-label', m.name + ' 이름·시급·번호 저장');
+    saveBtn.addEventListener('click', function () { save(); });
+    li.appendChild(saveBtn);
+
+    function values() { return { name: name.value, hourly: wage.value, tel: telInput.value }; }
+
+    function isDirty() {
+      var typedName = String(name.value || '').trim().slice(0, 12);
+      var typedWage = Math.max(0, Math.round(Number(String(wage.value || '').replace(/[^\d]/g, '')) || 0));
+      var typedTel = normTel(telInput.value);
+      return typedName !== m.name || typedWage !== (m.hourly || 0) || typedTel !== telOf(m);
+    }
+
+    function syncDirty() {
+      var dirty = isDirty();
+      li.classList.toggle('staff-row--dirty', dirty);
+      saveBtn.hidden = !dirty;
+      name.dataset.dirty = dirty ? '1' : '0';
+      wage.dataset.dirty = dirty ? '1' : '0';
+      telInput.dataset.dirty = dirty ? '1' : '0';
+    }
+
+    function save() {
+      saveStaffEdits(m, values());
+    }
+
+    [name, wage, telInput].forEach(function (input) {
+      input.addEventListener('input', syncDirty);
+      /* 다른 곳을 누르면(포커스 아웃) 저장 */
+      input.addEventListener('change', function () { if (isDirty()) save(); });
+      input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        input.blur();   /* 포커스가 빠지면 change 이벤트가 저장합니다(두 번 저장되지 않게) */
+      });
+    });
     return li;
   }
 
-  /* 🚪 퇴사(강제 탈퇴) — 사장님만. 과거 근무·급여 기록은 남기고 접근만 막습니다. */
+  /* 퇴사한 날짜 짧게 (예: 11/17) */
+  function shortDay(ms) {
+    var t = Number(ms) || 0;
+    if (!t) return '';
+    var d = new Date(t);
+    if (isNaN(d.getTime())) return '';
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
+  /* 근무 표시 이름 — 이름을 고치면 지난 근무·카톡 요약에도 새 이름이 보입니다.
+     (목록에서 지운 사람은 그때 근무에 저장된 이름 그대로) */
+  function shiftName(sh) {
+    var st = sh && sh.staffId ? staffById(sh.staffId) : null;
+    return (st && st.name) || (sh && sh.staffName) || '알바';
+  }
+
+  /* 🚪 퇴사·내보내기 — 사장님만. 과거 근무·급여 기록은 남기고 접속만 막습니다. */
   function retireStaff(m) {
     if (!isOwner()) return;
-    if (!window.confirm(m.name + ' 님을 퇴사 처리할까요?\n\n'
-      + '· 퇴사하면 그 직원 폰에서 매장 일정·인수인계·급여 화면이 바로 잠기고, 다시 들어올 수 없어요.\n'
+    if (!window.confirm('🚪 ' + m.name + ' 님을 퇴사(내보내기) 처리할까요?\n\n'
       + '· 지난 근무 기록과 급여명세서는 그대로 남아서 정산할 수 있어요.\n'
-      + '· 다시 일하게 되면 [복직]을 누르면 돼요.')) return;
+      + '· 그 직원 폰에서는 매장 일정·인수인계·급여 화면이 바로 잠기고, 다시 들어올 수 없어요.\n'
+      + '· 다시 일하게 되면 아래 [🚪 퇴사자] 목록에서 [↩️ 복직]을 누르면 돼요.')) return;
     StoreCloud.retireStaff(m.id).then(function (info) {
-      renderStaffList();
+      renderAll();
       if (!info || (!info.uid && !info.deviceId)) {
-        window.alert(m.name + ' 님을 퇴사자로 표시했어요.\n\n다만 이 직원은 계정·기기 정보가 저장되기 전에 승인돼서 기기 차단이 확실하지 않아요.\n그 폰에서 다시 입장 요청이 오면 [거절]해 주세요.');
+        window.alert(m.name + ' 님을 퇴사자로 표시했어요.\n\n다만 이 근무자는 폰(계정·기기) 연결 전에 등록돼서 기기 차단이 확실하지 않아요.\n그 폰에서 다시 입장 요청이 오면 [거절]해 주세요.');
       } else {
-        toast(m.name + ' 님을 퇴사 처리했어요 · 지난 근무·급여는 그대로 남아요');
+        toast(m.name + ' 님을 퇴사 처리했어요 · 지난 근무·급여는 그대로 남고, 그 폰은 접속이 막혔어요');
       }
     }).catch(function (err) {
       window.alert('퇴사 처리하지 못했어요 · ' + errorHint(err));
     });
   }
 
-  /* 복직 — 퇴사 표시를 지우고 그 폰의 매장 접근 차단을 풉니다. */
+  /* ↩️ 복직 — 퇴사 표시를 지우고 그 폰의 매장 접근 차단을 풉니다. */
   function restoreStaffMember(m) {
     if (!isOwner()) return;
-    if (!window.confirm(m.name + ' 님을 복직시킬까요?\n\n매장 접근 차단이 풀려서 그 폰에서 다시 매장 달력을 볼 수 있어요.')) return;
+    if (!window.confirm('↩️ ' + m.name + ' 님을 복직시킬까요?\n\n매장 접속 차단이 풀려서 그 폰에서 다시 매장 달력을 볼 수 있어요.\n지난 근무·급여 기록도 그대로 이어집니다.')) return;
     StoreCloud.restoreStaff(m.id).then(function () {
-      renderStaffList();
-      toast(m.name + ' 님을 복직시켰어요');
+      renderAll();
+      toast(m.name + ' 님을 복직시켰어요 · 다시 일하는 근무자로 돌아왔어요');
     }).catch(function (err) {
       window.alert('복직 처리하지 못했어요 · ' + errorHint(err));
     });
   }
 
-  /* 완전 삭제 — 목록에서 지웁니다. 근무(events)·급여 기록은 남고, 차단은 유지됩니다. */
+  /* ✕ 완전 삭제 — 목록에서 지웁니다. 근무(events)·급여 기록은 남고, 차단은 유지됩니다. */
   function purgeStaffMember(m) {
     if (!isOwner()) return;
-    if (!window.confirm(m.name + ' 님을 알바생 목록에서 완전히 지울까요?\n\n'
+    if (!window.confirm(m.name + ' 님을 근무자 목록에서 완전히 지울까요?\n\n'
       + '지난 근무·급여 기록(근무 일정)은 그대로 남아요.\n'
       + '다만 급여명세서 목록에서는 이 이름이 빠져서, 남은 근무는 이름으로만 보여요.')) return;
     StoreCloud.purgeStaff(m.id).then(function () {
-      renderStaffList();
+      renderAll();
       toast(m.name + ' 님을 목록에서 지웠어요');
     }).catch(function (err) {
       window.alert('지우지 못했어요 · ' + errorHint(err));
@@ -3233,22 +3340,131 @@
     return out;
   }
 
-  function saveStaffName(m, raw) {
+  /* 저장한 근무자 목록을 화면에 먼저 반영합니다 — 서버 응답을 기다리지 않아도
+     오늘 근무·상단 이름 칩·달력·급여명세서가 바로 바뀝니다. */
+  function applyStaffLocal(list) {
+    S.staff = (list || []).map(staffNorm).filter(function (m) { return m && m.id && m.name; });
+    if (S.filter !== 'all' && !staffById(S.filter)) S.filter = 'all';
+    renderAll();
+  }
+
+  /* 화면·방에서 온 값을 같은 모양으로 맞춥니다(joinedAt·retiredAt은 밀리초 숫자). */
+  function toMillis(v) {
+    if (!v) return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (e) { return 0; } }
+    if (typeof v.seconds === 'number') return v.seconds * 1000;
+    return 0;
+  }
+
+  function staffNorm(x) {
+    x = x || {};
+    return {
+      id: String(x.id || '').slice(0, 40),
+      name: String(x.name || '').slice(0, 20),
+      color: /^#[0-9a-fA-F]{3,8}$/.test(x.color || '') ? x.color : '#0d9488',
+      bg: /^#[0-9a-fA-F]{3,8}$/.test(x.bg || '') ? x.bg : '#e6fffb',
+      hourly: Math.max(0, Math.round(Number(x.hourly) || 0)),
+      tel: normTel(x.tel),
+      uid: String(x.uid || '').slice(0, 128),
+      deviceId: String(x.deviceId || '').slice(0, 60),
+      retired: x.retired === true,
+      retiredAt: toMillis(x.retiredAt),
+      joinedAt: toMillis(x.joinedAt),
+      active: x.active === false ? false : true,
+      photoDataUrl: typeof x.photoDataUrl === 'string' ? x.photoDataUrl : ''
+    };
+  }
+
+  /* 이름·시급·번호를 한 번에 저장 — 화면에 먼저 반영하고, 실패하면 원래 값으로 되돌립니다. */
+  function saveStaffEdits(m, values) {
     if (!isOwner()) return;
-    var name = String(raw || '').trim().slice(0, 12);
-    if (!name) { toast('이름을 넣어 주세요'); renderStaffList(); return; }
-    if (name === m.name) return;
+    values = values || {};
+    var name = String(values.name == null ? m.name : values.name).trim().slice(0, 12);
+    if (!name) { toast('이름은 비워 둘 수 없어요 · 원래 이름으로 돌려놓았어요'); renderStaffList(); return; }
     if (S.staff.some(function (x) { return x.id !== m.id && x.name === name; })) {
-      toast('같은 이름이 이미 있어요');
+      toast('같은 이름의 근무자가 이미 있어요 · 다른 이름을 써 주세요');
       renderStaffList();
       return;
     }
-    var next = S.staff.map(staffPlain);
-    next.forEach(function (x) { if (x.id === m.id) x.name = name; });
+    var wageDigits = String(values.hourly == null ? m.hourly : values.hourly).replace(/[^\d]/g, '');
+    var hourly = Math.max(0, Math.round(Number(wageDigits) || 0));
+    var tel = normTel(values.tel == null ? telOf(m) : values.tel);
+    if (tel && !telLooksValid(tel)) {
+      toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
+      renderStaffList();
+      return;
+    }
+    /* Enter(change)와 [✓ 저장]이 겹쳐 두 번 불려도 한 번만 저장되도록, 지금 목록의 값과 비교합니다. */
+    var cur = staffById(m.id) || m;
+    if (name === cur.name && hourly === (cur.hourly || 0) && tel === telOf(cur)) {
+      renderStaffList();
+      return;
+    }
+    var before = S.staff.slice();
+    var next = S.staff.map(function (x) {
+      var out = staffPlain(x);
+      if (x.id === m.id) {
+        out.name = name;
+        out.hourly = hourly;
+        if (tel) out.tel = tel; else delete out.tel;
+      }
+      return out;
+    });
+    var changed = [];
+    if (name !== cur.name) changed.push('이름');
+    if (hourly !== (cur.hourly || 0)) changed.push('시급');
+    if (tel !== telOf(cur)) changed.push('번호');
+    applyStaffLocal(next);
     StoreCloud.saveRoom({ staff: next }).then(function () {
-      toast((m.name || '알바생') + ' → ' + name + ' 으로 바꿨어요');
+      toast(name + ' 님 ' + changed.join('·') + ' 저장했어요');
     }).catch(function (err) {
-      window.alert('저장하지 못했어요 · ' + errorHint(err));
+      applyStaffLocal(before);
+      window.alert('저장하지 못했어요 · ' + errorHint(err) + '\n\n고치기 전 값으로 되돌렸어요.');
+    });
+  }
+
+  /* ＋ 새 근무자 등록 — 이름·시급·번호만 넣으면 근무 등록·급여에 바로 쓸 수 있어요. */
+  function addStaffMember() {
+    if (!isOwner()) return;
+    var nameEl = $('staffAddName');
+    var wageEl = $('staffAddWage');
+    var telEl = $('staffAddTel');
+    var errEl = $('staffAddError');
+    function fail(msg) {
+      if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
+      toast(msg);
+    }
+    if (errEl) errEl.hidden = true;
+    var name = (nameEl ? nameEl.value : '').trim().slice(0, 12);
+    if (!name) { fail('근무자 이름을 넣어 주세요.'); if (nameEl) { try { nameEl.focus(); } catch (e) { /* 무시 */ } } return; }
+    if (S.staff.some(function (x) { return x.name === name; })) {
+      fail('같은 이름의 근무자가 이미 있어요 · 구분되는 이름(예: 오후 알바)으로 넣어 주세요.');
+      return;
+    }
+    var wageDigits = String(wageEl ? wageEl.value : '').replace(/[^\d]/g, '');
+    var hourly = wageDigits ? Math.max(0, Math.round(Number(wageDigits))) : 0;
+    var tel = normTel(telEl ? telEl.value : '');
+    if (tel && !telLooksValid(tel)) { fail('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678).'); return; }
+    var palette = STAFF_COLORS[S.staff.length % STAFF_COLORS.length];
+    var id = 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var before = S.staff.slice();
+    var next = S.staff.map(staffPlain);
+    var added = {
+      id: id, name: name, color: palette.c, bg: palette.bg,
+      hourly: hourly || suggestedWage(), joinedAt: new Date(), active: true
+    };
+    if (tel) added.tel = tel;
+    next.push(added);
+    if (nameEl) nameEl.value = '';
+    if (wageEl) wageEl.value = '';
+    if (telEl) telEl.value = '';
+    applyStaffLocal(next);
+    StoreCloud.saveRoom({ staff: next }).then(function () {
+      toast(name + ' 님을 근무자로 등록했어요 · ＋ 근무 등록에서 고를 수 있어요');
+    }).catch(function (err) {
+      applyStaffLocal(before);
+      window.alert('등록하지 못했어요 · ' + errorHint(err) + '\n\n전에 값으로 되돌렸어요.');
     });
   }
 
@@ -3275,43 +3491,6 @@
     next.forEach(function (x) { if (x.id === m.id) delete x.photoDataUrl; });
     StoreCloud.saveRoom({ staff: next }).then(function () {
       toast(m.name + ' 님 사진을 지웠어요');
-    }).catch(function (err) {
-      window.alert('저장하지 못했어요 · ' + errorHint(err));
-    });
-  }
-
-  function saveStaffHourly(staffId, value) {
-    if (!isOwner()) return;
-    var hourly = Math.max(0, Math.round(Number(value) || 0));
-    var next = S.staff.map(function (m) {
-      var out = staffPlain(m);
-      out.hourly = m.id === staffId ? hourly : m.hourly;
-      return out;
-    });
-    StoreCloud.saveRoom({ staff: next }).then(function () {
-      toast('기본 시급을 저장했어요');
-    }).catch(function (err) {
-      window.alert('저장하지 못했어요 · ' + errorHint(err));
-    });
-  }
-
-  /* 휴대폰 번호 저장 — 사장님이 알바생 번호를 고칠 때 */
-  function saveStaffTel(m, raw) {
-    if (!isOwner()) return;
-    var tel = normTel(raw);
-    if (tel === telOf(m)) return;
-    if (tel && !telLooksValid(tel)) {
-      toast('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678)');
-      renderStaffList();
-      return;
-    }
-    var next = S.staff.map(function (x) {
-      var out = staffPlain(x);
-      if (x.id === m.id) { if (tel) out.tel = tel; else delete out.tel; }
-      return out;
-    });
-    StoreCloud.saveRoom({ staff: next }).then(function () {
-      toast(tel ? m.name + ' 님 번호를 저장했어요' : m.name + ' 님 번호를 지웠어요');
     }).catch(function (err) {
       window.alert('저장하지 못했어요 · ' + errorHint(err));
     });
@@ -3411,7 +3590,7 @@
       card.innerHTML =
         '<div class="req-card__top"><strong>' + esc(r.name) + '</strong><span class="req-status req-status--pending">대기 중</span></div>' +
         '<div class="req-card__meta">' + (r.requestedAt ? new Date(r.requestedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '') + ' 입장 요청</div>' +
-        (isRevoked ? '<div class="req-card__meta req-card__warn">⚠️ 퇴사 처리된 기기·계정에서 온 요청이에요. 다시 일하게 하려면 [알바생 관리]에서 그 직원을 [복직]시켜 주세요.</div>' : '') +
+        (isRevoked ? '<div class="req-card__meta req-card__warn">⚠️ 퇴사 처리된 기기·계정에서 온 요청이에요. 다시 일하게 하려면 ⚙️ 설정 → [👥 근무자 관리]에서 그 근무자를 [↩️ 복직]시켜 주세요.</div>' : '') +
         '<div class="req-card__tel">' + (tel ? '📞 <a href="' + esc(telHref(tel)) + '">' + esc(tel) + '</a>' : '📞 연락처 미입력') + '</div>' +
         '<div class="approve-row"><label>기본 시급(원)<input type="number" class="approve-wage" min="0" step="100" inputmode="numeric" value="' + (r.hourly || suggestedWage()) + '" /></label></div>' +
         '<div class="req-card__actions"><button type="button" class="btn-ghost btn-small btn-danger" data-act="reject">거절</button><button type="button" class="btn-primary btn-small" data-act="approve">승인</button></div>';
@@ -3562,7 +3741,7 @@
     var isRevoked = (req.uid && (S.revokedUids || []).indexOf(req.uid) >= 0)
       || (req.deviceId && (S.revokedDevices || []).indexOf(req.deviceId) >= 0);
     if (isRevoked) {
-      window.alert('이 요청은 퇴사(탈퇴) 처리된 기기·계정에서 왔어요.\n\n그래도 다시 일하게 하려면 [알바생 관리] 목록에서 그 직원을 [복직]시켜 주세요.\n(복직하면 차단이 풀려 바로 들어올 수 있어요.)');
+      window.alert('이 요청은 퇴사(탈퇴) 처리된 기기·계정에서 왔어요.\n\n그래도 다시 일하게 하려면 ⚙️ 설정 → [👥 근무자 관리]의 [🚪 퇴사자] 목록에서 그 근무자를 [↩️ 복직]시켜 주세요.\n(복직하면 차단이 풀려 바로 들어올 수 있어요.)');
       return;
     }
     var hourly = Math.max(0, Math.round(Number(wageValue) || 0));
