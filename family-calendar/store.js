@@ -254,7 +254,10 @@
         : S.lastStatus.kind === 'error' ? '오류' : '연결 중';
       pill.className = 'app-bar__status app-bar__status--' + (S.lastStatus.kind === 'error' ? 'error' : (S.lastStatus.kind === 'blocked' ? 'error' : (S.lastStatus.kind || 'pending')));
     }
-    if (note) note.textContent = S.lastStatus.text || '';
+    if (note) {
+      note.textContent = S.lastStatus.text || '';
+      note.hidden = (S.lastStatus.kind === 'online');
+    }
   }
   function errorHint(err) {
     if (!err) return '알 수 없는 오류';
@@ -323,6 +326,22 @@
     if (el.tabFamily) el.tabFamily.addEventListener('click', function () { deactivate('tab'); });
     if (el.tabStore) el.tabStore.addEventListener('click', function () { activate('tab'); });
     if (el.storeApproveBtn) el.storeApproveBtn.addEventListener('click', openApprovalModal);
+
+    /* ⚙️ 설정 허브 — 급여·직원·초대를 한 곳에서 */
+    var hub = $('storeHubModal');
+    if (hub) {
+      var hubClose = $('storeHubClose');
+      if (hubClose) hubClose.addEventListener('click', closeHub);
+      var hubBackdrop = hub.querySelector('[data-close]');
+      if (hubBackdrop) hubBackdrop.addEventListener('click', closeHub);
+      var rows = $('storeHubRows');
+      if (rows) rows.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-scroll]');
+        if (!b) return;
+        var target = $(b.getAttribute('data-scroll'));
+        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
 
     /* 매장 시작 */
     var createBtn = $('storeCreateBtn');
@@ -984,6 +1003,90 @@
     paintStoreStatus();
   }
 
+  /* ---------------- ⚙️ 매장 설정 허브 ---------------- */
+  /* 급여명세서·알바생 관리·매장 설정 카드는 화면에서 옮겨 이 시트 안에서 보여 줍니다.
+     (요소 id는 그대로라 기존 렌더 코드가 그대로 동작해요) */
+  function moveCardsToHub() {
+    var body = $('storeHubBody');
+    if (!body) return;
+    ['storePayrollCard', 'storeStaffCard', 'storeGuideCard'].forEach(function (id) {
+      var node = $(id);
+      if (node && node.parentNode !== body) body.appendChild(node);
+    });
+  }
+
+  function openHub() {
+    moveCardsToHub();
+    var hub = $('storeHubModal');
+    if (!hub) return;
+    renderPayroll();
+    renderStaffList();
+    renderGuide();
+    hub.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeHub() {
+    var hub = $('storeHubModal');
+    if (!hub || hub.hidden) return;
+    hub.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  /* 오늘 근무 — 출퇴근 체크를 맨 위에서 바로 */
+  function renderTodayPanel() {
+    var wrap = $('storeTodayPanel');
+    if (!wrap) return;
+    var today = todayISO();
+    var list = S.shifts.filter(function (s) {
+      if (s.date !== today) return false;
+      if (s.status === 'canceled' || s.status === 'absent') return false;
+      if (!isOwner() && s.staffId !== myStaffId()) return false;
+      return true;
+    }).sort(function (a, b) {
+      return String(a.start || '') < String(b.start || '') ? -1 : 1;
+    });
+    wrap.innerHTML = '';
+    if (!list.length) {
+      var p = document.createElement('p');
+      p.className = 'store-today__empty';
+      p.textContent = isOwner() ? '오늘 등록된 근무가 없어요 · ＋ 근무 등록으로 넣을 수 있어요' : '오늘은 내 근무가 없어요';
+      wrap.appendChild(p);
+      return;
+    }
+    list.slice(0, 3).forEach(function (sh) {
+      var st = staffById(sh.staffId);
+      var row = document.createElement('div');
+      row.className = 'store-today__item';
+      var who = document.createElement('span');
+      who.className = 'store-today__who';
+      var dot = document.createElement('i');
+      dot.className = 'store-today__dot';
+      dot.style.background = st ? st.color : '#94a3b8';
+      who.appendChild(dot);
+      var name = document.createElement('span');
+      name.className = 'store-today__name';
+      name.textContent = st ? st.name : '알바생';
+      who.appendChild(name);
+      row.appendChild(who);
+      var time = document.createElement('span');
+      time.className = 'store-today__time';
+      time.textContent = compactShiftTime(sh);
+      row.appendChild(time);
+      var att = buildAttendanceRow(sh);
+      if (att) row.appendChild(att);
+      wrap.appendChild(row);
+    });
+    if (list.length > 3) {
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'store-today__more';
+      more.textContent = '오늘 근무 ' + list.length + '건 모두 보기 ›';
+      more.addEventListener('click', function () { openDaySheet(today); });
+      wrap.appendChild(more);
+    }
+  }
+
   function renderDash() {
     var today = todayISO();
     var todayShifts = S.shifts.filter(function (s) { return s.date === today && passFilter(s); });
@@ -1015,6 +1118,7 @@
         person.hidden = true;
       }
     }
+    renderTodayPanel();
   }
 
   function renderStaffFilter() {
@@ -1106,13 +1210,11 @@
           var bar = document.createElement('i');
           bar.style.background = st ? st.color : '#94a3b8';
           row.appendChild(bar);
-          var tx = document.createElement('span');
-          tx.className = 'day__ev-t';
-          tx.textContent = s.staffName || (st ? st.name : '알바');
-          row.appendChild(tx);
+          /* 칸이 좁아서 이름 대신 색 점 + 근무 시간만 보여 줍니다(누르면 이름 확인). */
           var tm = document.createElement('span');
           tm.className = 'day__ev-h';
           tm.textContent = compactShiftTime(s);
+          tm.title = (s.staffName || (st ? st.name : '알바')) + ' ' + s.start + '~' + s.end;
           row.appendChild(tm);
           evs.appendChild(row);
         });
@@ -3196,6 +3298,7 @@
     isStoreActive: function () { return S.active; },
     shouldSkipFamily: function () { return isLocked(); },
     open: function () { activate('api'); },
+    openHub: function () { activate('api'); openHub(); },
     close: function () { if (S.active) deactivate('api'); },
     render: function () { renderAll(); },
     applyVoice: function (text) { applyVoiceShift(text); },
@@ -3216,7 +3319,14 @@
     S.selected = todayISO();
     S.payY = S.year;
     S.payM = S.month;
+    moveCardsToHub();
     boot();
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        var hub = $('storeHubModal');
+        if (hub && !hub.hidden) closeHub();
+      }
+    });
   });
 
   /* 다른 모듈이 먼저 탭을 누를 수 있도록 */

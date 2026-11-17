@@ -12,26 +12,28 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261117z4" />
-<link rel="stylesheet" href="store.css?v=20261117z4" />
-<link rel="stylesheet" href="ledger.css?v=20261117z4" />
-<link rel="stylesheet" href="extra.css?v=20261117z4" />
+<link rel="stylesheet" href="styles.css?v=20261117z5" />
+<link rel="stylesheet" href="store.css?v=20261117z5" />
+<link rel="stylesheet" href="ledger.css?v=20261117z5" />
+<link rel="stylesheet" href="extra.css?v=20261117z5" />
+<link rel="stylesheet" href="polish.css?v=20261117z5" />
 </head>
 <body>
 <div class="app">
   <header class="app-bar">
-    <div class="app-bar__row">
+    <div class="app-bar__row app-bar__row--top">
       <h1 class="app-bar__title" id="appTitle">📅 우리 가족 달력</h1>
       <span class="app-bar__status app-bar__status--pending" id="statusPill">연결 중</span>
+      <button class="app-bar__gear" id="gearBtn" type="button" aria-label="설정" title="설정">⚙️</button>
     </div>
     <div class="mode-tabs-row" id="modeTabs" hidden>
       <div class="mode-tabs">
-        <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족 캘린더</button>
-        <button type="button" class="mode-tab" id="tabStore">🏪 매장 캘린더</button>
+        <button type="button" class="mode-tab is-active" id="tabFamily">👨‍👩‍👧‍👦 가족</button>
+        <button type="button" class="mode-tab" id="tabStore">🏪 매장</button>
         <button type="button" class="mode-tab" id="tabLedger" hidden>💰 출납부</button>
         <span id="calTabs" style="display:contents"></span>
       </div>
-      <button type="button" class="mode-tab-add" id="tabAddCal" aria-label="캘린더 추가" title="캘린더 추가">＋ 추가</button>
+      <button type="button" class="mode-tab-add" id="tabAddCal" aria-label="캘린더 추가" title="캘린더 추가">＋</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="familySubRow">
       <button class="profile-badge" id="profileBtn" type="button">
@@ -40,13 +42,12 @@
         <span class="profile-badge__role" id="profileRole" hidden></span>
       </button>
       <button class="approve-pill" id="approveBtn" type="button" hidden>🔔 승인 대기 <b id="approveCount">0</b>건</button>
-      <button class="approve-pill" id="notifyBtn" type="button">🔔 알림 켜기</button>
     </div>
     <div class="app-bar__row app-bar__row--sub" id="storeSubRow" hidden>
       <span class="profile-badge" id="storeWhoBadge">🏪 <span id="storeWhoName">사장님</span></span>
       <button class="approve-pill" id="storeApproveBtn" type="button" hidden>🔔 입장·승인 <b id="storeApproveCount">0</b>건</button>
     </div>
-    <p class="app-bar__note" id="appBarNote">가족 방에 연결하는 중…</p>
+    <p class="app-bar__note" id="appBarNote" hidden>가족 방에 연결하는 중…</p>
   </header>
 
   <div id="familyView">
@@ -77,9 +78,18 @@
 
       <section class="card day-card" id="dayCard" aria-live="polite"></section>
 
+      <section class="card dday-card">
+        <div class="card-head">
+          <h2>⏰ 다가오는 일정</h2>
+          <span class="card-head__hint">오늘부터 1년</span>
+        </div>
+        <ul class="dday-list" id="ddayList"></ul>
+        <button type="button" class="fold-more" id="ddayMoreBtn" hidden>더 보기</button>
+      </section>
+
       <section class="card kakao-card">
         <div class="card-head">
-          <h2>💬 카톡 요약 복사</h2>
+          <h2>💬 카톡 요약</h2>
           <span class="card-head__hint">붙여넣기만 하면 돼요</span>
         </div>
         <div class="kakao-actions">
@@ -91,45 +101,12 @@
 
       <section class="card photo-card" id="photoCard"></section>
 
-      <section class="card dday-card">
-        <div class="card-head">
-          <h2>⏰ 다가오는 일정</h2>
-          <span class="card-head__hint">오늘부터 1년</span>
-        </div>
-        <ul class="dday-list" id="ddayList"></ul>
-      </section>
-
       <section class="card requests-card" id="myRequestsCard" hidden>
         <div class="card-head">
           <h2>📨 내 요청 현황</h2>
           <span class="card-head__hint" id="myRequestsHint"></span>
         </div>
         <ul class="req-list" id="myRequestsList"></ul>
-      </section>
-
-      <section class="card guide-card">
-        <div class="card-head"><h2>👨‍👩‍👧‍👦 가족 공유 안내</h2></div>
-        <ul class="guide-list">
-          <li>일정은 <b>가족 공유 서버</b>에 저장돼서, 한 사람이 넣거나 고치면 <b>가족 모든 폰에 바로</b> 나타나요.</li>
-          <li>처음 한 번만 <b>가족 코드</b>를 넣으면 이 폰에 기억돼요. 코드를 아는 사람만 볼 수 있어요.</li>
-          <li>위에서 <b>내 이름</b>을 골라 주세요. <b>아빠(메인 관리자)·엄마(부매니저)</b>는 일정이 바로 등록되고, 다른 구성원이 넣은 일정은 <b>승인</b>을 거쳐 달력에 올라가요.</li>
-          <li><b>종료일</b>을 넣으면 기간 일정이 돼요 (예: 11/27~11/30 여행). 기간 중 어느 날을 눌러도 그 일정이 보여요.</li>
-          <li>일정 추가 화면의 <b>🎤 말로 입력하기</b>를 누르고 “내일 오후 3시 첫째 치과”처럼 말하면 칸이 자동으로 채워져요.</li>
-          <li>반복을 <b>매년 음력</b>으로 고르면 음력 날짜를 저장해 두고, 보는 해의 양력 날짜로 자동 계산해요 (2022~2040년 지원).</li>
-          <li>반복에서 <b>매주</b>(요일 선택)·<b>매월</b>을 고르면 학원·정기 점검처럼 되풀이되는 일정이 달력에 자동으로 보여요.</li>
-          <li>일정을 넣을 때 <b>담당 가족</b>을 여러 명 고를 수 있고, <b>[전체 선택]</b>을 누르면 가족 전원이 한 번에 선택됩니다.</li>
-          <li>일정에 <b>☑️ 준비물</b>을 넣어 두면 일정 상세에서 바로 체크할 수 있고, 체크 상태는 가족 모두의 폰에 바로 저장돼요.</li>
-          <li>각자 폰에서 <b>🔔 알림 켜기</b>를 눌러 두면 <b>내가 담당인 일정</b>의 미리 알림과 <b>내 담당 새 일정</b> 알림을 받아요. 프로필을 눌러 <b>내 알림 설정</b>에서 '담당만/전체'를 고를 수 있습니다.</li>
-          <li>달력 아래 <b>💬 카톡 요약 복사</b>로 오늘·이번 주 일정을 카톡에 붙여넣을 수 있게 복사해요.</li>
-          <li>프로필 배지를 누른 뒤 <b>🙋 내 정보</b>에서 내 휴대폰 번호를 넣어 두면, 구성원 목록의 번호를 눌러 바로 전화할 수 있어요. 아빠·엄마는 관리자 설정에서 가족 번호를 한 번에 정리할 수 있어요.</li>
-          <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 실제 일정을 넣기 전에 지워 주세요.</li>
-        </ul>
-        <p class="room-code-now" id="roomCodeNow" hidden></p>
-        <div class="guide-actions">
-          <button class="btn-primary btn-small" id="inviteBtn" type="button">가족 초대 링크 복사</button>
-          <button class="btn-ghost btn-small" id="codeBtn" type="button">가족 코드 변경</button>
-          <button class="btn-ghost btn-small btn-danger" id="resetBtn" type="button">샘플 일정 지우기</button>
-        </div>
       </section>
 
       <p class="footnote">우리 가족 달력 · 가족 공유판 · 음력/공휴일은 내장 계산값이라 실제와 다를 수 있어요</p>
@@ -214,6 +191,7 @@
             <span class="dash-box__s" id="dashMonthCost">0원</span>
           </div>
         </div>
+        <div class="store-today" id="storeTodayPanel"></div>
         <div class="member-filter store-filter" id="storeStaffFilter"></div>
         <p class="dash-person" id="dashPerson" hidden></p>
       </section>
@@ -505,41 +483,101 @@
   <button class="fab" id="lgAddFab" type="button" hidden>＋ 내역 등록</button>
 </div>
 
+<!-- ⚙️ 설정 (가족) — 초대·관리·안내를 한 곳으로 -->
+<div class="modal" id="settingsModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet settings-sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 설정</h2>
+      <button class="sheet-close" id="settingsClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="set-rows">
+      <button type="button" class="set-row" id="setProfileRow">
+        <span class="set-row__i">🙋</span>
+        <span class="set-row__t">내 정보·알림<small>이름·휴대폰 번호, 알림 설정</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button type="button" class="set-row" id="setAdminRow" hidden>
+        <span class="set-row__i">🔑</span>
+        <span class="set-row__t">관리자 설정<small>구성원·역할·관리자 PIN</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button class="set-row" id="notifyBtn" type="button">🔔 알림 켜기</button>
+    </div>
+
+    <section class="settings-block">
+      <h3>👨‍👩‍👧‍👦 가족 공유</h3>
+      <p class="field-hint">가족 모두 같은 코드를 쓰면 같은 달력이 보여요. 코드를 아는 사람만 들어올 수 있어요.</p>
+      <p class="room-code-now" id="roomCodeNow" hidden></p>
+      <div class="guide-actions">
+        <button class="btn-primary btn-small" id="inviteBtn" type="button">가족 초대 링크 복사</button>
+        <button class="btn-ghost btn-small" id="codeBtn" type="button">가족 코드 변경</button>
+      </div>
+    </section>
+
+    <section class="settings-block">
+      <details class="set-help">
+        <summary>📖 사용 안내 보기</summary>
+        <ul class="guide-list">
+          <li>일정은 <b>가족 공유 서버</b>에 저장돼서, 한 사람이 넣거나 고치면 <b>가족 모든 폰에 바로</b> 나타나요.</li>
+          <li>처음 한 번만 <b>가족 코드</b>를 넣으면 이 폰에 기억돼요. 코드를 아는 사람만 볼 수 있어요.</li>
+          <li>위에서 <b>내 이름</b>을 골라 주세요. <b>아빠(메인 관리자)·엄마(부매니저)</b>는 일정이 바로 등록되고, 다른 구성원이 넣은 일정은 <b>승인</b>을 거쳐 달력에 올라가요.</li>
+          <li>일정 추가 화면에서 <b>＋ 더보기</b>를 누르면 기간(종료일)·카테고리·반복·알림·준비물·메모를 넣을 수 있어요.</li>
+          <li><b>종료일</b>을 넣으면 기간 일정이 돼요 (예: 11/27~11/30 여행). 기간 중 어느 날을 눌러도 그 일정이 보여요.</li>
+          <li>일정 추가 화면의 <b>🎤 말로 입력</b>을 누르고 “내일 오후 3시 첫째 치과”처럼 말하면 칸이 자동으로 채워져요.</li>
+          <li>반복을 <b>매년 음력</b>으로 고르면 음력 날짜를 저장해 두고, 보는 해의 양력 날짜로 자동 계산해요 (2022~2040년 지원).</li>
+          <li>반복에서 <b>매주</b>(요일 선택)·<b>매월</b>을 고르면 학원·정기 점검처럼 되풀이되는 일정이 달력에 자동으로 보여요.</li>
+          <li>일정에 <b>☑️ 준비물</b>을 넣어 두면 일정 상세에서 바로 체크할 수 있고, 체크 상태는 가족 모두의 폰에 바로 저장돼요.</li>
+          <li><b>🔔 알림</b>을 켜 두면 <b>내가 담당인 일정</b>의 미리 알림과 <b>내 담당 새 일정</b> 알림을 받아요. 알림 범위는 <b>내 정보·알림</b>에서 고를 수 있어요.</li>
+          <li>달력 아래 <b>💬 카톡 요약</b>으로 오늘·이번 주 일정을 카톡에 붙여넣을 수 있게 복사해요.</li>
+          <li>프로필 배지를 누른 뒤 <b>🙋 내 정보</b>에서 내 휴대폰 번호를 넣어 두면, 구성원 목록의 번호를 눌러 바로 전화할 수 있어요.</li>
+          <li>샘플 일정은 앞에 <b>[샘플]</b>이 붙어 있어요. 실제 일정을 넣기 전에 지워 주세요.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="settings-block">
+      <h3>🧹 일정 정리</h3>
+      <p class="field-hint" id="setStatusLine"></p>
+      <div class="guide-actions">
+        <button class="btn-ghost btn-small btn-danger" id="resetBtn" type="button">샘플 일정 지우기</button>
+      </div>
+      <p class="field-hint">우리 가족 달력 · 음력/공휴일은 내장 계산값이라 실제와 다를 수 있어요.</p>
+    </section>
+  </div>
+</div>
+
 <div class="modal" id="modal" hidden>
   <div class="modal__backdrop" data-close="1"></div>
   <form class="modal__sheet" id="eventForm" novalidate>
     <div class="sheet-bar"></div>
     <div class="sheet-head">
       <h2 id="modalTitle">일정 추가</h2>
-      <button class="sheet-close" id="modalClose" type="button" aria-label="닫기">✕</button>
+      <div class="sheet-head__side">
+        <button type="button" class="voice-btn voice-btn--mini" id="eventVoiceBtn">🎤 말로 입력</button>
+        <button class="sheet-close" id="modalClose" type="button" aria-label="닫기">✕</button>
+      </div>
     </div>
 
-    <div class="voice-box">
-      <button type="button" class="voice-btn" id="eventVoiceBtn">🎤 말로 입력하기</button>
-      <p class="voice-status" id="eventVoiceStatus" hidden></p>
-    </div>
+    <p class="voice-status" id="eventVoiceStatus" hidden></p>
 
-    <div class="field">
+    <div class="field field--title">
       <label for="fTitle">제목 <span class="req">*</span></label>
       <input id="fTitle" type="text" placeholder="예) 둘째 치과 검진" maxlength="60" autocomplete="off" required />
     </div>
 
     <div class="field">
-      <label for="fDate">시작일 <span class="req">*</span></label>
+      <label for="fDate">날짜 <span class="req">*</span></label>
       <input id="fDate" type="date" required />
       <p class="field-hint" id="dateLunarHint"></p>
     </div>
 
     <div class="field">
-      <label for="fEndDate">종료일 <span class="field-hint--inline">기간 일정이면</span></label>
-      <input id="fEndDate" type="date" />
-      <p class="field-hint" id="dateRangeHint">비워 두면 하루 일정이에요. 예) 11/27 ~ 11/30 여행</p>
-    </div>
-
-    <div class="field">
       <label>시간</label>
       <div class="time-row">
-        <label class="switch">
+        <label class="switch switch--sm">
           <input type="checkbox" id="fAllDay" checked />
           <span class="switch__track"><span class="switch__knob"></span></span>
           <span class="switch__label">종일</span>
@@ -557,60 +595,74 @@
       <div class="picker" id="fMembers"></div>
     </div>
 
-    <div class="field">
-      <label>카테고리</label>
-      <div class="picker picker--cat" id="fCategories"></div>
-    </div>
+    <button type="button" class="more-toggle" id="eventMoreBtn" aria-expanded="false" aria-controls="eventExtra">
+      <span class="more-toggle__label">＋ 더보기</span>
+      <span class="more-toggle__hint">기간·카테고리·반복·알림·준비물·메모</span>
+    </button>
+    <div class="more-badges" id="eventMoreBadges" hidden></div>
 
-    <div class="field">
-      <label for="fMemo">메모</label>
-      <textarea id="fMemo" rows="2" maxlength="200" placeholder="준비물, 장소 등"></textarea>
-    </div>
+    <div class="event-extra" id="eventExtra" hidden>
+      <div class="field">
+        <label for="fEndDate">종료일 <span class="field-hint--inline">기간 일정이면</span></label>
+        <input id="fEndDate" type="date" />
+        <p class="field-hint" id="dateRangeHint">비워 두면 하루 일정이에요. 예) 11/27 ~ 11/30 여행</p>
+      </div>
 
-    <div class="field">
-      <label>☑️ 준비물 체크리스트</label>
-      <ul class="checklist checklist--edit" id="fChecklist"></ul>
-      <div class="checklist-add">
-        <input id="fCheckItem" type="text" maxlength="40" placeholder="예) 여권, 체험학습 신청서" autocomplete="off" />
-        <button type="button" class="btn-ghost btn-small" id="fCheckAddBtn">＋ 추가</button>
+      <div class="field">
+        <label>카테고리</label>
+        <div class="picker picker--cat" id="fCategories"></div>
       </div>
-      <p class="field-hint">일정 상세에서 체크하면 가족 모두의 폰에 바로 저장돼요.</p>
-    </div>
 
-    <div class="field">
-      <label>반복</label>
-      <div class="segmented segmented--wrap" id="fRepeat" role="group" aria-label="반복 설정">
-        <button type="button" data-repeat="none" class="is-active">없음</button>
-        <button type="button" data-repeat="weekly">매주</button>
-        <button type="button" data-repeat="monthly">매월</button>
-        <button type="button" data-repeat="yearly-solar">매년 양력</button>
-        <button type="button" data-repeat="yearly-lunar">매년 음력</button>
+      <div class="field">
+        <label>반복</label>
+        <div class="segmented segmented--wrap" id="fRepeat" role="group" aria-label="반복 설정">
+          <button type="button" data-repeat="none" class="is-active">없음</button>
+          <button type="button" data-repeat="weekly">매주</button>
+          <button type="button" data-repeat="monthly">매월</button>
+          <button type="button" data-repeat="yearly-solar">매년 양력</button>
+          <button type="button" data-repeat="yearly-lunar">매년 음력</button>
+        </div>
+        <div class="weekday-pick" id="fWeekdayField" hidden>
+          <span class="weekday-pick__k">반복 요일</span>
+          <div class="segmented weekday-pick__btns" id="fWeekdays" role="group" aria-label="반복 요일"></div>
+        </div>
+        <p class="field-hint" id="repeatHint"></p>
       </div>
-      <div class="weekday-pick" id="fWeekdayField" hidden>
-        <span class="weekday-pick__k">반복 요일</span>
-        <div class="segmented weekday-pick__btns" id="fWeekdays" role="group" aria-label="반복 요일"></div>
-      </div>
-      <p class="field-hint" id="repeatHint"></p>
-    </div>
 
-    <div class="field">
-      <label>🔔 미리 알림</label>
-      <div class="segmented segmented--wrap" id="fRemind" role="group" aria-label="미리 알림">
-        <button type="button" data-remind="none" class="is-active">없음</button>
-        <button type="button" data-remind="0">정시</button>
-        <button type="button" data-remind="10">10분 전</button>
-        <button type="button" data-remind="30">30분 전</button>
-        <button type="button" data-remind="60">1시간 전</button>
-        <button type="button" data-remind="1440">전날</button>
+      <div class="field">
+        <label>🔔 미리 알림</label>
+        <div class="segmented segmented--wrap" id="fRemind" role="group" aria-label="미리 알림">
+          <button type="button" data-remind="none" class="is-active">없음</button>
+          <button type="button" data-remind="0">정시</button>
+          <button type="button" data-remind="10">10분 전</button>
+          <button type="button" data-remind="30">30분 전</button>
+          <button type="button" data-remind="60">1시간 전</button>
+          <button type="button" data-remind="1440">전날</button>
+        </div>
+        <p class="field-hint">담당으로 들어간 가족에게 알려 드려요(알림 문구에 [담당: 이름]). 휴대폰 앱(APK 1.4 이상)은 앱을 닫아 둬도 울리고, 브라우저는 달력 화면이 열려 있을 때만 울려요.</p>
       </div>
-      <p class="field-hint">담당으로 들어간 가족에게 알려 드려요(알림 문구에 [담당: 이름]). 휴대폰 앱(APK 1.4 이상)은 앱을 닫아 둬도 울리고, 브라우저는 달력 화면이 열려 있을 때만 울려요.</p>
+
+      <div class="field">
+        <label>☑️ 준비물 체크리스트</label>
+        <ul class="checklist checklist--edit" id="fChecklist"></ul>
+        <div class="checklist-add">
+          <input id="fCheckItem" type="text" maxlength="40" placeholder="예) 여권, 체험학습 신청서" autocomplete="off" />
+          <button type="button" class="btn-ghost btn-small" id="fCheckAddBtn">＋ 추가</button>
+        </div>
+        <p class="field-hint">일정 상세에서 체크하면 가족 모두의 폰에 바로 저장돼요.</p>
+      </div>
+
+      <div class="field">
+        <label for="fMemo">메모</label>
+        <textarea id="fMemo" rows="2" maxlength="200" placeholder="준비물, 장소 등"></textarea>
+      </div>
     </div>
 
     <p class="request-note" id="requestNote" hidden>보내면 <b>아빠·엄마</b>가 승인한 뒤 달력에 올라가요.</p>
 
     <p class="form-error" id="formError" hidden></p>
 
-    <div class="sheet-actions">
+    <div class="sheet-actions sheet-actions--sticky">
       <button type="submit" class="btn-primary" id="saveBtn">저장</button>
       <button type="button" class="btn-ghost btn-danger" id="deleteBtn" hidden>이 일정 삭제</button>
     </div>
@@ -857,6 +909,36 @@
       <p class="field-hint">기기를 바꿀 때 이 폰에서만 매장 연결을 끊을 수 있어요. 매장 데이터(근무·시급·명세서)는 서버에 그대로 남습니다.</p>
       <button type="button" class="btn-ghost btn-small btn-danger" id="storeLeaveBtn">이 기기에서 매장 연결 해제</button>
     </section>
+  </div>
+</div>
+
+<!-- 🏪 매장 설정 허브 — 급여·직원·초대를 한 곳에서 -->
+<div class="modal" id="storeHubModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet settings-sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2>⚙️ 매장 설정</h2>
+      <button class="sheet-close" id="storeHubClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="set-rows" id="storeHubRows">
+      <button type="button" class="set-row" data-scroll="storePayrollCard">
+        <span class="set-row__i">🧾</span>
+        <span class="set-row__t">급여명세서<small>알바생별 월 급여·카톡·PDF</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button type="button" class="set-row" data-scroll="storeStaffCard">
+        <span class="set-row__i">👥</span>
+        <span class="set-row__t">알바생 관리<small>시급·휴대폰 번호</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+      <button type="button" class="set-row" data-scroll="storeGuideCard">
+        <span class="set-row__i">🔗</span>
+        <span class="set-row__t">매장 공유·설정<small>초대 링크·매장 이름·급여 설정</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
+    </div>
+    <div class="store-hub-body" id="storeHubBody"></div>
   </div>
 </div>
 
@@ -1559,19 +1641,19 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261117z4"></script>
-<script src="firebase-auth-compat.js?v=20261117z4"></script>
-<script src="firebase-firestore-compat.js?v=20261117z4"></script>
-<script src="lunar.js?v=20261117z4"></script>
-<script src="cloud.js?v=20261117z4"></script>
-<script src="app.js?v=20261117z4"></script>
-<script src="voice.js?v=20261117z4"></script>
-<script src="media.js?v=20261117z4"></script>
-<script src="store-cloud.js?v=20261117z4"></script>
-<script src="store.js?v=20261117z4"></script>
-<script src="ledger-cloud.js?v=20261117z4"></script>
-<script src="ledger.js?v=20261117z4"></script>
-<script src="extra-cloud.js?v=20261117z4"></script>
-<script src="extra.js?v=20261117z4"></script>
+<script src="firebase-app-compat.js?v=20261117z5"></script>
+<script src="firebase-auth-compat.js?v=20261117z5"></script>
+<script src="firebase-firestore-compat.js?v=20261117z5"></script>
+<script src="lunar.js?v=20261117z5"></script>
+<script src="cloud.js?v=20261117z5"></script>
+<script src="app.js?v=20261117z5"></script>
+<script src="voice.js?v=20261117z5"></script>
+<script src="media.js?v=20261117z5"></script>
+<script src="store-cloud.js?v=20261117z5"></script>
+<script src="store.js?v=20261117z5"></script>
+<script src="ledger-cloud.js?v=20261117z5"></script>
+<script src="ledger.js?v=20261117z5"></script>
+<script src="extra-cloud.js?v=20261117z5"></script>
+<script src="extra.js?v=20261117z5"></script>
 </body>
 </html>

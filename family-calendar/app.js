@@ -61,7 +61,9 @@
     pinTarget: '',
     memberColor: 0,
     sheetDate: '',
-    sheetOpen: ''
+    sheetOpen: '',
+    ddayOpen: false,
+    moreOpen: false
   };
 
   function isEventLike(ev) {
@@ -502,7 +504,13 @@
     var kind = lastStatus.kind, text = lastStatus.text;
     el.statusPill.textContent = kind === 'online' ? '공유 중' : (kind === 'offline' ? '오프라인' : (kind === 'error' ? '오류' : '연결 중'));
     el.statusPill.className = 'app-bar__status app-bar__status--' + (kind || 'pending');
-    if (el.appBarNote) el.appBarNote.textContent = text || '';
+    /* 평소에는 문구를 감추고, 연결이 안 될 때만 위에 보여 줍니다. */
+    if (el.appBarNote) {
+      el.appBarNote.textContent = text || '';
+      el.appBarNote.hidden = (kind === 'online');
+    }
+    var line = document.getElementById('setStatusLine');
+    if (line) line.textContent = text ? '지금 연결: ' + text : '';
   }
 
   function errorHint(err) {
@@ -539,7 +547,11 @@
     var code = FamilyCloud.initialCode();
     if (!code) {
       setStatus('pending', '가족 코드를 넣으면 가족과 함께 쓰는 달력이 열려요');
-      openRoomModal(true);
+      /* 매장 초대 링크로 들어온 기기(알바생·사장님)에서는 가족 코드 창을 띄우지 않습니다. */
+      var storeParam = '';
+      try { storeParam = new URLSearchParams(location.search).get('store') || ''; } catch (e) { storeParam = ''; }
+      var storeActive = !!(window.StoreMode && typeof window.StoreMode.isStoreActive === 'function' && window.StoreMode.isStoreActive());
+      if (!storeParam && !storeActive) openRoomModal(true);
       return;
     }
     connectToRoom(code);
@@ -661,6 +673,42 @@
     var roomBackdrop = el.roomModal.querySelector('[data-close]');
     if (roomBackdrop) roomBackdrop.addEventListener('click', function () { if (!el.roomClose.hidden) closeRoomModal(); });
     document.getElementById('modalClose').addEventListener('click', closeModal);
+    /* ⚙️ 설정 — 초대·관리·안내를 한 곳에서 */
+    var gear = document.getElementById('gearBtn');
+    if (gear) gear.addEventListener('click', function () { openSettingsForView(); });
+    var setClose = document.getElementById('settingsClose');
+    if (setClose) setClose.addEventListener('click', closeSettingsModal);
+    var setModal = document.getElementById('settingsModal');
+    if (setModal) {
+      var setBackdrop = setModal.querySelector('[data-close]');
+      if (setBackdrop) setBackdrop.addEventListener('click', closeSettingsModal);
+    }
+    var setProfileRow = document.getElementById('setProfileRow');
+    if (setProfileRow) setProfileRow.addEventListener('click', function () {
+      closeSettingsModal();
+      openProfileModal();
+    });
+    var setAdminRow = document.getElementById('setAdminRow');
+    if (setAdminRow) setAdminRow.addEventListener('click', function () {
+      if (!canManage()) { toast('아빠·엄마만 열 수 있어요'); return; }
+      closeSettingsModal();
+      openAdminModal();
+    });
+    /* 일정 추가 — [+ 더보기] 접기/펼치기 */
+    var moreBtn = document.getElementById('eventMoreBtn');
+    if (moreBtn) moreBtn.addEventListener('click', function () { toggleMore(!state.moreOpen); });
+    ['fEndDate'].forEach(function (id) {
+      var input = document.getElementById(id);
+      if (input) input.addEventListener('change', updateMoreBadges);
+    });
+    if (el.fMemo) el.fMemo.addEventListener('input', updateMoreBadges);
+    if (el.fCategories) el.fCategories.addEventListener('click', function () { setTimeout(updateMoreBadges, 0); });
+    /* 다가오는 일정 더 보기 */
+    var ddayMore = document.getElementById('ddayMoreBtn');
+    if (ddayMore) ddayMore.addEventListener('click', function () {
+      state.ddayOpen = !state.ddayOpen;
+      renderDDay();
+    });
     var backdrop = el.modal.querySelector('[data-close]');
     if (backdrop) backdrop.addEventListener('click', closeModal);
     el.form.addEventListener('submit', function (e) { e.preventDefault(); saveEvent(); });
@@ -722,8 +770,80 @@
     if (el.daySheetAddBtn) el.daySheetAddBtn.addEventListener('click', addEventFromSheet);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && el.daySheetModal && !el.daySheetModal.hidden) closeDaySheet();
+      var st = document.getElementById('settingsModal');
+      if (e.key === 'Escape' && st && !st.hidden) closeSettingsModal();
       if (e.key === 'Escape' && !el.modal.hidden) closeModal();
     });
+  }
+
+  /* ---------------- ⚙️ 설정 시트 ---------------- */
+  function openSettingsForView() {
+    if (window.StoreMode && typeof window.StoreMode.isStoreActive === 'function' && window.StoreMode.isStoreActive()) {
+      if (window.StoreMode.openHub) { window.StoreMode.openHub(); return; }
+    }
+    if (window.ExtraMode && typeof window.ExtraMode.isActive === 'function' && window.ExtraMode.isActive()) {
+      var calvBtn = document.getElementById('calvSettingsBtn');
+      if (calvBtn) { calvBtn.click(); return; }
+    }
+    openSettingsModal();
+  }
+
+  function openSettingsModal() {
+    var modal = document.getElementById('settingsModal');
+    if (!modal) return;
+    var row = document.getElementById('setAdminRow');
+    if (row) row.hidden = !canManage();
+    paintStatus();
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSettingsModal() {
+    var modal = document.getElementById('settingsModal');
+    if (!modal || modal.hidden) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  /* 일정 추가 — 부가 항목 접기/펼치기 */
+  function toggleMore(open) {
+    state.moreOpen = !!open;
+    var btn = document.getElementById('eventMoreBtn');
+    var box = document.getElementById('eventExtra');
+    if (btn) {
+      btn.setAttribute('aria-expanded', state.moreOpen ? 'true' : 'false');
+      var label = btn.querySelector('.more-toggle__label');
+      if (label) label.textContent = state.moreOpen ? '− 접기' : '＋ 더보기';
+    }
+    if (box) box.hidden = !state.moreOpen;
+    updateMoreBadges();
+  }
+
+  /* 접힌 상태에서도 무엇이 들어 있는지 배지로 보여 줍니다. */
+  function updateMoreBadges() {
+    var wrap = document.getElementById('eventMoreBadges');
+    if (!wrap) return;
+    var list = [];
+    if (el.fEndDate && el.fEndDate.value && el.fDate.value && el.fEndDate.value > el.fDate.value) {
+      list.push('📆 기간');
+    }
+    var catOn = el.fCategories ? el.fCategories.querySelector('.pick.is-on') : null;
+    if (catOn && catOn.getAttribute('data-id') !== 'etc') {
+      list.push(catOn.textContent.trim());
+    }
+    if (state.repeat && state.repeat !== 'none') list.push('🔁 ' + repeatLabel({ repeat: state.repeat, weekday: state.weekday, date: el.fDate.value }));
+    if (state.remind && state.remind !== 'none') list.push('🔔 ' + remindLabel(Number(state.remind)));
+    var checkCount = currentChecklist().length;
+    if (checkCount) list.push('☑️ 준비물 ' + checkCount);
+    if (el.fMemo && el.fMemo.value.trim()) list.push('📝 메모');
+
+    wrap.innerHTML = '';
+    list.forEach(function (text) {
+      var span = document.createElement('span');
+      span.textContent = text;
+      wrap.appendChild(span);
+    });
+    wrap.hidden = !list.length;
   }
 
   function shiftMonth(delta) {
@@ -887,7 +1007,8 @@
           bar.style.background = c.color;
           row.appendChild(bar);
           var tx = document.createElement('span');
-          tx.textContent = ev.title;
+          /* 칸이 좁아서 '[샘플]' 머리말은 빼고 보여 줍니다. */
+          tx.textContent = String(ev.title || '').replace(/^\[샘플\]\s*/, '');
           row.appendChild(tx);
           evs.appendChild(row);
         });
@@ -958,29 +1079,51 @@
     head.appendChild(dateWrap);
 
     var holiday = L.holidayName(y, m, d);
+    var right = document.createElement('div');
+    right.className = 'day-head__right';
     if (holiday) {
       var badge = document.createElement('span');
       badge.className = 'day-badge';
       badge.textContent = '🎉 ' + holiday;
-      head.appendChild(badge);
+      right.appendChild(badge);
     }
+    /* 선택한 날에 바로 일정 추가 */
+    var quickAdd = document.createElement('button');
+    quickAdd.type = 'button';
+    quickAdd.className = 'day-card__add';
+    quickAdd.textContent = canManage() ? '＋ 추가' : '＋ 등록 요청';
+    quickAdd.addEventListener('click', function () {
+      if (!state.profile) { openProfileModal(); return; }
+      openModal(null, dateISO);
+    });
+    right.appendChild(quickAdd);
+    head.appendChild(right);
     el.dayCard.appendChild(head);
 
     var dayEvents = eventsOn(dateISO);
     if (!dayEvents.length) {
       var empty = document.createElement('p');
       empty.className = 'empty';
-      empty.innerHTML = '이 날은 일정이 없어요.<br><b>' + (canManage() ? '＋ 일정 추가' : '＋ 일정 등록 요청') + ' 버튼</b>으로 등록해 보세요.';
+      empty.innerHTML = '이 날은 일정이 없어요.<br><b>＋ 추가</b>를 누르면 바로 넣을 수 있어요.';
       el.dayCard.appendChild(empty);
       return;
     }
 
     var list = document.createElement('ul');
     list.className = 'event-list';
-    dayEvents.forEach(function (ev) {
+    var shown = dayEvents.slice(0, 3);
+    shown.forEach(function (ev) {
       list.appendChild(buildEventItem(ev, y));
     });
     el.dayCard.appendChild(list);
+    if (dayEvents.length > 3) {
+      var moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.className = 'fold-more';
+      moreBtn.textContent = '일정 ' + dayEvents.length + '개 모두 보기';
+      moreBtn.addEventListener('click', function () { openDaySheet(dateISO); });
+      el.dayCard.appendChild(moreBtn);
+    }
   }
 
   /* ---------------- 📅 날짜 한눈에 보기 바텀시트 ---------------- */
@@ -1244,6 +1387,28 @@
     if (!card) return;
     var dateISO = state.selected;
     var all = photosOn(dateISO);
+
+    /* 사진이 없는 날은 한 줄로 접어 둡니다(달력 아래를 가볍게). */
+    if (!all.length) {
+      card.innerHTML = '';
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'card-fold__row';
+      var t = document.createElement('h2');
+      t.textContent = '📷 ' + (parseISO(dateISO).getMonth() + 1) + '월 ' + parseISO(dateISO).getDate() + '일 사진';
+      row.appendChild(t);
+      var hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = '아직 없음';
+      row.appendChild(hint);
+      var add = document.createElement('span');
+      add.className = 'chev';
+      add.textContent = '＋ 사진 ›';
+      row.appendChild(add);
+      row.addEventListener('click', function () { addPhotos(dateISO); });
+      card.appendChild(row);
+      return;
+    }
     var folders = [];
     all.forEach(function (p) { if (folders.indexOf(p.folder) === -1) folders.push(p.folder); });
     folders.sort();
@@ -1842,15 +2007,24 @@
       if (seen[key]) return false;
       seen[key] = true;
       return true;
-    }).slice(0, limit);
+    });
+    var total = items.length;
+    var showCount = state.ddayOpen ? 12 : 3;
+    items = items.slice(0, showCount);
 
     el.ddayList.innerHTML = '';
+    var moreBtn = document.getElementById('ddayMoreBtn');
     if (!items.length) {
       var empty = document.createElement('li');
       empty.className = 'empty';
       empty.textContent = '1년 안에 다가오는 일정이 없어요.';
       el.ddayList.appendChild(empty);
+      if (moreBtn) moreBtn.hidden = true;
       return;
+    }
+    if (moreBtn) {
+      moreBtn.hidden = total <= 3;
+      moreBtn.textContent = state.ddayOpen ? '접기' : '더 보기 ' + Math.min(total - 3, 9) + '개';
     }
 
     items.forEach(function (it) {
@@ -2108,6 +2282,13 @@
     setRemind(ev && ev.remind !== null && ev.remind !== undefined ? String(ev.remind) : 'none');
     updateDateHint();
 
+    /* 수정할 때 부가 항목이 이미 차 있으면 펼쳐서 보여 줍니다. */
+    var hasExtra = !!(ev && (ev.endDate || String(ev.memo || '').trim() || (ev.checklist && ev.checklist.length) ||
+      (ev.repeat && ev.repeat !== 'none') || (ev.remind !== null && ev.remind !== undefined) ||
+      (ev.category && ev.category !== 'etc')));
+    toggleMore(hasExtra);
+    updateMoreBadges();
+
     el.modal.hidden = false;
     document.body.style.overflow = 'hidden';
   }
@@ -2130,6 +2311,7 @@
     });
     renderWeekdays();
     updateRepeatHint();
+    if (typeof updateMoreBadges === 'function') updateMoreBadges();
   }
 
   /* 매주 반복 요일 선택 단추 */
@@ -2230,6 +2412,7 @@
     Array.prototype.forEach.call(el.fRemind.children, function (btn) {
       btn.classList.toggle('is-active', btn.getAttribute('data-remind') === state.remind);
     });
+    if (typeof updateMoreBadges === 'function') updateMoreBadges();
   }
 
   function currentCategory() {
@@ -2367,6 +2550,9 @@
     if (parsed.title) el.fTitle.value = parsed.title.slice(0, 60);
     if (parsed.lunar) setRepeat('yearly-lunar');
     updateDateHint();
+    /* 말로 채운 부가 항목(기간·카테고리·반복)은 바로 보이게 펼칩니다. */
+    if (parsed.endDate || parsed.category || parsed.lunar) toggleMore(true);
+    updateMoreBadges();
 
     var bits = [];
     if (parsed.date) bits.push('📅 ' + parsed.date + (parsed.endDate && parsed.endDate !== parsed.date ? ' ~ ' + parsed.endDate : ''));
@@ -2671,6 +2857,8 @@
     if (state.profile) return;
     if (!el.roomModal.hidden) return;
     if (!el.profileModal.hidden) return;
+    /* 매장 화면을 보고 있는 기기에서는 가족 프로필 창을 띄우지 않습니다. */
+    if (window.StoreMode && typeof window.StoreMode.isStoreActive === 'function' && window.StoreMode.isStoreActive()) return;
     openProfileModal();
   }
 
@@ -2706,6 +2894,8 @@
     if (el.addBtn) el.addBtn.textContent = manage ? '＋ 일정 추가' : '＋ 일정 등록 요청';
     if (el.resetBtn) el.resetBtn.hidden = !manage;
     if (el.codeBtn) el.codeBtn.hidden = !manage;
+    var setAdminRow = document.getElementById('setAdminRow');
+    if (setAdminRow) setAdminRow.hidden = !manage;
     renderMyRequests();
     if (el.approveModal && !el.approveModal.hidden) renderApproveCards();
     if (el.adminModal && !el.adminModal.hidden) {

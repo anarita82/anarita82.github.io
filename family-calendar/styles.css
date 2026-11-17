@@ -1223,3 +1223,308 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .account-member__text { margin: 0 0 7px; font-size: 12.5px; font-weight: 700; color: #4338ca; }
 .account-name-edit { margin-top: 10px; }
 .account-link { width: 100%; margin: 4px 0 10px; }
+
+/* =====================================================================
+   📱 모바일 사용성 다듬기 (2026-11-17)
+   - 상단 바 다이어트: 제목 + 설정 + 탭 + 내 프로필 한 줄씩
+   - 달력 가독성: 날짜 숫자·칸 속 일정 글씨를 키우고 오늘/선택/주말 구분 선명하게
+   - 일정 추가: 자주 쓰는 칸만 먼저, 나머지는 [+ 더보기]
+   - 버튼 터치 영역 확대(닫기·설정·이동·추가)
+   ===================================================================== */
+
+.app { padding: 0 12px calc(104px + env(safe-area-inset-bottom)); }
+
+/* ---------- 상단 바 ---------- */
+.app-bar {
+  margin: 0 -12px 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  border-radius: 0 0 18px 18px;
+}
+.app-bar__row--top { justify-content: space-between; }
+.app-bar__title {
+  font-size: 18px;
+  letter-spacing: -.5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-bar__status { font-size: 9.5px; padding: 2px 7px; letter-spacing: 0; }
+.app-bar__gear {
+  flex: 0 0 auto;
+  width: 42px; height: 42px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .38);
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 18px; line-height: 1;
+  border-radius: 13px;
+  cursor: pointer;
+}
+.app-bar__gear:active { background: rgba(255, 255, 255, .32); }
+.app-bar__note { margin: 5px 0 0; font-size: 11px; line-height: 1.4; }
+.app-bar__row--sub { margin-top: 7px; gap: 5px; }
+.profile-badge { font-size: 11.5px; padding: 4px 10px 4px 7px; }
+.profile-badge__dot { width: 9px; height: 9px; }
+.profile-badge__role { font-size: 9px; }
+.approve-pill { font-size: 11px; padding: 4px 9px; }
+
+/* 탭: 높이를 낮추고 폭을 고르게 */
+.mode-tabs { margin-top: 8px; padding: 2px; gap: 4px; }
+.mode-tab { font-size: 12px; padding: 9px 4px; min-height: 40px; letter-spacing: -.4px; }
+.mode-tab-add {
+  width: 42px; height: 42px;
+  font-size: 20px; font-weight: 700;
+}
+
+/* ---------- 구성원 필터 ---------- */
+.member-filter { padding: 0 2px 8px; gap: 6px; }
+.chip { padding: 8px 12px; font-size: 12.5px; min-height: 38px; }
+
+/* ---------- 달력 ---------- */
+.calendar { padding: 12px 8px 6px; }
+.cal-title strong { font-size: 19px; }
+.cal-sub { font-size: 11.5px; }
+.btn-today { font-size: 12px; padding: 7px 12px; min-height: 36px; }
+.cal-nav { width: 40px; height: 40px; font-size: 21px; }
+.weekdays { margin: 4px 0 4px; }
+.wd { font-size: 12px; font-weight: 800; padding: 3px 0; }
+.grid { gap: 2px 0; }
+.day {
+  min-height: 64px;
+  padding: 5px 1px 4px;
+  gap: 1px;
+  border-radius: 12px;
+}
+.day__num {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 20px;
+  min-width: 26px;
+  color: #1f2430;
+}
+.day--today .day__num {
+  background: #4f46e5;
+  color: #fff;
+  border-radius: 9px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px -2px rgba(79, 70, 229, .7);
+}
+.day--today:not(.day--selected) { background: #f5f4ff; }
+.day--selected { background: var(--primary); box-shadow: inset 0 0 0 2px #4338ca; }
+.day--selected .day__num { color: #fff; }
+.day--selected.day--out .day__num { color: rgba(255, 255, 255, .75); }
+.day__hol { font-size: 9.5px; font-weight: 800; }
+.day--out .day__num { color: #b9c0cc; }
+.day__evs { gap: 2px; margin-top: 1px; }
+.day__ev i { flex: 0 0 3px; height: 10px; border-radius: 2px; }
+.day__ev > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -.4px;
+  color: #3a4152;
+  line-height: 1.25;
+}
+.day__more { font-size: 9.5px; }
+.day--selected .day__ev > span { color: #fff; }
+.cal-legend { margin: 6px 2px 0; padding-top: 6px; gap: 3px 8px; }
+.cal-legend > span { font-size: 10px; }
+.cal-legend i { width: 8px; height: 8px; }
+
+/* ---------- 선택일 카드 ---------- */
+.day-card { padding: 14px 12px 8px; }
+.day-head { margin-bottom: 8px; }
+.day-head__date strong { font-size: 19px; }
+.day-head__dow { font-size: 13px; }
+.day-head__lunar { font-size: 11.5px; }
+.day-card__add {
+  min-height: 38px;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  border-radius: 999px;
+}
+.event {
+  padding: 11px 10px;
+  border-radius: 13px;
+  gap: 10px;
+  min-height: 48px;
+}
+.event__title { font-size: 15px; }
+.event__time { font-size: 12.5px; }
+.event__meta { font-size: 12px; margin-top: 3px; }
+.event__memo { font-size: 12px; }
+.mbadge { font-size: 11px; padding: 2px 7px 2px 5px; }
+.empty { font-size: 13px; padding: 12px 6px 16px; }
+
+/* ---------- 다가오는 일정 ---------- */
+.dday { padding: 10px 6px; min-height: 48px; }
+.dday__title { font-size: 14px; }
+.dday__meta { font-size: 11.5px; }
+.dday__badge { font-size: 11.5px; min-width: 52px; padding: 6px; }
+.fold-more {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 0 4px;
+  border: 0;
+  border-top: 1px dashed #e7e9f1;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- 접힌 카드(사진) ---------- */
+.card-fold { padding: 12px; }
+.card-fold__row {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; border: 0; background: transparent;
+  padding: 2px 0; min-height: 40px;
+  font-family: inherit; cursor: pointer; text-align: left;
+}
+.card-fold__row h2 { margin: 0; font-size: 14.5px; font-weight: 800; letter-spacing: -.2px; }
+.card-fold__row .hint { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; margin-left: auto; }
+.card-fold__row .chev { font-size: 12px; color: var(--ink-faint); }
+.photo-card.is-collapsed .photo-grid,
+.photo-card.is-collapsed .folder-chips,
+.photo-card.is-collapsed .guide-actions,
+.photo-card.is-collapsed .field-hint,
+.photo-card.is-collapsed .empty { display: none; }
+
+/* ---------- 카톡 요약 ---------- */
+.kakao-card { padding: 12px; }
+.kakao-card .card-head { margin-bottom: 8px; }
+.kakao-actions { gap: 7px; }
+
+/* ---------- FAB ---------- */
+.fab {
+  padding: 14px 24px;
+  font-size: 15.5px;
+  min-height: 52px;
+}
+
+/* ---------- 모달 ---------- */
+.sheet-close {
+  width: 44px; height: 44px;
+  font-size: 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+}
+.sheet-head { margin-bottom: 8px; min-height: 46px; align-items: flex-start; padding-top: 2px; }
+.sheet-head h2 { font-size: 18px; padding-top: 10px; }
+.sheet-head__side { display: flex; align-items: center; gap: 6px; }
+.modal__sheet { padding: 8px 14px calc(16px + env(safe-area-inset-bottom)); }
+.field { margin-bottom: 12px; }
+.field > label { font-size: 12.5px; margin-bottom: 5px; }
+.field input[type="text"],
+.field input[type="date"],
+.field input[type="time"],
+.field input[type="tel"],
+.field input[type="number"],
+.field input[type="password"],
+.field input[type="email"],
+.field textarea { padding: 13px 12px; font-size: 16px; min-height: 48px; border-radius: 13px; }
+.field-hint { font-size: 11.5px; }
+.field--title input[type="text"] { font-size: 17px; font-weight: 700; }
+.time-row input[type="time"] { min-height: 48px; }
+.pick { min-height: 40px; padding: 9px 12px; font-size: 13px; }
+.segmented button { min-height: 40px; }
+.btn-ghost { min-height: 40px; }
+.btn-small { min-height: 38px; }
+.btn-primary { min-height: 48px; }
+
+/* 일정 추가: 말로 입력은 제목 줄 옆 작은 버튼 */
+.voice-btn--mini {
+  min-height: 36px;
+  padding: 7px 11px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+.voice-status { margin: 0 0 10px; font-size: 12px; color: var(--primary); font-weight: 700; }
+
+/* [+ 더보기] 접기/펼치기 */
+.more-toggle {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 12px 12px;
+  border: 1px dashed #d9dcea;
+  border-radius: 13px;
+  background: #fbfbfe;
+  color: #4338ca;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.more-toggle__label { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.more-toggle__hint {
+  font-size: 10.5px; font-weight: 600; color: var(--ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.more-toggle[aria-expanded="true"] { border-style: solid; border-color: #c7cbf7; background: #f5f6ff; }
+.more-toggle[aria-expanded="true"] .more-toggle__label { color: #3730a3; }
+.more-badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0 2px; }
+.more-badges span {
+  font-size: 11px; font-weight: 800; color: #4338ca;
+  background: #eef0ff; border-radius: 999px; padding: 3px 9px;
+}
+.event-extra { margin-top: 12px; border-top: 1px dashed #e7e8f1; padding-top: 12px; }
+
+/* 저장 줄은 스크롤해도 아래에 붙어 있게 */
+.sheet-actions--sticky {
+  position: sticky;
+  bottom: calc(-16px - env(safe-area-inset-bottom));
+  margin: 10px -14px calc(-16px - env(safe-area-inset-bottom));
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, .96);
+  border-top: 1px solid #eef0f5;
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- ⚙️ 설정 시트 ---------- */
+.settings-sheet { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+.set-rows { display: flex; flex-direction: column; gap: 7px; margin: 2px 0 14px; }
+.set-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 11px 13px;
+  border: 1px solid #e6e8f1;
+  border-radius: 14px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14.5px; font-weight: 800;
+  color: #2b3040;
+  text-align: left;
+  cursor: pointer;
+}
+.set-row:active { background: #f6f7fb; }
+.set-row__i {
+  flex: 0 0 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #f3f4f9; border-radius: 11px; font-size: 17px;
+}
+.set-row__t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.set-row__t small { font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.set-row__chev { flex: 0 0 auto; color: var(--ink-faint); font-size: 17px; font-weight: 700; }
+.set-row.is-on { color: #0f766e; }
+.settings-block { margin: 0 0 14px; padding: 0 2px; }
+.settings-block > h3 { margin: 0 0 8px; font-size: 13px; font-weight: 800; letter-spacing: -.2px; color: #4b5160; }
+.set-help { border: 1px solid #eceef5; border-radius: 13px; padding: 0 12px; background: #fcfcff; }
+.set-help > summary {
+  list-style: none;
+  padding: 13px 0;
+  font-size: 13px; font-weight: 800;
+  color: #4b5160;
+  cursor: pointer;
+}
+.set-help > summary::-webkit-details-marker { display: none; }
+.set-help > summary::after { content: " ▾"; font-weight: 700; color: #9aa1ad; }
+.set-help[open] > summary::after { content: " ▴"; }
+.set-help .guide-list { padding-left: 15px; padding-bottom: 12px; font-size: 12.5px; line-height: 1.7; }
+.set-status { margin: 6px 0 10px; font-size: 11.5px; color: var(--ink-faint); }
+
+/* 선택일 카드 오른쪽([공휴일 배지] + [＋ 추가]) */
+.day-head__right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
