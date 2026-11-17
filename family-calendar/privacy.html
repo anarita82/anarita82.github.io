@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<title>개인정보처리방침 · 우리 가족 달력</title>
+<meta name="description" content="우리 가족 달력(가족·매장 공유 달력, 금전출납부)이 저장하는 정보와 보호 방법, 삭제 방법을 안내합니다." />
+<meta name="theme-color" content="#4f46e5" />
+<style>
+  :root { --brand: #4f46e5; --ink: #1f2430; --ink-2: #4b5160; --ink-faint: #6b7280; --line: #e6e8f1; --bg: #f4f5f9; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 56px;
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+      "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+    font-size: 15px; line-height: 1.72; word-break: keep-all;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 18px; }
+  header.hero {
+    background: var(--brand); color: #fff;
+    padding: 34px 0 30px; margin-bottom: 22px;
+    border-radius: 0 0 22px 22px;
+  }
+  header.hero .wrap { padding: 0 18px; }
+  .eyebrow { margin: 0 0 6px; font-size: 12.5px; font-weight: 800; letter-spacing: .4px; opacity: .85; }
+  h1 { margin: 0 0 8px; font-size: 23px; line-height: 1.3; letter-spacing: -.4px; }
+  .hero p { margin: 0; font-size: 13.5px; opacity: .92; }
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 16px; margin: 0 0 14px;
+  }
+  h2 {
+    margin: 0 0 10px; font-size: 16px; letter-spacing: -.3px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  h3 { margin: 16px 0 6px; font-size: 14px; color: var(--ink-2); }
+  p { margin: 0 0 10px; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 0 0 10px; padding-left: 20px; }
+  li { margin: 0 0 6px; }
+  li:last-child { margin-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 13.2px; }
+  th, td { border: 1px solid var(--line); padding: 8px 9px; text-align: left; vertical-align: top; }
+  th { background: #f7f8fc; font-weight: 800; color: var(--ink-2); white-space: nowrap; }
+  td small { color: var(--ink-faint); }
+  .note {
+    background: #f7f8fc; border-left: 3px solid var(--brand);
+    border-radius: 0 10px 10px 0; padding: 11px 13px; margin: 10px 0 0;
+    font-size: 13.4px; color: var(--ink-2);
+  }
+  .kv { margin: 0; font-size: 13.6px; }
+  .kv dt { font-weight: 800; color: var(--ink-2); margin-top: 8px; }
+  .kv dt:first-child { margin-top: 0; }
+  .kv dd { margin: 0; }
+  a { color: var(--brand); }
+  .toc { font-size: 13.4px; columns: 2; column-gap: 18px; }
+  .toc a { text-decoration: none; display: block; padding: 2px 0; }
+  footer { margin-top: 18px; font-size: 12.6px; color: var(--ink-faint); text-align: center; }
+  footer a { color: var(--ink-faint); }
+  .back { display: inline-block; margin-top: 6px; font-size: 13.4px; }
+  @media (max-width: 420px) { .toc { columns: 1; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">우리 가족 달력 · OXPC</p>
+    <h1>개인정보처리방침</h1>
+    <p>가족·매장 공유 달력과 금전출납부가 어떤 정보를 저장하고, 어디에 보관하며, 어떻게 지울 수 있는지 알려 드립니다.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>🔎 먼저 한눈에</h2>
+    <ul>
+      <li>이 앱은 <b>가족(그리고 매장 근무자)끼리 일정을 함께 보는 달력</b>입니다. 광고를 넣지 않고, 이용자 정보를 팔지 않습니다.</li>
+      <li>일정·구성원 이름·전화번호·사진·매장 근무·급여·출납부 내역은 <b>Google Firebase(Cloud Firestore)</b>에 저장되어 가족 모두의 폰에 함께 나타납니다.</li>
+      <li>로그인은 <b>익명 인증</b>입니다. 이메일·비밀번호·주민등록번호·주소를 받지 않습니다.</li>
+      <li><b>가족 코드</b>를 아는 기기만 같은 달력에 들어올 수 있고, 새 기기는 <b>관리자 승인</b>을 거쳐야 합니다.</li>
+      <li>음성 입력과 결제 알림 자동 수집은 <b>이용자가 직접 켤 때만</b> 동작합니다. 결제 알림은 확인하기 전까지 <b>폰 안에만</b> 쌓입니다.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>📑 차례</h2>
+    <nav class="toc">
+      <a href="#s1">1. 운영자와 문의처</a>
+      <a href="#s2">2. 저장하는 정보</a>
+      <a href="#s3">3. 기기에만 남는 정보</a>
+      <a href="#s4">4. 권한과 쓰임</a>
+      <a href="#s5">5. 정보가 처리되는 곳</a>
+      <a href="#s6">6. 보관 기간과 삭제</a>
+      <a href="#s7">7. 아동·가족 구성원의 정보</a>
+      <a href="#s8">8. 이용자의 권리</a>
+      <a href="#s9">9. 보호를 위해 하는 일</a>
+      <a href="#s10">10. 광고·추적·제3자 제공</a>
+      <a href="#s11">11. 방침 변경</a>
+    </nav>
+  </div>
+
+  <section class="card" id="s1">
+    <h2>1. 운영자와 문의처</h2>
+    <dl class="kv">
+      <dt>서비스 이름</dt>
+      <dd>우리 가족 달력 (안드로이드 앱, 패키지 <code>com.anarita82.familycalendar</code> / 웹앱 <a href="./">anarita82.github.io/family-calendar</a>)</dd>
+      <dt>운영자</dt>
+      <dd>OXPC (우영화) — 서울특별시 강동구에서 PC방(옥스피씨 상일동역점)을 운영하며, 이 앱은 가족과 매장 근무자를 위해 직접 만든 앱입니다.</dd>
+      <dt>개인정보 문의</dt>
+      <dd><a href="mailto:anarita@naver.com">anarita@naver.com</a></dd>
+      <dt>시행일</dt>
+      <dd>2026년 11월 17일</dd>
+    </dl>
+  </section>
+
+  <section class="card" id="s2">
+    <h2>2. 저장하는 정보</h2>
+    <p>앱의 기능을 쓰는 동안 아래 정보가 저장됩니다. <b>모두 이용자가 직접 입력하거나 앱에서 만든 정보</b>이고, 운영자가 따로 수집하거나 다른 곳에서 가져오는 정보는 없습니다.</p>
+    <table>
+      <thead>
+        <tr><th>항목</th><th>내용</th><th>저장 위치</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>일정</td>
+          <td>제목, 날짜·시간, 기간, 카테고리, 담당자, 메모, 준비물 체크 상태, 반복 설정</td>
+          <td>가족(또는 매장) 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>구성원 정보</td>
+          <td>구성원 표시 이름(아빠·엄마·첫째 등), 휴대폰 번호, 인물 사진</td>
+          <td>가족 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>사진</td>
+          <td>인물 사진, 날짜별 사진 앨범에 올린 사진(앱이 크기를 줄여 저장)</td>
+          <td>가족 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>매장 근무 정보 <small>(매장 달력)</small></td>
+          <td>근무자 이름·전화번호, 근무일과 시간, 시급·급여 설정, 휴무·대타 요청과 승인 기록, 인수인계 메모</td>
+          <td>매장 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>금전출납부 <small>(사장님 전용)</small></td>
+          <td>내역 날짜, 금액, 분류, 결제 수단, 상호·메모</td>
+          <td>출납부 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>이용 기록</td>
+          <td>입장 요청, 일정 등록 승인 요청, 신상정보 변경 요청과 승인·거절 기록</td>
+          <td>가족·매장 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>관리자 PIN</td>
+          <td>관리자 화면을 여는 4자리 숫자. <b>PIN 자체가 아니라 변환된 값(해시)</b>만 저장합니다.</td>
+          <td>가족·매장 방 · Firebase</td>
+        </tr>
+        <tr>
+          <td>익명 계정</td>
+          <td>Firebase 익명 인증이 만드는 임의의 이용자 ID. 이름·이메일과 연결되지 않습니다.</td>
+          <td>Firebase 인증</td>
+        </tr>
+        <tr>
+          <td>음성 입력 <small>(선택)</small></td>
+          <td>말한 내용은 <b>기기의 음성인식 서비스</b>가 글자로 바꾸고, 앱은 그 글자로 일정 칸을 채웁니다. <b>녹음 파일을 저장하거나 운영자에게 보내지 않습니다.</b></td>
+          <td>저장 안 함(입력한 일정만 저장)</td>
+        </tr>
+        <tr>
+          <td>결제·입출금 알림 <small>(선택)</small></td>
+          <td>이용자가 알림 접근 권한을 켠 경우에만, 카드·은행·카카오톡 등 알림 중 금액과 금융 관련 단어가 함께 있는 알림의 제목·내용을 최대 60건까지 모읍니다. 이용자가 <b>[출납부에 넣기]</b>를 누른 것만 장부에 저장됩니다.</td>
+          <td>폰 안 대기함 → 넣은 것만 출납부 방</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">받지 않는 정보: 주민등록번호, 주소, 이메일 주소, 비밀번호, 위치, 연락처 목록, 통화·문자 기록, 결제 카드번호. 앱은 이런 정보를 요구하지 않습니다.</p>
+  </section>
+
+  <section class="card" id="s3">
+    <h2>3. 기기에만 남는 정보</h2>
+    <p>아래 정보는 <b>그 폰의 앱 저장 공간에만</b> 있고 서버로 보내지 않습니다.</p>
+    <ul>
+      <li>입력한 가족 코드·매장 코드와, 이 폰을 쓰는 사람(프로필) 선택</li>
+      <li>출납부 잠금 PIN을 변환한 값, 출납부 방 코드</li>
+      <li>예약해 둔 미리 알림 목록(앱을 닫아도 알림이 울리도록)</li>
+      <li>결제 알림 자동 수집 대기함(최대 60건)</li>
+      <li>오프라인 이용을 위한 화면·그림 임시 저장(캐시)</li>
+    </ul>
+    <p>앱을 지우면 이 정보는 폰에서 함께 지워집니다. 다만 서버(가족 방)에 저장된 일정 등은 다른 가족이 계속 볼 수 있으므로, 함께 지우려면 6번의 방법을 써 주세요.</p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2>4. 권한과 쓰임</h2>
+    <p>안드로이드 앱은 아래 권한을 씁니다. <b>마이크</b>와 <b>알림 접근</b>은 이용자가 직접 켜지 않으면 동작하지 않습니다.</p>
+    <table>
+      <thead>
+        <tr><th>권한</th><th>쓰는 곳</th><th>거부하면</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>인터넷</td><td>가족·매장 달력 화면을 열고 일정을 주고받는 데</td><td>앱을 쓸 수 없음</td></tr>
+        <tr><td>마이크 <small>(선택)</small></td><td>🎤 말로 입력 — 기기 음성인식으로 일정 칸 채우기</td><td>직접 입력하면 됨</td></tr>
+        <tr><td>알림 표시 <small>(선택)</small></td><td>일정 미리 알림, 내 담당 새 일정 알림</td><td>알림이 오지 않음</td></tr>
+        <tr><td>알람·리마인더 <small>(선택)</small></td><td>정한 시각에 미리 알림을 정확히 울리기</td><td>몇 분 늦게 울릴 수 있음</td></tr>
+        <tr><td>사진 읽기 <small>(선택)</small></td><td>인물 사진·날짜별 사진을 고를 때</td><td>사진 기능만 못 씀</td></tr>
+        <tr><td>알림 접근 <small>(선택·기본 꺼짐)</small></td><td>💰 금전출납부 자동 수집 — 카드·은행 결제 알림에서 금액 읽기</td><td>장부를 직접 입력하면 됨</td></tr>
+        <tr><td>부팅 시 자동 실행</td><td>폰을 다시 켜면 예약한 알림을 다시 걸기</td><td>다시 앱을 열 때까지 알림이 걸리지 않음</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card" id="s5">
+    <h2>5. 정보가 처리되는 곳</h2>
+    <ul>
+      <li><b>Google Firebase</b>(Google LLC) — Cloud Firestore와 익명 인증. 자료는 <b>서울 리전(asia-northeast3)</b>에 저장됩니다. Google의 처리 방침: <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer">firebase.google.com/support/privacy</a></li>
+      <li><b>GitHub Pages</b>(GitHub, Inc.) — 앱 화면(웹앱) 파일을 내려 주는 호스팅. 접속 기록은 GitHub의 방침에 따라 처리될 수 있습니다.</li>
+      <li><b>기기의 음성인식 서비스</b> — 음성 입력을 켰을 때만. 기기에 설치된 인식 앱(보통 Google 음성인식)이 말소리를 처리하며, <b>그 처리는 기기·인식 앱 설정에 따릅니다.</b> 앱은 녹음 파일을 저장하거나 운영자에게 보내지 않습니다.</li>
+      <li><b>기본 브라우저</b> — 앱 안에서 열 수 없는 다른 사이트(예: 구글 로그인)를 열 때. 그 사이트의 방침이 적용됩니다.</li>
+    </ul>
+    <p>운영자는 위 서비스 제공자 외의 제3자에게 이용자 정보를 넘기지 않습니다.</p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2>6. 보관 기간과 삭제</h2>
+    <ul>
+      <li><b>보관 기간</b>: 이용자가 지우거나 가족 방에서 나갈 때까지. 그 뒤에는 서버에서 삭제됩니다.</li>
+      <li><b>일정·사진·출납부 내역</b>: 앱에서 그 항목을 열어 <b>[삭제]</b>하면 가족 모두의 폰에서 사라집니다.</li>
+      <li><b>가족 코드 바꾸기</b>: 설정 → 가족 코드 변경. 새 코드로 새 방을 만들기 때문에 이전 방은 가족 누구의 폰에서도 열리지 않습니다.</li>
+      <li><b>기기에서 지우기</b>: 앱 삭제, 또는 안드로이드 설정 → 앱 → 우리 가족 달력 → 저장공간 → 데이터 삭제.</li>
+      <li><b>서버 자료 삭제 요청</b>: <a href="mailto:anarita@naver.com">anarita@naver.com</a> 으로 알려 주시면 확인 후 지체 없이(늦어도 10일 이내) 삭제하고 결과를 알려 드립니다.</li>
+      <li><b>결제 알림 대기함</b>: 출납부 화면에서 비우거나 앱을 지우면 폰에서 사라집니다.</li>
+    </ul>
+    <p class="note">법령에 따라 보관해야 하는 기록(세금계산서 등 사업 장부)은 해당 법령이 정한 기간 동안 보관할 수 있습니다. 다만 이 앱의 금전출납부는 참고용 기록이며, 세무 신고 자료로 쓰지 않습니다.</p>
+  </section>
+
+  <section class="card" id="s7">
+    <h2>7. 아동·가족 구성원의 정보</h2>
+    <ul>
+      <li>이 앱은 <b>가족이 함께 쓰는 달력</b>이라 가족 중 미성년 자녀의 표시 이름·일정·사진이 들어갈 수 있습니다.</li>
+      <li>이 정보는 <b>보호자(가족 관리자)가 직접 입력·관리</b>합니다. 만 14세 미만 아동의 정보는 보호자의 동의를 받은 것으로 보고 처리합니다.</li>
+      <li>매장 달력의 근무자 정보(이름·전화번호·시급·급여)는 <b>사업주가 근무 관리 목적으로 입력</b>하며, 해당 근무자에게 이 방침을 알려 주세요.</li>
+      <li>앱은 아동을 겨냥한 광고·프로필링을 하지 않습니다.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s8">
+    <h2>8. 이용자의 권리</h2>
+    <p>이용자(그 보호자 포함)는 언제든지 자신의 정보를 <b>열람·정정·삭제</b>하고 <b>처리 정지</b>를 요청할 수 있습니다.</p>
+    <ul>
+      <li>이름·전화번호: 앱의 🙋 내 정보 / 관리자 설정에서 직접 고칩니다.</li>
+      <li>일정·사진·출납부: 앱에서 직접 지웁니다.</li>
+      <li>그 밖의 요청: <a href="mailto:anarita@naver.com">anarita@naver.com</a> — 본인 확인 후 10일 이내에 처리하고 결과를 알려 드립니다.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s9">
+    <h2>9. 보호를 위해 하는 일</h2>
+    <ul>
+      <li>앱과 서버 사이 통신은 <b>HTTPS로만</b> 합니다(평문 통신 차단).</li>
+      <li>서버 자료는 <b>익명 로그인한 앱</b>에서만 열리며, 방은 <b>가족 코드</b>로 구분됩니다.</li>
+      <li>새 기기가 가족·매장 달력에 들어오려면 <b>관리자 승인</b>이 필요합니다.</li>
+      <li>관리자 PIN은 <b>변환한 값만</b> 저장하고, 최초 사용 시 직접 정합니다.</li>
+      <li>결제 알림은 <b>이용자가 확인하기 전까지 폰 밖으로 나가지 않습니다.</b></li>
+      <li>가족 코드는 가족 밖으로 알려 주지 마세요. 코드를 아는 사람은 그 달력의 자료를 볼 수 있습니다. 코드가 새었다면 설정에서 <b>가족 코드를 바꾸면</b> 됩니다.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s10">
+    <h2>10. 광고·추적·제3자 제공</h2>
+    <ul>
+      <li>앱에는 <b>광고가 없고</b>, 이용 행동을 분석하는 <b>추적 도구를 넣지 않았습니다</b>.</li>
+      <li>이용자 정보를 <b>팔거나 마케팅에 쓰지 않습니다.</b></li>
+      <li>법령에 따라 수사기관이 적법하게 요청하는 경우를 빼고는 외부에 제공하지 않습니다.</li>
+    </ul>
+  </section>
+
+  <section class="card" id="s11">
+    <h2>11. 방침 변경</h2>
+    <p>내용이 바뀌면 이 페이지에 <b>바뀐 날짜와 내용</b>을 적어 공지합니다. 이용자의 권리에 중요한 변경은 앱 화면에서도 알려 드립니다.</p>
+    <dl class="kv">
+      <dt>공고일</dt><dd>2026년 11월 17일</dd>
+      <dt>시행일</dt><dd>2026년 11월 17일</dd>
+    </dl>
+  </section>
+
+  <footer>
+    <p>우리 가족 달력 · 운영 OXPC (우영화) · <a href="mailto:anarita@naver.com">anarita@naver.com</a></p>
+    <a class="back" href="./">← 달력으로 돌아가기</a>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -9,7 +9,7 @@
 | 앱 이름 | 우리 가족 달력 |
 | 패키지 | `com.anarita82.familycalendar` |
 | 버전 | 1.5 (versionCode 6) |
-| minSdk / targetSdk | 24 (Android 7.0) / 34 |
+| minSdk / targetSdk | 24 (Android 7.0) / 36 (Android 16) |
 | 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, 사진 읽기 · (선택) 알림 접근 권한 |
 | 진입 화면 | `MainActivity` → `https://anarita82.github.io/family-calendar/` |
 
@@ -60,13 +60,23 @@
 이 저장소에는 APK 빌드 워크플로(`.github/workflows/family-calendar-apk.yml`)를 두지 않았습니다(커밋 권한에 workflow 스코프가 없음). 대신 아래처럼 로컬에서 빌드합니다.
 
 ```bash
-# JDK 17, Android SDK(platform 34, build-tools 34.0.0) 필요
+# JDK 17, Android SDK(platform 36, build-tools 36.0.0), Gradle 8.13(래퍼가 자동 내려받음) 필요
 echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./gradlew --no-daemon :app:assembleDebug
 # 결과: app/build/outputs/apk/debug/app-debug.apk
 ```
 
 `app-debug.apk`는 Android Debug 키로 v2 서명되어 있어 그대로 설치할 수 있습니다.
+
+### 구글 플레이 업로드용(.aab)
+
+```bash
+./gradlew --no-daemon :app:bundleRelease   # 서명 없는 app-release.aab
+# 이어서 업로드 키스토어로 서명 (키스토어는 저장소 밖에 보관)
+jarsigner -keystore <upload.keystore> -sigalg SHA256withRSA -digestalg SHA-256 app-release.aab <alias>
+```
+
+- 2026-08-31부터 신규 앱은 **targetSdk 36(Android 16) 이상**이어야 구글 플레이에 제출됩니다. 그래서 1.5(versionCode 6) 부터 targetSdk를 36으로 올렸고(AGP 8.13.2·Gradle 8.13), Android 15+ 에서 강제되는 **엣지 투 엣지** 화면에서 웹뷰가 상태바·키보드에 가리지 않도록 `MainActivity.applySystemBarInsets()` 로 시스템 바·입력기 높이만큼 여백을 줍니다.
 
 ## 설치 시 안내
 

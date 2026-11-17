@@ -25,6 +25,7 @@ import android.speech.RecognizerIntent;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -207,6 +208,7 @@ public class MainActivity extends Activity {
         root.addView(errorView);
 
         setContentView(root);
+        applySystemBarInsets(root);
         requestNotificationPermissionIfNeeded();
 
         if (savedInstanceState == null) {
@@ -214,6 +216,35 @@ public class MainActivity extends Activity {
         } else {
             webView.restoreState(savedInstanceState);
         }
+    }
+
+    /* Android 15(API 35)+ 는 화면을 상태바·내비게이션바 뒤까지 그리는 엣지 투 엣지가 강제됩니다.
+       웹뷰 내용이 상태바나 키보드에 가리지 않도록 시스템 바·입력기 높이만큼 안쪽 여백을 줍니다.
+       (targetSdk 36 빌드에서도 이전과 같은 화면 배치가 유지되도록) */
+    private void applySystemBarInsets(final View root) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int left, top, right, bottom;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                    android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+                    left = bars.left;
+                    top = bars.top;
+                    right = bars.right;
+                    bottom = Math.max(bars.bottom, ime.bottom);
+                } else {
+                    left = insets.getSystemWindowInsetLeft();
+                    top = insets.getSystemWindowInsetTop();
+                    right = insets.getSystemWindowInsetRight();
+                    bottom = insets.getSystemWindowInsetBottom();
+                }
+                v.setPadding(left, top, right, bottom);
+                return insets;
+            }
+        });
+        root.requestApplyInsets();
     }
 
     private View buildErrorView() {
