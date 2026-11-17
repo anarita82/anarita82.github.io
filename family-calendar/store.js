@@ -1697,9 +1697,9 @@
     if (hint) {
       if (!list.length) hint.textContent = '';
       else if (!isOwner()) hint.textContent = '내 근무를 누르면 출퇴근 체크·수정·변경 요청이 펼쳐져요 · 다른 분 근무시간은 비공개예요';
-      else hint.textContent = list.length > 1
-        ? '근무를 누르면 출퇴근 체크·수정·변경 요청이 펼쳐져요'
-        : '출퇴근 체크·수정·변경 요청을 여기서 바로 할 수 있어요';
+      else hint.textContent = (list.length > 1
+        ? '근무를 누르면 출퇴근 체크·수정이 펼쳐져요'
+        : '출퇴근 체크·수정을 여기서 바로 할 수 있어요') + ' · 🗑️는 바로 삭제예요';
     }
 
     var ul = $('storeDaySheetList');
@@ -1763,7 +1763,17 @@
       row.classList.add('is-private');
       row.setAttribute('aria-disabled', 'true');
     }
-    li.appendChild(row);
+
+    /* 사장님은 근무 행 옆 🗑️로 수정 창에 들어가지 않고 바로 지울 수 있어요. */
+    if (isOwner()) {
+      var headWrap = document.createElement('div');
+      headWrap.className = 'sheet-item__head';
+      headWrap.appendChild(row);
+      headWrap.appendChild(buildQuickDelete(sh));
+      li.appendChild(headWrap);
+    } else {
+      li.appendChild(row);
+    }
 
     if (open) li.appendChild(buildSheetShiftDetail(sh, st));
     return li;
@@ -1863,6 +1873,22 @@
     }
     box.appendChild(actions);
     return box;
+  }
+
+  /* 🗑️ 바로 삭제 — 사장님이 수정 창까지 내려가지 않고 근무를 지울 때 씁니다.
+     실수로 지우지 않도록 수정 창의 삭제와 같은 확인 창을 그대로 거칩니다. */
+  function buildQuickDelete(sh, extraClass) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'quick-del' + (extraClass ? ' ' + extraClass : '');
+    b.textContent = '🗑️';
+    b.title = shiftLabel(sh) + ' 근무 바로 삭제';
+    b.setAttribute('aria-label', shiftLabel(sh) + ' 근무 삭제');
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      deleteShiftFromSheet(sh);
+    });
+    return b;
   }
 
   function deleteShiftFromSheet(sh) {
@@ -1968,7 +1994,15 @@
     } else {
       btn.setAttribute('aria-disabled', 'true');
     }
-    li.appendChild(btn);
+    if (isOwner()) {
+      var shiftWrap = document.createElement('div');
+      shiftWrap.className = 'shift-wrap';
+      shiftWrap.appendChild(btn);
+      shiftWrap.appendChild(buildQuickDelete(sh, 'quick-del--shift'));
+      li.appendChild(shiftWrap);
+    } else {
+      li.appendChild(btn);
+    }
     var attRow = buildAttendanceRow(sh);
     if (attRow) li.appendChild(attRow);
     return li;
