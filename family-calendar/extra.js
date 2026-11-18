@@ -984,6 +984,8 @@
 
   function applyPastedEvent(parsed) {
     if (!parsed) return;
+    /* 일반형 캘린더에는 담당 가족 칸이 없어 그 안내는 빼 줍니다. */
+    parsed.notes = (parsed.notes || []).filter(function (n) { return n.indexOf('담당') === -1; });
     if (parsed.date && $('calEvDate')) $('calEvDate').value = parsed.date;
     if ($('calEvTime')) $('calEvTime').value = parsed.hasTime ? parsed.time : '';
     if (parsed.title && $('calEvTitleInput')) $('calEvTitleInput').value = parsed.title.slice(0, 80);
