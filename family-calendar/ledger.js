@@ -8,6 +8,7 @@
 
   var LS_OWNER = 'family-calendar.ledger.owner.v1';
   var LS_AUTO = 'family-calendar.ledger.auto.v1';
+  var LS_FINANCE = 'family-calendar.ledger.finance.v1';
   var LS_EXCL = 'family-calendar.ledger.exclude.v1';
   /* 기본 제외 키워드 — 월드클래스(PC방) 매출 정산 입금은 출납부에 넣지 않습니다.
      mode 'income' = 입금만 제외(지출·결제는 그대로), 'all' = 입금·지출 모두 제외 */
@@ -59,6 +60,7 @@
     unlocked: false,
     owner: false,
     autoImmediate: false,
+    financeOnly: true,
     entries: [],
     pending: [],
     pendingSkipped: [],
@@ -161,13 +163,30 @@
     return null;
   }
 
+  /* 카드·은행·간편결제 앱 패키지 및 금융사명 판별 */
+  var FINANCE_PKG_RE = /^(com\.(kbcard|kbstar|shcard|shinhan|hyundaicard|wooribank|wooricard|hanaskcard|kebhana|ibk|kakaobank|kbankwith|scbank|lcacorp|nhcard|nonghyup|kakaopay|naverfin|citibank|bnk|dgb|jb|kj|suhyup|kfcc|cu)|kr\.co\.(samsungcard|bccard|citibank)|nh\.smart|viva\.republica\.toss|kvp\.jjy\.MispAndroid320|com\.samsung\.android\.spay)/i;
+  var STRICT_FINANCE_RE = /(KB\s*국민카드|KB\s*국민은행|KB\s*Pay|국민카드|국민은행|현대카드|삼성카드|삼성페이|삼성월렛|신한카드|신한은행|신한\s*SOL|롯데카드|디지로카|하나카드|하나은행|하나원큐|우리카드|우리은행|우리\s*WON|NH\s*농협카드|NH\s*농협은행|농협카드|농협은행|NH\s*pay|NH\s*올원|기업은행|IBK\s*기업|i-ONE|카카오뱅크|카뱅|토스뱅크|토스페이|케이뱅크|SC\s*제일은행|제일은행|새마을금고|MG\s*더뱅킹|신협|우체국\s*(예금|금융|카드)|수협은행|대구은행|iM뱅크|부산은행|경남은행|광주은행|전북은행|제주은행|저축은행|OK저축은행|SBI저축은행|BC카드|비씨카드|씨티카드|씨티은행|카카오페이|네이버페이|페이코)/i;
+
+  function isFinanceNotification(item) {
+    if (!item) return false;
+    var pkg = String(item.pkg || '').trim();
+    if (pkg && FINANCE_PKG_RE.test(pkg)) return true;
+    var hay = [item.app, item.full, item.raw].join(' ');
+    return STRICT_FINANCE_RE.test(hay);
+  }
+
   function describeExcluded(list) {
     list = list || [];
     if (!list.length) return '';
     var by = {};
     list.forEach(function (p) {
-      var hit = excludeHit(p);
-      var label = (hit ? hit.kw : '제외 키워드') + ' ' + (p.type === 'income' ? '입금' : '지출');
+      var label;
+      if (p.skipReason === 'non_finance') {
+        label = '카드·은행 외 알림';
+      } else {
+        var hit = excludeHit(p);
+        label = (hit ? hit.kw : '제외 키워드') + ' ' + (p.type === 'income' ? '입금' : '지출');
+      }
       by[label] = (by[label] || 0) + 1;
     });
     return Object.keys(by).map(function (k) { return k + ' ' + by[k] + '건'; }).join(' · ') + ' 제외';
@@ -969,8 +988,10 @@
       /* 본문에 금액이 있으면 제목이 빠지므로, 제외 키워드 판정은 제목+본문 전체로 합니다. */
       p.full = (title + ' ' + body).trim();
       p.app = (it && it.app) || '';
+      p.pkg = (it && it.pkg) || '';
       p.when = (it && it.time) || '';
-      if (excludeHit(p)) { skipped.push(p); return; }
+      if (S.financeOnly && !isFinanceNotification(p)) { p.skipReason = 'non_finance'; skipped.push(p); return; }
+      if (excludeHit(p)) { p.skipReason = 'exclude'; skipped.push(p); return; }
       p.dup = isDuplicate(p);
       p.include = !p.dup;
       parsed.push(p);
@@ -986,7 +1007,8 @@
   function prunePending() {
     var gone = [];
     S.pending = (S.pending || []).filter(function (p) {
-      if (excludeHit(p)) { gone.push(p); return false; }
+      if (S.financeOnly && !isFinanceNotification(p)) { p.skipReason = 'non_finance'; gone.push(p); return false; }
+      if (excludeHit(p)) { p.skipReason = 'exclude'; gone.push(p); return false; }
       return true;
     });
     if (gone.length) {
@@ -1272,6 +1294,7 @@
 
   function renderSettings() {
     if (el.autoCheck) el.autoCheck.checked = !!S.autoImmediate;
+    if (el.financeCheck) el.financeCheck.checked = !!S.financeOnly;
     renderExcludes();
     if (el.notifyState) {
       if (!hasBridge()) {
@@ -1298,6 +1321,13 @@
     S.autoImmediate = !!on;
     lsSet(LS_AUTO, S.autoImmediate ? '1' : '');
     toast(S.autoImmediate ? '새 알림을 받으면 바로 출납부에 넣어요' : '자동 반영을 껐어요 · 대기함에서 직접 넣을 수 있어요');
+  }
+
+  function toggleFinance(on) {
+    S.financeOnly = !!on;
+    lsSet(LS_FINANCE, S.financeOnly ? '1' : '0');
+    collectPending();
+    toast(S.financeOnly ? '카드·은행 알림만 모읍니다' : '금액이 있는 모든 알림을 모읍니다');
   }
 
   function turnOffDevice() {
@@ -1560,6 +1590,8 @@
     }
     el.autoCheck = $('lgAutoImmediate');
     if (el.autoCheck) el.autoCheck.addEventListener('change', function () { toggleAuto(el.autoCheck.checked); });
+    el.financeCheck = $('lgFinanceOnly');
+    if (el.financeCheck) el.financeCheck.addEventListener('change', function () { toggleFinance(el.financeCheck.checked); });
     /* 제외 키워드 목록 */
     if (el.exclList) {
       el.exclList.addEventListener('change', function (ev) {
@@ -1739,6 +1771,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     S.owner = lsGet(LS_OWNER) === '1';
     S.autoImmediate = lsGet(LS_AUTO) === '1';
+    S.financeOnly = lsGet(LS_FINANCE) !== '0';
     S.excludes = loadExcludes();
     var now = new Date();
     S.y = now.getFullYear();
