@@ -386,6 +386,8 @@
             color: /^#[0-9a-fA-F]{3,8}$/.test(m.color || '') ? m.color : '#0d9488',
             bg: /^#[0-9a-fA-F]{3,8}$/.test(m.bg || '') ? m.bg : '#e6fffb',
             hourly: Math.max(0, Math.round(Number(m.hourly) || 0)),
+            /* 기본 근무 구분(오전·오후·야간·주말) — 상단 근무자 칩과 달력에 '오전알바(민지)'로 쓰입니다. */
+            period: ['morning', 'afternoon', 'night', 'weekend', 'custom'].indexOf(String(m.period || '')) >= 0 ? String(m.period) : '',
             tel: normTel(m.tel),
             uid: String(m.uid || '').slice(0, 128),
             deviceId: String(m.deviceId || '').slice(0, 60),

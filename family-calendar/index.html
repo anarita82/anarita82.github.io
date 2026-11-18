@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118c9" />
-<link rel="stylesheet" href="store.css?v=20261118c9" />
-<link rel="stylesheet" href="ledger.css?v=20261118c9" />
-<link rel="stylesheet" href="extra.css?v=20261118c9" />
-<link rel="stylesheet" href="polish.css?v=20261118c9" />
+<link rel="stylesheet" href="styles.css?v=20261118d1" />
+<link rel="stylesheet" href="store.css?v=20261118d1" />
+<link rel="stylesheet" href="ledger.css?v=20261118d1" />
+<link rel="stylesheet" href="extra.css?v=20261118d1" />
+<link rel="stylesheet" href="polish.css?v=20261118d1" />
 </head>
 <body>
 <div class="app">
@@ -117,6 +117,9 @@
 
   <!-- 🏪 매장 캘린더 -->
   <main class="content store-view" id="storeView" hidden>
+    <!-- 맨 상단 근무자(알바) 목록 — 누구를 고르면 그 알바생 근무만 달력에 남고 당월 급여가 바로 보입니다.
+         가족 화면의 구성원 칩 줄과 같은 자리·높이이고, 매장 화면이 열릴 때만 스크립트가 보여 줍니다. -->
+    <nav class="member-filter store-top-filter" id="storeStaffFilter" aria-label="근무자 선택"></nav>
     <section class="card" id="storeSetupCard" hidden>
       <div class="card-head"><h2>🏪 매장 캘린더 시작</h2></div>
       <p class="room-intro">알바 스케줄·근무시간·인건비·급여명세서를 <b>가족 달력과 완전히 분리된 매장 방</b>에서 관리해요.<br>가족 일정과는 서버 방 자체가 달라서 절대 섞이지 않아요.</p>
@@ -179,6 +182,26 @@
 
     <div id="storeMain" hidden>
       <section class="card store-dash">
+        <!-- 💰 고른 알바생의 당월 급여 — 급여명세서와 같은 계산(computePayroll)으로 채웁니다. -->
+        <section class="store-wage" id="storeWageCard" hidden aria-live="polite">
+          <div class="store-wage__head">
+            <span class="store-wage__who"><i class="store-wage__dot" id="storeWageDot"></i><b id="storeWageName">알바</b></span>
+            <span class="store-wage__month" id="storeWageMonth">11월</span>
+          </div>
+          <div class="store-wage__total">
+            <span class="store-wage__k">당월 급여<em id="storeWageTag">주휴 포함</em></span>
+            <strong class="store-wage__v" id="storeWageTotal">0원</strong>
+            <span class="store-wage__net" id="storeWageNet" hidden></span>
+          </div>
+          <div class="store-wage__grid">
+            <div class="store-wage__cell"><span>근무일수</span><b id="storeWageDays">0일</b></div>
+            <div class="store-wage__cell"><span>총 근무시간</span><b id="storeWageHours">0시간</b></div>
+            <div class="store-wage__cell"><span>기본급</span><b id="storeWageBase">0원</b></div>
+            <div class="store-wage__cell"><span>주휴수당</span><b id="storeWageWeekly">0원</b></div>
+          </div>
+          <p class="store-wage__note" id="storeWageNote" hidden></p>
+          <button type="button" class="store-wage__btn" id="storeWageBtn">급여명세서 자세히 ›</button>
+        </section>
         <div class="dash-grid">
           <div class="dash-box">
             <span class="dash-box__k">오늘 근무</span>
@@ -197,8 +220,6 @@
           <button type="button" class="btn-ghost btn-small btn-danger" id="storeBulkDelBtn">🗑️ 근무 일괄 삭제</button>
           <span class="store-owner-actions__hint">기간·근무자를 골라 전체·일부 한 번에</span>
         </div>
-        <div class="member-filter store-filter" id="storeStaffFilter"></div>
-        <p class="dash-person" id="dashPerson" hidden></p>
       </section>
 
       <section class="card store-me" id="storeMeCard" hidden>
@@ -2027,21 +2048,21 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118c9"></script>
-<script src="firebase-auth-compat.js?v=20261118c9"></script>
-<script src="firebase-firestore-compat.js?v=20261118c9"></script>
-<script src="lunar.js?v=20261118c9"></script>
-<script src="vaccines.js?v=20261118c9"></script>
-<script src="cloud.js?v=20261118c9"></script>
-<script src="app.js?v=20261118c9"></script>
-<script src="voice.js?v=20261118c9"></script>
-<script src="paste.js?v=20261118c9"></script>
-<script src="media.js?v=20261118c9"></script>
-<script src="store-cloud.js?v=20261118c9"></script>
-<script src="store.js?v=20261118c9"></script>
-<script src="ledger-cloud.js?v=20261118c9"></script>
-<script src="ledger.js?v=20261118c9"></script>
-<script src="extra-cloud.js?v=20261118c9"></script>
-<script src="extra.js?v=20261118c9"></script>
+<script src="firebase-app-compat.js?v=20261118d1"></script>
+<script src="firebase-auth-compat.js?v=20261118d1"></script>
+<script src="firebase-firestore-compat.js?v=20261118d1"></script>
+<script src="lunar.js?v=20261118d1"></script>
+<script src="vaccines.js?v=20261118d1"></script>
+<script src="cloud.js?v=20261118d1"></script>
+<script src="app.js?v=20261118d1"></script>
+<script src="voice.js?v=20261118d1"></script>
+<script src="paste.js?v=20261118d1"></script>
+<script src="media.js?v=20261118d1"></script>
+<script src="store-cloud.js?v=20261118d1"></script>
+<script src="store.js?v=20261118d1"></script>
+<script src="ledger-cloud.js?v=20261118d1"></script>
+<script src="ledger.js?v=20261118d1"></script>
+<script src="extra-cloud.js?v=20261118d1"></script>
+<script src="extra.js?v=20261118d1"></script>
 </body>
 </html>

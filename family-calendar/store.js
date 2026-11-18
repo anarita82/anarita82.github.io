@@ -441,6 +441,9 @@
     if (el.tabFamily) el.tabFamily.addEventListener('click', function () { deactivate('tab'); });
     if (el.tabStore) el.tabStore.addEventListener('click', function () { activate('tab'); });
     if (el.storeApproveBtn) el.storeApproveBtn.addEventListener('click', openApprovalModal);
+    /* 💰 당월 급여 카드 → 그 달 · 그 근무자의 급여명세서 */
+    var wageBtn = $('storeWageBtn');
+    if (wageBtn) wageBtn.addEventListener('click', openWageStatement);
 
     /* ⚙️ 설정 허브 — 급여·직원·초대를 한 곳에서 */
     var hub = $('storeHubModal');
@@ -1031,6 +1034,7 @@
     if (el.blockedCard) el.blockedCard.hidden = true;
     if (el.loadingCard) el.loadingCard.hidden = false;
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
+    syncTopFilter();
   }
 
   /* 🚪 퇴사(강제 탈퇴)된 기기 — 매장 일정·인수인계·급여 화면을 막고 안내만 보여줍니다. */
@@ -1046,6 +1050,7 @@
       if (text) text.textContent = msg || '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다';
     }
     setStoreStatus('blocked', '퇴사(탈퇴) 처리되어 매장에 접근할 수 없습니다');
+    syncTopFilter();
   }
 
   function showSetup(msg) {
@@ -1064,6 +1069,7 @@
       if (pinBtn) pinBtn.hidden = !S.code;
     }
     if (el.storeAddBtn) el.storeAddBtn.hidden = true;
+    syncTopFilter();
   }
 
   function showJoinForm(msg) {
@@ -1083,6 +1089,7 @@
       if (msg) { err.textContent = msg; err.hidden = false; }
       else { err.hidden = true; }
     }
+    syncTopFilter();
     var nameInput = $('storeJoinName');
     if (nameInput) {
       var saved = ls('family-calendar.store.myname.v1');
@@ -1128,6 +1135,7 @@
         who.hidden = true;
       }
     }
+    syncTopFilter();
   }
 
   function showMain() {
@@ -1154,6 +1162,14 @@
         el.storeApproveBtn.classList.toggle('is-active', pendingCount > 0);
       }
     }
+    syncTopFilter();
+  }
+
+  /* 맨 상단 근무자 칩 줄은 매장 화면이 실제로 열렸을 때만 — 설정·입장·대기·차단 화면에서는 숨깁니다. */
+  function syncTopFilter() {
+    var nav = $('storeStaffFilter');
+    if (!nav) return;
+    nav.hidden = !(el.main && !el.main.hidden && S.active);
   }
 
   function pendingProfileRequests() {
@@ -1448,23 +1464,90 @@
         : ' · 주휴수당 미포함');
     }
 
-    var person = $('dashPerson');
-    var weeklyNote = weeklyOn() ? ' (주휴 포함)' : ' (주휴 미포함)';
-    if (person) {
-      if (!isOwner()) {
-        person.hidden = false;
-        person.textContent = (me() ? me().name : '내') + ' · 이번 달 ' + hoursText(monthMin) + ' · 예상 급여 ' + money(monthGross) + weeklyNote;
-      } else if (S.filter !== 'all') {
-        var st = staffById(S.filter);
-        var days = {};
-        monthShifts.forEach(function (s) { if (countsForPay(s)) days[s.date] = 1; });
-        person.hidden = false;
-        person.textContent = (st ? st.name : '선택') + ' · 이번 달 ' + Object.keys(days).length + '일 · ' + hoursText(monthMin) + ' · 예상 ' + money(monthGross) + weeklyNote;
+    /* 고른 알바생이 있으면 그 사람의 당월 급여 카드, '전체'면 숨기고 위 요약 상자만 */
+    renderWageCard();
+    renderTodayPanel();
+  }
+
+  /* ---------------- 💰 당월 급여 카드 ---------------- */
+  /* 지금 급여를 보여 줄 근무자 — 사장님은 고른 알바생(전체면 카드 숨김), 알바생은 본인만.
+     다른 알바생 시급·급여는 사장님 화면에서만 나옵니다(기존 권한 원칙 그대로). */
+  function wageStaffId() {
+    if (!isOwner()) return myStaffId() || '';
+    return S.filter !== 'all' ? S.filter : '';
+  }
+  /* 근무자 칩 이름 — '오전알바(민지)'. 근무자 관리의 기본 구분이 없으면 이름만,
+     이름에 이미 구분이 들어 있으면(예: '오후 알바') 그대로 둡니다. */
+  function staffDisplayLabel(m) {
+    if (!m) return '';
+    var name = String(m.name || '');
+    var code = periodLabelOf(m.period) ? m.period : '';
+    if (!code) return name;
+    var period = periodLabelOf(code);
+    var short = PERIOD_SHORT[code] || '';
+    if (!name) return period;
+    if (name.indexOf(period) >= 0 || (short && name.indexOf(short) >= 0)) return name;
+    return period + '(' + name + ')';
+  }
+  /* 당월 급여 카드 — 화면에서 보고 있는 달(S.year/S.month) 기준, 급여명세서와 같은 계산. */
+  function renderWageCard() {
+    var card = $('storeWageCard');
+    if (!card) return;
+    var sid = wageStaffId();
+    var st = sid ? staffById(sid) : null;
+    if (!sid || (!st && !isOwner())) { card.hidden = true; return; }
+    var calc = computePayroll(sid, S.year, S.month);
+    var on = weeklyOn();
+    card.hidden = false;
+
+    var nameEl = $('storeWageName'); if (nameEl) nameEl.textContent = staffDisplayLabel(st) || calc.staffName;
+    var dot = $('storeWageDot'); if (dot) dot.style.background = (st && st.color) || '#0d9488';
+    var mon = $('storeWageMonth'); if (mon) mon.textContent = (S.month + 1) + '월';
+    var tag = $('storeWageTag');
+    if (tag) {
+      tag.textContent = on ? '주휴 포함' : '주휴 미포함';
+      tag.className = on ? '' : 'is-off';
+    }
+    var total = $('storeWageTotal');
+    if (total) total.textContent = money(on ? calc.base + calc.weekly : calc.base);
+    var net = $('storeWageNet');
+    if (net) {
+      if (calc.tax) { net.hidden = false; net.textContent = '실지급 ' + money(calc.net) + ' · ' + calc.taxRate + '% 공제'; }
+      else { net.hidden = true; net.textContent = ''; }
+    }
+    var days = $('storeWageDays'); if (days) days.textContent = calc.days + '일';
+    var hours = $('storeWageHours'); if (hours) hours.textContent = hoursText(calc.minutes);
+    var base = $('storeWageBase'); if (base) base.textContent = money(calc.base);
+    var weekly = $('storeWageWeekly');
+    if (weekly) {
+      if (!on) { weekly.textContent = '미포함'; weekly.className = 'is-off'; }
+      else { weekly.textContent = money(calc.weekly); weekly.className = ''; }
+    }
+    var note = $('storeWageNote');
+    if (note) {
+      if (!calc.minutes) {
+        note.hidden = false;
+        note.textContent = '이 달 근무가 아직 없어요 · 근무를 넣으면 바로 계산돼요';
+      } else if (on && calc.weekly) {
+        note.hidden = false;
+        note.textContent = '주휴수당 포함 · 급여명세서와 같은 계산이에요';
+      } else if (on) {
+        note.hidden = false;
+        note.textContent = '주 15시간을 넘긴 주가 없어 주휴수당은 0원이에요';
       } else {
-        person.hidden = true;
+        note.hidden = false;
+        note.textContent = '주휴수당은 ⚙️ 매장·급여 설정에서 켜면 함께 계산돼요';
       }
     }
-    renderTodayPanel();
+    var btn = $('storeWageBtn');
+    if (btn) btn.setAttribute('aria-label', (staffDisplayLabel(st) || calc.staffName) + ' ' + (S.month + 1) + '월 급여명세서 자세히');
+  }
+  function openWageStatement() {
+    var sid = wageStaffId();
+    if (!sid) return;
+    S.payY = S.year;
+    S.payM = S.month;
+    openPayroll(sid);
   }
 
   function renderStaffFilter() {
@@ -1479,6 +1562,7 @@
       b.type = 'button';
       b.className = 'chip' + (active ? ' is-active' : '');
       b.setAttribute('aria-pressed', String(active));
+      b.title = id === 'all' ? '전체 근무자 보기' : name + ' 근무만 보기';
       if (active) b.style.background = color || '#0d9488';
       if (member) {
         var av = storeAvatar(member, 18);
@@ -1491,17 +1575,24 @@
         if (active) d.style.background = '#fff';
         b.appendChild(d);
       }
-      b.appendChild(document.createTextNode(name));
+      var label = document.createElement('span');
+      label.className = 'chip__label';
+      label.textContent = name;
+      b.appendChild(label);
       b.addEventListener('click', function () {
         if (!isOwner()) return;
+        if (S.filter === id) { b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
         S.filter = id;
         renderAll();
+        /* 고른 칩이 가로 스크롤 밖으로 밀리지 않게, 상단 목록을 새 선택에 맞춰 보여 줍니다. */
+        var picked = wrap.querySelector('.chip.is-active');
+        if (picked) picked.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       });
       wrap.appendChild(b);
     }
     if (isOwner()) chip('all', '전체', '#0d9488', S.filter === 'all');
     list.forEach(function (m) {
-      chip(m.id, m.name + (m.retired ? ' ·퇴사' : ''), m.color, S.filter === m.id, m);
+      chip(m.id, staffDisplayLabel(m) + (m.retired ? ' ·퇴사' : ''), m.color, S.filter === m.id, m);
     });
     if (!list.length && !isOwner()) wrap.innerHTML = '<span class="field-hint">등록된 알바생이 없어요.</span>';
   }
