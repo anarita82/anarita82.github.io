@@ -232,6 +232,26 @@
      사장님이 ⚙️ 설정에서 끄면 예전처럼 기본급만 계산합니다. */
   function weeklyOn() { return !(S.settings && S.settings.weeklyAllowance === false); }
 
+  /* ⚙️ 매장·급여 설정 값 방어 — 예전에 저장한 방 문서에 weeklyHours가 문자열('15')이거나
+     값이 비어 있어도 주휴수당·급여 계산이 어긋나지 않게 참거짓·숫자로 맞춰 둡니다. */
+  function normalizePayrollSettings(ps) {
+    var s = (ps && typeof ps === 'object') ? ps : {};
+    var mode = (s.taxMode === '3.3' || s.taxMode === '4ins' || s.taxMode === 'custom') ? s.taxMode : 'none';
+    var rate = Number(s.taxRate);
+    var payDay = Number(s.payDay);
+    var hours = Number(s.weeklyHours);
+    /* 값이 없으면 기본 ON — false/'false'/0/'0'만 끈 것으로 봅니다. */
+    var off = s.weeklyAllowance === false || s.weeklyAllowance === 'false' ||
+      s.weeklyAllowance === 0 || s.weeklyAllowance === '0';
+    return {
+      taxMode: mode,
+      taxRate: (isFinite(rate) && rate >= 0 && rate <= 30) ? rate : 3.3,
+      weeklyAllowance: !off,
+      payDay: (isFinite(payDay) && payDay >= 1) ? Math.min(31, Math.round(payDay)) : 10,
+      weeklyHours: (isFinite(hours) && hours >= 0) ? hours : 15
+    };
+  }
+
   /* ---------------- 급여 공제 방식 (근무자별) ----------------
      none = 실수령자(공제 0) / '3.3' = 3.3% 원천징수 / '4ins' = 4대보험 근로자 부담
      · 근무자에 taxType이 없으면(예전에 저장한 근무자) 방 설정(⚙️ 매장·급여 설정)을 그대로 따릅니다.
@@ -817,6 +837,9 @@
     });
     var settingsSave = $('settingsSaveBtn');
     if (settingsSave) settingsSave.addEventListener('click', savePayrollSettings);
+    /* 주휴수당 체크는 누르는 즉시 저장 — 저장 버튼 없이 창을 닫아도 반영됩니다. */
+    var weeklyToggle = $('settingsWeekly');
+    if (weeklyToggle) weeklyToggle.addEventListener('change', saveWeeklyNow);
     var pinSave = $('storePinSaveBtn');
     if (pinSave) pinSave.addEventListener('click', changeOwnerPin);
     var unlockBtn = $('storeUnlockBtn');
@@ -998,7 +1021,7 @@
     S.pins = info.pins || {};
     S.revokedUids = Array.isArray(info.revokedUids) ? info.revokedUids : [];
     S.revokedDevices = Array.isArray(info.revokedDevices) ? info.revokedDevices : [];
-    S.settings = info.payrollSettings || S.settings;
+    S.settings = normalizePayrollSettings(info.payrollSettings || S.settings);
     S.payWeekly = weeklyOn();
     S.storeName = info.storeName || '';
     var blocked = blockReason();
@@ -5337,6 +5360,33 @@
     }).then(function () {
       toast('급여 설정을 저장했어요');
     }).catch(function (err) {
+      window.alert('저장하지 못했어요 · ' + errorHint(err));
+    });
+  }
+
+  /* 주휴수당 체크 즉시 저장 — 체크를 바꾸는 순간 화면(대시보드·당월 급여 카드·명세서)을
+     다시 그리고 서버에 바로 저장합니다. [급여 설정 저장]을 누르지 않고 창을 닫아도 반영돼요.
+     저장에 실패하면 체크를 원래대로 돌리고 알려 줍니다. */
+  function saveWeeklyNow() {
+    if (!isOwner()) return;
+    var box = $('settingsWeekly');
+    if (!box) return;
+    var on = !!box.checked;
+    var before = weeklyOn();
+    if (on === before) return;
+    if (!S.settings || typeof S.settings !== 'object') S.settings = normalizePayrollSettings(null);
+    S.settings.weeklyAllowance = on;
+    S.payWeekly = weeklyOn();
+    renderAll();
+    var payModal = $('payrollModal');
+    if (payModal && !payModal.hidden) renderPayrollModal();
+    StoreCloud.saveRoom({ payrollSettings: { weeklyAllowance: on } }).then(function () {
+      toast(on ? '주휴수당 포함으로 저장했어요' : '주휴수당 미포함으로 저장했어요');
+    }).catch(function (err) {
+      S.settings.weeklyAllowance = before;
+      S.payWeekly = weeklyOn();
+      box.checked = before;
+      renderAll();
       window.alert('저장하지 못했어요 · ' + errorHint(err));
     });
   }
