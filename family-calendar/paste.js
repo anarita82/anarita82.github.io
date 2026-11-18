@@ -433,6 +433,8 @@
     if (/^(?:알림|안내|공지|공지사항|필독|참고|안내문)$/.test(line)) return -5;
     if (/(?:드림|올림)$/.test(line)) score -= 6;
     if (KEY_WORDS.test(line)) score += 2;
+    if (/(?:회신|부탁|참석\s*여부|문의)/.test(line) && !hasDate) score -= 3;
+    if (/(?:송년|신년|축하|기념|파티|번개)/.test(line)) score += 2;
     if (CATEGORY_WORDS.some(function (c) { return c.words.some(function (w) { return line.indexOf(w) !== -1; }); })) score += 4;
     if (hasDate) score += 3;
     if (len >= 6 && len <= 42) score += 2;
@@ -460,7 +462,8 @@
     segs.forEach(function (seg, i) {
       var stripped = stripTokens(seg.text, today);
       var cleaned = cleanTitle(stripped);
-      var score = scoreLine(cleaned || seg.text, true) - i * 0.2;
+      var hasDate = (dateSpans(seg.text, today).length > 0) || (timeSpans(seg.text).length > 0);
+      var score = scoreLine(cleaned || seg.text, hasDate) - i * 0.2;
       if (score > bestScore) { bestScore = score; best = { cleaned: cleaned, raw: seg.text, score: score }; }
     });
     var pick = best && best.cleaned ? best.cleaned : '';
