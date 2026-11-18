@@ -8,6 +8,10 @@
 
   var LS_OWNER = 'family-calendar.ledger.owner.v1';
   var LS_AUTO = 'family-calendar.ledger.auto.v1';
+  var LS_EXCL = 'family-calendar.ledger.exclude.v1';
+  /* 기본 제외 키워드 — 월드클래스(PC방) 매출 정산 입금은 출납부에 넣지 않습니다.
+     mode 'income' = 입금만 제외(지출·결제는 그대로), 'all' = 입금·지출 모두 제외 */
+  var DEFAULT_EXCLUDES = [{ kw: '월드클래스', mode: 'income', on: true }];
   var PIN_MAX_TRY = 5;
   var PIN_WAIT_MS = 60000;
   var PIN_GUARD_KEY = 'family-calendar.ledger.pin.guard.v1';
@@ -57,6 +61,9 @@
     autoImmediate: false,
     entries: [],
     pending: [],
+    pendingSkipped: [],
+    lastExcluded: [],
+    excludes: [],
     editing: null,
     draft: null,
     parsed: [],
@@ -100,6 +107,91 @@
   function lsGet(k) { try { return window.localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* 무시 */ } }
   function lsDel(k) { try { window.localStorage.removeItem(k); } catch (e) { /* 무시 */ } }
+
+  /* ---------------- 자동 제외 키워드 ---------------- */
+  /* 띄어쓰기·(주)·주식회사를 지우고 비교 — '월드 클래스', '(주)월드클래스' 모두 같은 단어로 봅니다. */
+  function normKw(s) {
+    return String(s == null ? '' : s)
+      .replace(/\(주\)|\(유\)|주식회사|유한회사/g, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  }
+
+  function defaultExcludes() {
+    return DEFAULT_EXCLUDES.map(function (x) { return { kw: x.kw, mode: x.mode, on: x.on }; });
+  }
+
+  function loadExcludes() {
+    var raw = lsGet(LS_EXCL);
+    if (!raw) return defaultExcludes();
+    try {
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return defaultExcludes();
+      return arr.filter(function (x) { return x && typeof x.kw === 'string' && x.kw.trim(); })
+        .map(function (x) {
+          return {
+            kw: String(x.kw).trim().slice(0, 20),
+            mode: x.mode === 'all' ? 'all' : 'income',
+            on: x.on !== false
+          };
+        });
+    } catch (e) { return defaultExcludes(); }
+  }
+
+  function saveExcludes() {
+    lsSet(LS_EXCL, JSON.stringify(S.excludes || []));
+    renderExcludes();
+  }
+
+  /* 이 내역이 제외 키워드에 걸리는지 (기본은 입금만) */
+  function excludeHit(item) {
+    if (!item) return null;
+    var list = S.excludes || [];
+    if (!list.length) return null;
+    var hay = normKw([item.full, item.raw, item.memo, item.issuer, item.app].join(' '));
+    if (!hay) return null;
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i];
+      if (!x || x.on === false) continue;
+      var k = normKw(x.kw);
+      if (!k || hay.indexOf(k) < 0) continue;
+      if (x.mode === 'income' && item.type !== 'income') continue;
+      return x;
+    }
+    return null;
+  }
+
+  function describeExcluded(list) {
+    list = list || [];
+    if (!list.length) return '';
+    var by = {};
+    list.forEach(function (p) {
+      var hit = excludeHit(p);
+      var label = (hit ? hit.kw : '제외 키워드') + ' ' + (p.type === 'income' ? '입금' : '지출');
+      by[label] = (by[label] || 0) + 1;
+    });
+    return Object.keys(by).map(function (k) { return k + ' ' + by[k] + '건'; }).join(' · ') + ' 제외';
+  }
+
+  /* 규칙을 바꾼 직후 대기함·붙여넣기 결과를 다시 계산 */
+  function refreshAfterExcludeChange() {
+    if (hasBridge()) collectPending();
+    else { prunePending(); renderPending(); renderTab(); }
+    if (el.pasteArea && el.pasteModal && !el.pasteModal.hidden) runParse();
+  }
+
+  function addExclude() {
+    var kw = String((el.exclInput && el.exclInput.value) || '').trim();
+    if (!kw) { toast('제외할 키워드를 넣어 주세요'); return; }
+    var mode = (el.exclMode && el.exclMode.value === 'all') ? 'all' : 'income';
+    var dup = (S.excludes || []).some(function (x) { return normKw(x.kw) === normKw(kw); });
+    if (dup) { toast('이미 있는 키워드예요'); return; }
+    S.excludes.push({ kw: kw.slice(0, 20), mode: mode, on: true });
+    if (el.exclInput) el.exclInput.value = '';
+    saveExcludes();
+    refreshAfterExcludeChange();
+    toast('[' + kw + '] ' + (mode === 'all' ? '입금·지출을' : '입금을') + ' 넣지 않아요');
+  }
 
   function toast(msg) {
     var t = $('toast');
@@ -697,6 +789,7 @@
     if (type === 'income' && area === 'store') cat = 'sales';
 
     return {
+      full: raw,
       date: date,
       type: type,
       area: area,
@@ -728,10 +821,12 @@
   function parseMessages(text) {
     var lines = String(text || '').replace(/\r/g, '').split('\n');
     var out = [];
+    var skipped = [];
     var seen = {};
     lines.forEach(function (line) {
       var item = parseLine(line);
       if (!item) return;
+      if (excludeHit(item)) { skipped.push(item); return; }
       var key = item.date + '|' + item.amount + '|' + item.memo;
       if (seen[key]) return;
       seen[key] = true;
@@ -739,8 +834,12 @@
     });
     if (!out.length) {
       var single = parseLine(String(text || '').replace(/\n/g, ' '));
-      if (single) out.push(single);
+      if (single) {
+        if (excludeHit(single)) skipped.push(single);
+        else out.push(single);
+      }
     }
+    S.lastExcluded = skipped;
     return out;
   }
 
@@ -764,7 +863,10 @@
     S.parsed = parseMessages(text);
     S.parsed.forEach(function (p) { p.dup = isDuplicate(p); p.include = !p.dup; });
     renderParsed();
-    if (!S.parsed.length && text.trim()) toast('금액이 들어간 줄을 찾지 못했어요. 문자를 그대로 붙여넣어 주세요');
+    if (!S.parsed.length && text.trim()) {
+      var skip = describeExcluded(S.lastExcluded);
+      toast(skip ? skip + '했어요' : '금액이 들어간 줄을 찾지 못했어요. 문자를 그대로 붙여넣어 주세요');
+    }
   }
 
   function renderParsed() {
@@ -805,7 +907,10 @@
     }
     if (el.pasteCount) {
       var n = S.parsed.filter(function (p) { return p.include; }).length;
-      el.pasteCount.textContent = S.parsed.length ? (S.parsed.length + '건 찾음 · ' + n + '건 등록') : '';
+      var skipTxt = describeExcluded(S.lastExcluded);
+      el.pasteCount.textContent = S.parsed.length
+        ? (S.parsed.length + '건 찾음 · ' + n + '건 등록' + (skipTxt ? ' · 🚫 ' + skipTxt : ''))
+        : (skipTxt ? '🚫 ' + skipTxt : '');
     }
     if (el.pasteSave) el.pasteSave.disabled = !S.parsed.some(function (p) { return p.include; });
   }
@@ -845,12 +950,13 @@
   }
 
   function collectPending() {
-    if (!hasBridge()) { S.pending = []; renderPending(); renderTab(); return; }
+    if (!hasBridge()) { S.pending = []; S.pendingSkipped = []; renderPending(); renderTab(); return; }
     var raw = '';
     try { raw = window.AndroidApp.getPendingAutoEntries() || '[]'; } catch (e) { raw = '[]'; }
     var items = [];
     try { items = JSON.parse(raw) || []; } catch (e) { items = []; }
     var parsed = [];
+    var skipped = [];
     items.forEach(function (it) {
       var body = (it && it.text ? String(it.text) : '').trim();
       var title = (it && it.title ? String(it.title) : '').trim();
@@ -860,23 +966,59 @@
       var p = parseLine(text);
       if (!p) return;
       p.raw = text;
+      /* 본문에 금액이 있으면 제목이 빠지므로, 제외 키워드 판정은 제목+본문 전체로 합니다. */
+      p.full = (title + ' ' + body).trim();
       p.app = (it && it.app) || '';
       p.when = (it && it.time) || '';
+      if (excludeHit(p)) { skipped.push(p); return; }
       p.dup = isDuplicate(p);
       p.include = !p.dup;
       parsed.push(p);
     });
+    S.pendingSkipped = skipped;
     S.pending = parsed;
     renderPending();
     renderTab();
     if (S.autoImmediate && parsed.length) applyPending(true);
   }
 
+  /* 그사이 제외 키워드가 켜졌거나 추가됐을 때도 이미 대기함에 들어와 있던 내역을 걸러냅니다. */
+  function prunePending() {
+    var gone = [];
+    S.pending = (S.pending || []).filter(function (p) {
+      if (excludeHit(p)) { gone.push(p); return false; }
+      return true;
+    });
+    if (gone.length) {
+      var seen = {};
+      (S.pendingSkipped || []).forEach(function (p) { seen[normKw(p.full || p.raw || '') + '|' + p.amount] = true; });
+      gone.forEach(function (p) {
+        var k = normKw(p.full || p.raw || '') + '|' + p.amount;
+        if (seen[k]) return;
+        seen[k] = true;
+        (S.pendingSkipped = S.pendingSkipped || []).push(p);
+      });
+    }
+    return gone.length;
+  }
+
   function renderPending() {
     if (!el.pendingCard) return;
+    prunePending();
     var list = S.pending || [];
-    el.pendingCard.hidden = !list.length || !S.unlocked;
-    if (!list.length) return;
+    var skipTxt = describeExcluded(S.pendingSkipped);
+    el.pendingCard.hidden = (!list.length && !skipTxt) || !S.unlocked;
+    if (el.pendingApply) el.pendingApply.hidden = !list.length;
+    if (el.pendingSkipped) {
+      el.pendingSkipped.hidden = !skipTxt;
+      el.pendingSkipped.textContent = skipTxt ? '🚫 ' + skipTxt + '했어요 — 알림이 와도 출납부에 넣지 않습니다' : '';
+    }
+    if (!list.length) {
+      if (el.pendingCount) el.pendingCount.textContent = '0건';
+      if (el.pendingList) el.pendingList.innerHTML = '';
+      if (el.pendingReady) el.pendingReady.textContent = '대기 0건';
+      return;
+    }
     if (el.pendingCount) el.pendingCount.textContent = list.length + '건';
     if (el.pendingList) {
       el.pendingList.innerHTML = list.map(function (p) {
@@ -888,6 +1030,7 @@
   }
 
   function applyPending(silent) {
+    prunePending();
     var list = (S.pending || []).filter(function (p) { return p.include; });
     if (!list.length) { toast('반영할 내역이 없어요'); return; }
     if (!silent && !window.confirm(list.length + '건을 출납부에 넣을까요?\n넣은 뒤에도 날짜별로 고칠 수 있어요.')) return;
@@ -917,6 +1060,7 @@
     if (!window.confirm('자동 수집한 대기 내역을 지울까요?\n출납부에는 들어가지 않아요.')) return;
     try { if (window.AndroidApp && window.AndroidApp.clearPendingAutoEntries) window.AndroidApp.clearPendingAutoEntries(); } catch (e) { /* 무시 */ }
     S.pending = [];
+    S.pendingSkipped = [];
     renderPending();
     renderTab();
   }
@@ -1106,8 +1250,29 @@
   }
 
   /* ---------------- 설정 · 권한 ---------------- */
+  function renderExcludes() {
+    if (!el.exclList) return;
+    var list = S.excludes || [];
+    if (!list.length) {
+      el.exclList.innerHTML = '<li class="lg-excl__empty">제외 키워드가 없어요 · 모든 알림을 출납부에 넣습니다</li>';
+      return;
+    }
+    el.exclList.innerHTML = list.map(function (x, i) {
+      return '<li class="lg-excl__row" data-idx="' + i + '">' +
+        '<span class="lg-excl__kw">' + escapeHtml(x.kw) + '</span>' +
+        '<label class="lg-excl__on"><input type="checkbox" data-act="on"' + (x.on !== false ? ' checked' : '') + ' /> 사용</label>' +
+        '<select data-act="mode" aria-label="제외 범위">' +
+        '<option value="income"' + (x.mode !== 'all' ? ' selected' : '') + '>입금만</option>' +
+        '<option value="all"' + (x.mode === 'all' ? ' selected' : '') + '>입금·지출</option>' +
+        '</select>' +
+        '<button type="button" class="lg-excl__del" data-act="del" aria-label="키워드 삭제">✕</button>' +
+        '</li>';
+    }).join('');
+  }
+
   function renderSettings() {
     if (el.autoCheck) el.autoCheck.checked = !!S.autoImmediate;
+    renderExcludes();
     if (el.notifyState) {
       if (!hasBridge()) {
         el.notifyState.innerHTML = '<span class="lg-badge">웹 버전</span> 폰 앱(APK 1.5)에서 켤 수 있어요';
@@ -1162,6 +1327,11 @@
     el.pendingList = $('lgPendingList');
     el.pendingReady = $('lgPendingReady');
     el.pendingCount = $('lgPendingReady');
+    el.pendingSkipped = $('lgPendingSkipped');
+    el.pendingApply = $('lgPendingApply');
+    el.exclList = $('lgExclList');
+    el.exclInput = $('lgExclInput');
+    el.exclMode = $('lgExclMode');
     el.lockCard = $('lgLockCard');
     el.lockError = $('lgLockError');
     el.lockPin = $('lgLockPin');
@@ -1390,6 +1560,51 @@
     }
     el.autoCheck = $('lgAutoImmediate');
     if (el.autoCheck) el.autoCheck.addEventListener('change', function () { toggleAuto(el.autoCheck.checked); });
+    /* 제외 키워드 목록 */
+    if (el.exclList) {
+      el.exclList.addEventListener('change', function (ev) {
+        var t = ev.target;
+        var act = t && t.getAttribute && t.getAttribute('data-act');
+        if (!act) return;
+        var row = t.closest('.lg-excl__row');
+        var idx = Number(row && row.getAttribute('data-idx'));
+        if (!S.excludes[idx]) return;
+        if (act === 'on') {
+          S.excludes[idx].on = !!t.checked;
+          saveExcludes();
+          refreshAfterExcludeChange();
+        } else if (act === 'mode') {
+          S.excludes[idx].mode = t.value === 'all' ? 'all' : 'income';
+          saveExcludes();
+          refreshAfterExcludeChange();
+        }
+      });
+      el.exclList.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-act="del"]');
+        if (!b) return;
+        var row = b.closest('.lg-excl__row');
+        var idx = Number(row && row.getAttribute('data-idx'));
+        if (!S.excludes[idx]) return;
+        S.excludes.splice(idx, 1);
+        saveExcludes();
+        refreshAfterExcludeChange();
+        toast('제외 키워드를 지웠어요');
+      });
+    }
+    var exclAdd = $('lgExclAdd');
+    if (exclAdd) exclAdd.addEventListener('click', addExclude);
+    if (el.exclInput) {
+      el.exclInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addExclude(); }
+      });
+    }
+    var exclReset = $('lgExclReset');
+    if (exclReset) exclReset.addEventListener('click', function () {
+      S.excludes = defaultExcludes();
+      saveExcludes();
+      refreshAfterExcludeChange();
+      toast('기본값으로 되돌렸어요 · 월드클래스 입금은 빠집니다');
+    });
     el.notifyState = $('lgNotifyState');
     el.notifyOpen = $('lgNotifyOpen');
     if (el.notifyOpen) el.notifyOpen.addEventListener('click', openNotificationSettings);
@@ -1524,6 +1739,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     S.owner = lsGet(LS_OWNER) === '1';
     S.autoImmediate = lsGet(LS_AUTO) === '1';
+    S.excludes = loadExcludes();
     var now = new Date();
     S.y = now.getFullYear();
     S.m = now.getMonth();
@@ -1545,6 +1761,7 @@
     entries: function () { return S.entries.slice(); },
     parse: parseMessages,
     summary: buildKakao,
-    csv: csvText
+    csv: csvText,
+    excludes: function () { return (S.excludes || []).slice(); }
   };
 })();

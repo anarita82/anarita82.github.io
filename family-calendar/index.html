@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118e3" />
-<link rel="stylesheet" href="store.css?v=20261118e3" />
-<link rel="stylesheet" href="ledger.css?v=20261118e3" />
-<link rel="stylesheet" href="extra.css?v=20261118e3" />
-<link rel="stylesheet" href="polish.css?v=20261118e3" />
+<link rel="stylesheet" href="styles.css?v=20261118e4" />
+<link rel="stylesheet" href="store.css?v=20261118e4" />
+<link rel="stylesheet" href="ledger.css?v=20261118e4" />
+<link rel="stylesheet" href="extra.css?v=20261118e4" />
+<link rel="stylesheet" href="polish.css?v=20261118e4" />
 </head>
 <body>
 <div class="app">
@@ -503,6 +503,7 @@
           <h2 style="margin:0;font-size:14px;font-weight:800">📱 자동 수집 대기함 <span class="lg-tool__n" id="lgPendingReady">0건</span></h2>
         </div>
         <p class="lg-set-note" style="margin-top:6px">폰으로 온 카드·은행·카톡 입출금 알림을 모았어요. 확인하고 한 번에 넣으세요.</p>
+        <p class="lg-set-note lg-pending__skip" id="lgPendingSkipped" hidden></p>
         <ul class="lg-pending__list" id="lgPendingList"></ul>
         <div class="lg-pending__actions">
           <button type="button" class="btn-primary btn-small" id="lgPendingApply">모두 출납부에 넣기</button>
@@ -1663,6 +1664,24 @@
     </section>
 
     <section class="lg-set-block">
+      <h3>🚫 넣지 않을 키워드</h3>
+      <p class="lg-set-note">알림·문자에 이 단어가 있으면 출납부에 넣지 않아요. 기본은 <b>월드클래스 입금</b> 제외입니다(월드클래스 지출은 그대로 들어갑니다).</p>
+      <ul class="lg-excl" id="lgExclList"></ul>
+      <div class="field" style="margin-top:10px">
+        <label for="lgExclInput">키워드 추가</label>
+        <input id="lgExclInput" type="text" maxlength="20" autocomplete="off" placeholder="예: 홍길동" />
+      </div>
+      <div class="lg-set-row" style="margin-top:8px">
+        <select id="lgExclMode" class="lg-excl__mode" aria-label="제외 범위">
+          <option value="income" selected>입금만 제외</option>
+          <option value="all">입금·지출 모두 제외</option>
+        </select>
+        <button type="button" class="btn-ghost btn-small" id="lgExclAdd">추가</button>
+        <button type="button" class="btn-ghost btn-small" id="lgExclReset">기본값으로</button>
+      </div>
+    </section>
+
+    <section class="lg-set-block">
       <h3>💰 내보내기</h3>
       <p class="lg-set-note">이번 달 요약은 카톡에 그대로 붙여넣을 수 있고, CSV는 엑셀에서 열립니다.</p>
       <div class="lg-set-row">
@@ -2059,21 +2078,21 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118e3"></script>
-<script src="firebase-auth-compat.js?v=20261118e3"></script>
-<script src="firebase-firestore-compat.js?v=20261118e3"></script>
-<script src="lunar.js?v=20261118e3"></script>
-<script src="vaccines.js?v=20261118e3"></script>
-<script src="cloud.js?v=20261118e3"></script>
-<script src="app.js?v=20261118e3"></script>
-<script src="voice.js?v=20261118e3"></script>
-<script src="paste.js?v=20261118e3"></script>
-<script src="media.js?v=20261118e3"></script>
-<script src="store-cloud.js?v=20261118e3"></script>
-<script src="store.js?v=20261118e3"></script>
-<script src="ledger-cloud.js?v=20261118e3"></script>
-<script src="ledger.js?v=20261118e3"></script>
-<script src="extra-cloud.js?v=20261118e3"></script>
-<script src="extra.js?v=20261118e3"></script>
+<script src="firebase-app-compat.js?v=20261118e4"></script>
+<script src="firebase-auth-compat.js?v=20261118e4"></script>
+<script src="firebase-firestore-compat.js?v=20261118e4"></script>
+<script src="lunar.js?v=20261118e4"></script>
+<script src="vaccines.js?v=20261118e4"></script>
+<script src="cloud.js?v=20261118e4"></script>
+<script src="app.js?v=20261118e4"></script>
+<script src="voice.js?v=20261118e4"></script>
+<script src="paste.js?v=20261118e4"></script>
+<script src="media.js?v=20261118e4"></script>
+<script src="store-cloud.js?v=20261118e4"></script>
+<script src="store.js?v=20261118e4"></script>
+<script src="ledger-cloud.js?v=20261118e4"></script>
+<script src="ledger.js?v=20261118e4"></script>
+<script src="extra-cloud.js?v=20261118e4"></script>
+<script src="extra.js?v=20261118e4"></script>
 </body>
 </html>

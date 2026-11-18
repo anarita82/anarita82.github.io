@@ -366,3 +366,21 @@ body.ledger-mode .fab { background: linear-gradient(135deg, #b45309, #f59e0b); b
 
 /* 출납부 화면에서는 가족 달력 연결 상태 문구를 감춥니다(사장님 전용 화면) */
 body.ledger-mode #appBarNote { display: none !important; }
+
+/* ---------- 자동 제외 키워드 ---------- */
+.lg-pending__skip { color: #b45309 !important; font-weight: 700; }
+.lg-excl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lg-excl__row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf9; font-size: 12px;
+}
+.lg-excl__kw { font-weight: 800; flex: 1 1 70px; min-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-excl__on { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ink-soft); }
+.lg-excl__on input { width: 14px; height: 14px; accent-color: #b45309; }
+.lg-excl__row select, .lg-excl__mode {
+  font-size: 11.5px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px;
+  background: #fff; color: var(--ink-soft); font-family: inherit;
+}
+.lg-excl__del { border: 0; background: transparent; color: #b91c1c; font-size: 13px; padding: 2px 4px; cursor: pointer; }
+.lg-excl__empty { font-size: 11.5px; color: var(--ink-faint); padding: 2px 0; }
+
