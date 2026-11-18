@@ -1035,7 +1035,7 @@
   }
 
   function saveHealthToCalendar(list) {
-    if (!window.ExtraCloud) return Promise.reject(new Error('not-connected'));
+    if (!window.ExtraCloud) return Promise.reject(new Error('이 캘린더에 연결되지 않았어요. 잠시 후 다시 시도해 주세요.'));
     var rows = Array.isArray(list) ? list : [];
     if (!rows.length) return Promise.resolve({ count: 0 });
     var someone = myName() || '구성원';

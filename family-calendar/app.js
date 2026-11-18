@@ -2509,10 +2509,10 @@
 
   /* 고른 검진·접종을 일정으로 담습니다. 카테고리는 🏥 병원, 담당은 고른 가족이에요. */
   function saveHealthEvents(list, meta) {
-    if (!cloudReady) return Promise.reject(new Error('not-connected'));
+    if (!cloudReady) return Promise.reject(new Error('아직 가족 방에 연결되지 않았어요. 잠시 후 다시 시도해 주세요.'));
     var me = myMember();
     var ownerId = (meta && meta.memberId) || (me && me.id) || '';
-    if (!ownerId) return Promise.reject(new Error('no-member'));
+    if (!ownerId) return Promise.reject(new Error('이 폰 주인을 먼저 골라 주세요(⚙️ 설정 → 내 정보).'));
     var remember = function (it) {
       return {
         title: it.title,
