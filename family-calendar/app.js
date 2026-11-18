@@ -844,6 +844,14 @@
       closeSettingsModal();
       openAdminModal(true);
     });
+    /* 🏥 국가 검진·예방접종 */
+    var healthBtn = document.getElementById('healthBtn');
+    if (healthBtn) healthBtn.addEventListener('click', function () { openHealth('event'); });
+    var setHealthRow = document.getElementById('setHealthRow');
+    if (setHealthRow) setHealthRow.addEventListener('click', function () {
+      closeSettingsModal();
+      openHealth('settings');
+    });
     /* 일정 추가 — [+ 더보기] 접기/펼치기 */
     var moreBtn = document.getElementById('eventMoreBtn');
     if (moreBtn) moreBtn.addEventListener('click', function () { toggleMore(!state.moreOpen); });
@@ -2471,6 +2479,86 @@
     document.body.style.overflow = '';
     state.editingId = null;
     resetVoiceBox();
+  }
+
+  /* ---------------- 🏥 국가 검진·예방접종 (아이 + 성인) ---------------- */
+  function healthMembers() {
+    return MEMBERS.map(function (m) {
+      return { id: m.id, name: m.name, color: m.color, bg: m.bg, birth: m.birth || '' };
+    });
+  }
+
+  function openHealth(from) {
+    if (!window.FamilyHealth) {
+      window.alert('검진·예방접종 기능을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.');
+      return;
+    }
+    window.FamilyHealth.open({
+      members: healthMembers(),
+      today: todayISO(),
+      onSave: saveHealthEvents,
+      onSaved: function (n) {
+        toast(n + '건을 달력에 넣었어요');
+        if (from === 'event' && !state.editingId) closeModal();
+      },
+      onError: function (err) {
+        return (canManage() ? '달력에 넣지 못했어요 · ' : '등록 요청을 보내지 못했어요 · ') + errorHint(err);
+      }
+    });
+  }
+
+  /* 고른 검진·접종을 일정으로 담습니다. 카테고리는 🏥 병원, 담당은 고른 가족이에요. */
+  function saveHealthEvents(list, meta) {
+    if (!cloudReady) return Promise.reject(new Error('not-connected'));
+    var me = myMember();
+    var ownerId = (meta && meta.memberId) || (me && me.id) || '';
+    if (!ownerId) return Promise.reject(new Error('no-member'));
+    var remember = function (it) {
+      return {
+        title: it.title,
+        date: it.date,
+        endDate: null,
+        time: null,
+        remind: it.remind,
+        members: [ownerId],
+        category: 'hospital',
+        memo: it.memo,
+        repeat: 'none',
+        weekday: null,
+        checklist: [],
+        lunar: null
+      };
+    };
+    var payloads = (list || []).map(remember);
+    if (!payloads.length) return Promise.resolve({ count: 0 });
+    /* 저장 뒤 달력은 '오늘 이후 가장 가까운 날'로 이동합니다(과거 보완 건만 있으면 그 날짜). */
+    var goDate = (function () {
+      var t = todayISO();
+      var dates = payloads.map(function (p) { return p.date; }).sort();
+      for (var i = 0; i < dates.length; i++) if (dates[i] >= t) return dates[i];
+      return dates[dates.length - 1];
+    })();
+
+    if (!canManage()) {
+      var seq = Promise.resolve(0);
+      payloads.forEach(function (p) {
+        seq = seq.then(function (n) {
+          return FamilyCloud.submitRequest(p, { id: me.id, name: me.name }).then(function () { return n + 1; });
+        });
+      });
+      return seq.then(function (n) {
+        goToDate(goDate);
+        renderAll();
+        return { count: n };
+      });
+    }
+
+    return FamilyCloud.saveEvents(payloads).then(function (ids) {
+      (ids || []).forEach(function (id) { markSelfCreated(id); });
+      goToDate(goDate);
+      renderAll();
+      return { count: (ids || []).length };
+    });
   }
 
   function syncTimeField() {

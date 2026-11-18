@@ -1019,6 +1019,48 @@
     }, function (e) { err('calEvError', hintOf(e)); });
   }
 
+  /* 🏥 국가 검진·예방접종 — 일반형 캘린더에서는 이 캘린더 일정으로 담습니다. */
+  function openHealthSheet() {
+    if (!window.FamilyHealth) { toast('잠시 뒤 다시 열어 주세요'); return; }
+    window.FamilyHealth.open({
+      members: [],
+      today: todayISO(),
+      onSave: saveHealthToCalendar,
+      onSaved: function (n) {
+        if ($('calEventModal')) $('calEventModal').hidden = true;
+        toast(n + '건을 넣었어요');
+      },
+      onError: function (e) { return hintOf(e); }
+    });
+  }
+
+  function saveHealthToCalendar(list) {
+    if (!window.ExtraCloud) return Promise.reject(new Error('not-connected'));
+    var rows = Array.isArray(list) ? list : [];
+    if (!rows.length) return Promise.resolve({ count: 0 });
+    var someone = myName() || '구성원';
+    var seq = Promise.resolve(0);
+    rows.forEach(function (it) {
+      seq = seq.then(function (n) {
+        return ExtraCloud.saveEvent(null, {
+          kind: 'event',
+          title: it.title,
+          date: it.date,
+          time: null,
+          memo: it.memo,
+          by: someone
+        }).then(function () { return n + 1; });
+      });
+    });
+    return seq.then(function (n) {
+      var first = rows[0].date;
+      S.selected = first;
+      var d = parseISO(first);
+      if (d) { S.year = d.getFullYear(); S.month = d.getMonth(); }
+      return { count: n };
+    });
+  }
+
   function deleteEventForm() {
     if (!S.editingId || !window.ExtraCloud) return;
     if (!window.confirm('이 일정을 지울까요?')) return;
@@ -1667,6 +1709,7 @@
     var evBackdrop = $('calEventModal') && $('calEventModal').querySelector('[data-close]');
     if (evBackdrop) evBackdrop.addEventListener('click', function () { $('calEventModal').hidden = true; });
     if ($('calEvSave')) $('calEvSave').addEventListener('click', saveEventForm);
+    if ($('calHealthBtn')) $('calHealthBtn').addEventListener('click', openHealthSheet);
     if (window.CalendarPaste && $('calPasteBtn')) {
       pasteUI = CalendarPaste.attachUI({
         entry: $('calPasteBtn'),

@@ -800,6 +800,23 @@
     return eventCollection().doc(id).delete();
   }
 
+  /* 여러 일정을 한 번에 저장 — 예방접종·건강검진을 고른 만큼 한꺼번에 담을 때 씁니다. */
+  function saveEvents(list) {
+    if (!state.roomRef) return Promise.reject(new Error('not-connected'));
+    var rows = Array.isArray(list) ? list : [];
+    if (!rows.length) return Promise.resolve([]);
+    var batch = state.db.batch();
+    var ids = [];
+    rows.forEach(function (data) {
+      var ref = eventCollection().doc();
+      var payload = cleanPayload(data);
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      batch.set(ref, payload);
+      ids.push(ref.id);
+    });
+    return batch.commit().then(function () { return ids; });
+  }
+
   /* ☑️ 준비물 체크만 저장 — 다른 칸(제목·날짜·메모)은 건드리지 않습니다.
      일반 구성원도 체크할 수 있고, 가족 모두의 폰에 바로 반영됩니다. */
   function saveChecklist(id, list) {
@@ -1322,6 +1339,7 @@
     start: start,
     stop: stop,
     saveEvent: saveEvent,
+    saveEvents: saveEvents,
     deleteEvent: deleteEvent,
     saveChecklist: saveChecklist,
     savePhoto: savePhoto,

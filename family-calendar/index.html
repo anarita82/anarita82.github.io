@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118c7" />
-<link rel="stylesheet" href="store.css?v=20261118c7" />
-<link rel="stylesheet" href="ledger.css?v=20261118c7" />
-<link rel="stylesheet" href="extra.css?v=20261118c7" />
-<link rel="stylesheet" href="polish.css?v=20261118c7" />
+<link rel="stylesheet" href="styles.css?v=20261118c8" />
+<link rel="stylesheet" href="store.css?v=20261118c8" />
+<link rel="stylesheet" href="ledger.css?v=20261118c8" />
+<link rel="stylesheet" href="extra.css?v=20261118c8" />
+<link rel="stylesheet" href="polish.css?v=20261118c8" />
 </head>
 <body>
 <div class="app">
@@ -522,6 +522,11 @@
         <span class="set-row__t">가족 이름·번호 바꾸기<small>첫째 → 성민처럼 이름·휴대폰 번호 수정</small></span>
         <span class="set-row__chev">›</span>
       </button>
+      <button type="button" class="set-row" id="setHealthRow">
+        <span class="set-row__i">🏥</span>
+        <span class="set-row__t">국가 검진·예방접종<small>아이 예방접종 · 성인 건강검진/암검진</small></span>
+        <span class="set-row__chev">›</span>
+      </button>
       <button type="button" class="set-row" id="setAdminRow" hidden>
         <span class="set-row__i">🔑</span>
         <span class="set-row__t">관리자 설정<small>구성원·역할·관리자 PIN</small></span>
@@ -610,6 +615,13 @@
     </div>
     <p class="paste-status" id="pasteStatus" hidden></p>
     <div class="paste-cands" id="pasteCands" hidden></div>
+
+    <div class="paste-entry paste-entry--health">
+      <button type="button" class="paste-entry__btn" id="healthBtn" aria-haspopup="dialog">
+        🏥 국가 검진·예방접종
+        <span class="paste-entry__hint">아이 예방접종 · 성인 건강검진/암검진을 골라 한 번에</span>
+      </button>
+    </div>
 
     <div class="field field--title">
       <label for="fTitle">제목 <span class="req">*</span></label>
@@ -1867,6 +1879,12 @@
     </div>
     <p class="paste-status" id="calPasteStatus" hidden></p>
     <div class="paste-cands" id="calPasteCands" hidden></div>
+    <div class="paste-entry paste-entry--health">
+      <button type="button" class="paste-entry__btn" id="calHealthBtn" aria-haspopup="dialog">
+        🏥 국가 검진·예방접종
+        <span class="paste-entry__hint">아이 예방접종 · 성인 건강검진/암검진을 골라 한 번에</span>
+      </button>
+    </div>
     <div class="field">
       <label for="calEvTitleInput">제목 <span class="req">*</span></label>
       <input id="calEvTitleInput" type="text" maxlength="80" placeholder="예) 정기 모임, 발표회" autocomplete="off" />
@@ -1949,24 +1967,81 @@
   </div>
 </div>
 
+<!-- 🏥 국가 검진·예방접종 (아이 + 성인) -->
+<div class="modal" id="vacModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet vac-sheet" role="dialog" aria-labelledby="vacTitle">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="vacTitle">🏥 국가 검진·예방접종</h2>
+      <button class="sheet-close" id="vacClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <p class="vac-lead">
+      생년월일과 성별만 넣으면 나라(질병관리청·건강보험공단) 기준으로 <b>지금·앞으로 챙길 검진·접종</b>을 골라 달력에 넣어 드려요.
+    </p>
+
+    <section class="vac-setup">
+      <div class="field">
+        <label>누구 일정인가요? <span class="field-hint--inline">가족을 누르면 바로 채워져요</span></label>
+        <div class="picker vac-kids" id="vacKids"></div>
+      </div>
+      <div class="vac-form">
+        <div class="field">
+          <label for="vacName">이름</label>
+          <input id="vacName" type="text" maxlength="20" placeholder="예) 둘째" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="vacBirth">생년월일 <span class="req">*</span></label>
+          <input id="vacBirth" type="date" />
+        </div>
+      </div>
+      <div class="field">
+        <label>성별 <span class="req">*</span></label>
+        <div class="segmented segmented--sm" id="vacSex" role="group" aria-label="성별">
+          <button type="button" data-sex="m">남</button>
+          <button type="button" data-sex="f">여</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="vac-summary" id="vacSummary" hidden></p>
+    <div class="vac-body" id="vacBody"></div>
+    <p class="vac-note" id="vacNote" hidden>
+      만 18세 이하 아이 일정과 만 19세 이상 성인 일정을 나이에 따라 자동으로 보여 드려요.<br />
+      안내는 2026년 기준이라 그해 공고와 다를 수 있어요 — 접종·검진 전에 의료기관·공단(1577-1000)에 확인하세요.<br />
+      생년월일은 <b>이 기기에만</b> 저장돼요.
+    </p>
+    <p class="form-error" id="vacError" hidden></p>
+
+    <div class="vac-foot">
+      <label class="vac-foot__remind">
+        <input type="checkbox" id="vacRemind" checked />
+        <span>🔔 전날 알림</span>
+      </label>
+      <button type="button" class="btn-primary" id="vacSaveBtn" disabled>선택한 0건 달력에 추가</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118c7"></script>
-<script src="firebase-auth-compat.js?v=20261118c7"></script>
-<script src="firebase-firestore-compat.js?v=20261118c7"></script>
-<script src="lunar.js?v=20261118c7"></script>
-<script src="cloud.js?v=20261118c7"></script>
-<script src="app.js?v=20261118c7"></script>
-<script src="voice.js?v=20261118c7"></script>
-<script src="paste.js?v=20261118c7"></script>
-<script src="media.js?v=20261118c7"></script>
-<script src="store-cloud.js?v=20261118c7"></script>
-<script src="store.js?v=20261118c7"></script>
-<script src="ledger-cloud.js?v=20261118c7"></script>
-<script src="ledger.js?v=20261118c7"></script>
-<script src="extra-cloud.js?v=20261118c7"></script>
-<script src="extra.js?v=20261118c7"></script>
+<script src="firebase-app-compat.js?v=20261118c8"></script>
+<script src="firebase-auth-compat.js?v=20261118c8"></script>
+<script src="firebase-firestore-compat.js?v=20261118c8"></script>
+<script src="lunar.js?v=20261118c8"></script>
+<script src="vaccines.js?v=20261118c8"></script>
+<script src="cloud.js?v=20261118c8"></script>
+<script src="app.js?v=20261118c8"></script>
+<script src="voice.js?v=20261118c8"></script>
+<script src="paste.js?v=20261118c8"></script>
+<script src="media.js?v=20261118c8"></script>
+<script src="store-cloud.js?v=20261118c8"></script>
+<script src="store.js?v=20261118c8"></script>
+<script src="ledger-cloud.js?v=20261118c8"></script>
+<script src="ledger.js?v=20261118c8"></script>
+<script src="extra-cloud.js?v=20261118c8"></script>
+<script src="extra.js?v=20261118c8"></script>
 </body>
 </html>
