@@ -1510,9 +1510,13 @@
     }
     var total = $('storeWageTotal');
     if (total) total.textContent = money(on ? calc.base + calc.weekly : calc.base);
+    /* 카드 금액은 기타 수당을 뺀 기본급+주휴수당 — 그 금액 기준으로 공제·실지급을 계산합니다.
+       (명세서에서 기타 수당을 넣은 값(S.payExtra)이 카드에 섮이지 않게) */
+    var grossCard = on ? calc.base + calc.weekly : calc.base;
+    var taxCard = calc.taxRate ? Math.round(grossCard * calc.taxRate / 100) : 0;
     var net = $('storeWageNet');
     if (net) {
-      if (calc.tax) { net.hidden = false; net.textContent = '실지급 ' + money(calc.net) + ' · ' + calc.taxRate + '% 공제'; }
+      if (taxCard) { net.hidden = false; net.textContent = '실지급 ' + money(grossCard - taxCard) + ' · ' + calc.taxRate + '% 공제'; }
       else { net.hidden = true; net.textContent = ''; }
     }
     var days = $('storeWageDays'); if (days) days.textContent = calc.days + '일';
