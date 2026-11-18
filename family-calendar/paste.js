@@ -621,7 +621,7 @@
     if (clipBtn) clipBtn.addEventListener('click', readClipboard);
     area.addEventListener('input', schedule);
     area.addEventListener('paste', function () { setTimeout(runNow, 60); });
-    area.addEventListener('change', runNow);
+    /* change(입력칸을 떠날 때)마다 다시 채우면 칸이 새로 그려져 방금 고른 날짜 후보가 풀리므로 input·paste만 씁니다. */
     if (runBtn) runBtn.addEventListener('click', runNow);
     if (clearBtn) clearBtn.addEventListener('click', function () {
       area.value = '';
