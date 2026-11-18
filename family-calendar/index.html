@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118d2" />
-<link rel="stylesheet" href="store.css?v=20261118d2" />
-<link rel="stylesheet" href="ledger.css?v=20261118d2" />
-<link rel="stylesheet" href="extra.css?v=20261118d2" />
-<link rel="stylesheet" href="polish.css?v=20261118d2" />
+<link rel="stylesheet" href="styles.css?v=20261118e1" />
+<link rel="stylesheet" href="store.css?v=20261118e1" />
+<link rel="stylesheet" href="ledger.css?v=20261118e1" />
+<link rel="stylesheet" href="extra.css?v=20261118e1" />
+<link rel="stylesheet" href="polish.css?v=20261118e1" />
 </head>
 <body>
 <div class="app">
@@ -186,6 +186,7 @@
         <section class="store-wage" id="storeWageCard" hidden aria-live="polite">
           <div class="store-wage__head">
             <span class="store-wage__who"><i class="store-wage__dot" id="storeWageDot"></i><b id="storeWageName">알바</b></span>
+            <span class="store-wage__tax is-none" id="storeWageTax">실수령</span>
             <span class="store-wage__month" id="storeWageMonth">11월</span>
           </div>
           <div class="store-wage__total">
@@ -301,7 +302,7 @@
 
       <section class="card" id="storeStaffCard" hidden>
         <div class="card-head"><h2>👥 근무자 관리</h2><span class="card-head__hint">이름·번호·퇴사</span></div>
-        <p class="field-hint staff-hint">이름·시급·번호를 고치면 <b>[✓ 저장]</b> 버튼이 생겨요. Enter나 다른 곳을 눌러도 저장되고, <b>오늘 근무·상단 이름·달력·급여명세서</b>에 바로 바뀝니다.</p>
+        <p class="field-hint staff-hint">이름·시급·번호·공제를 고치면 <b>[✓ 저장]</b> 버튼이 생겨요. Enter나 다른 곳을 눌러도 저장되고, <b>오늘 근무·상단 이름·달력·급여명세서</b>에 바로 바뀝니다.</p>
         <div class="staff-add">
           <div class="staff-add__row">
             <input id="staffAddName" class="staff-add__name" type="text" maxlength="12" autocomplete="off" placeholder="이름 (예: 오후 알바)" aria-label="새 근무자 이름" />
@@ -310,6 +311,14 @@
           <div class="staff-add__row">
             <input id="staffAddTel" class="staff-add__tel" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="010-1234-5678" aria-label="새 근무자 전화번호" />
             <button type="button" class="btn-primary btn-small staff-add__btn" id="staffAddBtn">＋ 등록</button>
+          </div>
+          <div class="staff-add__row">
+            <label class="staff-add__taxlabel" for="staffAddTax">급여 공제</label>
+            <select id="staffAddTax" class="staff-add__tax" aria-label="새 근무자 급여 공제 방식">
+              <option value="none">실수령자 (0%)</option>
+              <option value="3.3">3.3% (원천징수)</option>
+              <option value="4ins">4대보험 (약 9.72%)</option>
+            </select>
           </div>
           <p class="form-error" id="staffAddError" hidden></p>
         </div>
@@ -1149,13 +1158,15 @@
     <section class="settings-block">
       <h3>급여 계산</h3>
       <div class="field">
-        <label>공제</label>
-        <div class="segmented" id="settingsTax" role="group" aria-label="공제 방식">
-          <button type="button" data-tax="none" class="is-active">없음</button>
+        <label>새 근무자 기본 공제</label>
+        <div class="segmented segmented--tax" id="settingsTax" role="group" aria-label="새 근무자 기본 공제 방식">
+          <button type="button" data-tax="none" class="is-active">실수령</button>
           <button type="button" data-tax="3.3">3.3%</button>
+          <button type="button" data-tax="4ins">4대보험</button>
           <button type="button" data-tax="custom">직접입력</button>
         </div>
       </div>
+      <p class="field-hint" style="margin:2px 0 12px">근무자마다 <b>👥 근무자 관리</b>에서 공제 방식을 따로 고를 수 있어요(실수령자 0% · 3.3% · 4대보험 약 9.72%). 여기 설정은 <b>공제 방식을 정하지 않은 근무자</b>와 새로 등록하는 근무자에게 적용됩니다.</p>
       <div class="field">
         <label for="settingsTaxRate">공제 요율(%)</label>
         <input id="settingsTaxRate" type="number" min="0" max="30" step="0.1" inputmode="decimal" />
@@ -2048,21 +2059,21 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118d2"></script>
-<script src="firebase-auth-compat.js?v=20261118d2"></script>
-<script src="firebase-firestore-compat.js?v=20261118d2"></script>
-<script src="lunar.js?v=20261118d2"></script>
-<script src="vaccines.js?v=20261118d2"></script>
-<script src="cloud.js?v=20261118d2"></script>
-<script src="app.js?v=20261118d2"></script>
-<script src="voice.js?v=20261118d2"></script>
-<script src="paste.js?v=20261118d2"></script>
-<script src="media.js?v=20261118d2"></script>
-<script src="store-cloud.js?v=20261118d2"></script>
-<script src="store.js?v=20261118d2"></script>
-<script src="ledger-cloud.js?v=20261118d2"></script>
-<script src="ledger.js?v=20261118d2"></script>
-<script src="extra-cloud.js?v=20261118d2"></script>
-<script src="extra.js?v=20261118d2"></script>
+<script src="firebase-app-compat.js?v=20261118e1"></script>
+<script src="firebase-auth-compat.js?v=20261118e1"></script>
+<script src="firebase-firestore-compat.js?v=20261118e1"></script>
+<script src="lunar.js?v=20261118e1"></script>
+<script src="vaccines.js?v=20261118e1"></script>
+<script src="cloud.js?v=20261118e1"></script>
+<script src="app.js?v=20261118e1"></script>
+<script src="voice.js?v=20261118e1"></script>
+<script src="paste.js?v=20261118e1"></script>
+<script src="media.js?v=20261118e1"></script>
+<script src="store-cloud.js?v=20261118e1"></script>
+<script src="store.js?v=20261118e1"></script>
+<script src="ledger-cloud.js?v=20261118e1"></script>
+<script src="ledger.js?v=20261118e1"></script>
+<script src="extra-cloud.js?v=20261118e1"></script>
+<script src="extra.js?v=20261118e1"></script>
 </body>
 </html>

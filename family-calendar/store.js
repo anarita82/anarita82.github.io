@@ -231,6 +231,81 @@
   /* 주휴수당 포함 계산 — 설정에 값이 없으면 켜진 것으로 봅니다(기본 ON).
      사장님이 ⚙️ 설정에서 끄면 예전처럼 기본급만 계산합니다. */
   function weeklyOn() { return !(S.settings && S.settings.weeklyAllowance === false); }
+
+  /* ---------------- 급여 공제 방식 (근무자별) ----------------
+     none = 실수령자(공제 0) / '3.3' = 3.3% 원천징수 / '4ins' = 4대보험 근로자 부담
+     · 근무자에 taxType이 없으면(예전에 저장한 근무자) 방 설정(⚙️ 매장·급여 설정)을 그대로 따릅니다.
+     · 'custom'(직접 입력 요율)은 방 설정에만 있던 값이라 예전 근무자 호환용으로만 읽습니다. */
+  var STAFF_TAX_KEYS = ['none', '3.3', '4ins'];
+  function staffTaxType(m) {
+    var t = m && m.taxType;
+    return STAFF_TAX_KEYS.indexOf(String(t || '')) >= 0 ? String(t) : '';
+  }
+  function roomTaxMode() {
+    var t = S.settings && S.settings.taxMode;
+    return (t === '3.3' || t === '4ins' || t === 'custom') ? t : 'none';
+  }
+  /* 실제로 적용할 공제 방식 — 근무자별 설정이 있으면 그것, 없으면 방 설정 */
+  function effectiveTaxType(m) {
+    return staffTaxType(m) || roomTaxMode();
+  }
+  function taxShortLabel(type) {
+    if (type === '4ins') return '4대보험';
+    if (type === '3.3') return '3.3% 공제';
+    if (type === 'custom') return (Number(S.settings && S.settings.taxRate) || 3.3) + '% 공제';
+    return '실수령';
+  }
+  function taxFullLabel(type) {
+    if (type === '4ins') return '4대보험 (약 9.72%)';
+    if (type === '3.3') return '3.3% (원천징수)';
+    if (type === 'custom') return '방 설정 (' + (Number(S.settings && S.settings.taxRate) || 3.3) + '% 직접 입력)';
+    return '실수령자 (0%)';
+  }
+  /* 2026년 11월분 근로자 부담 요율(추정)
+     · 국민연금 4.75% (기준소득월액, 천원 미만 버림 · 41만~659만원) · 건강보험 3.595%
+     · 장기요양 = 건강보험료의 13.14% · 고용보험 0.9% · 산재 0%(사업주 전액)
+     · 항목마다 10원 미만 버림 → 합계 약 9.72% */
+  var INS_RATES_2026 = {
+    pension: 0.0475, health: 0.03595, longterm: 0.1314, employ: 0.009,
+    pensionMin: 410000, pensionMax: 6590000
+  };
+  function floor10(v) { return Math.floor((Number(v) || 0) / 10) * 10; }
+  /* 급여 총액 → 공제 내역. 3.3%·직접입력은 예전 방식(원 단위 반올림) 그대로 둡니다. */
+  function calcTax(gross, type, customRate) {
+    gross = Math.max(0, Math.round(Number(gross) || 0));
+    var out = { type: type || 'none', gross: gross, rate: 0, total: 0, lines: [] };
+    if (!gross || !type || type === 'none') { out.type = 'none'; return out; }
+    if (type === '3.3') {
+      out.rate = 3.3;
+      out.total = Math.round(gross * 0.033);
+      out.lines = [{ key: 'tax33', label: '3.3% 원천징수', amount: out.total }];
+      return out;
+    }
+    if (type === 'custom') {
+      out.rate = Math.max(0, Math.min(30, Number(customRate) || 0));
+      out.total = Math.round(gross * out.rate / 100);
+      out.lines = [{ key: 'custom', label: '공제 ' + out.rate + '%', amount: out.total }];
+      return out;
+    }
+    /* 4대보험 — 국민연금 기준소득월액은 천원 미만 버림 후 41만~659만원으로 맞춥니다. */
+    var base = Math.floor(gross / 1000) * 1000;
+    base = Math.min(INS_RATES_2026.pensionMax, Math.max(INS_RATES_2026.pensionMin, base));
+    var pension = floor10(base * INS_RATES_2026.pension);
+    var health = floor10(gross * INS_RATES_2026.health);
+    var longterm = floor10(health * INS_RATES_2026.longterm);
+    var employ = floor10(gross * INS_RATES_2026.employ);
+    out.rate = 9.72;
+    out.pensionBase = base;
+    out.lines = [
+      { key: 'pension', label: '국민연금 (4.75%)', amount: pension },
+      { key: 'health', label: '건강보험 (3.595%)', amount: health },
+      { key: 'longterm', label: '장기요양 (건강보험료의 13.14%)', amount: longterm },
+      { key: 'employ', label: '고용보험 (0.9%)', amount: employ }
+    ];
+    out.total = pension + health + longterm + employ;
+    return out;
+  }
+  var INS_NOTE = '2026년 근로자 부담 요율(약 9.72%) 기준 추정치 · 월 60시간 미만 등 가입 대상 및 실제 고지액은 공단 기준 확인';
   function weeklyHoursText(h) {
     var n = Math.round(Number(h) * 10) / 10;
     return (n % 1 ? n.toFixed(1) : String(n)) + '시간';
@@ -1513,11 +1588,23 @@
     /* 카드 금액은 기타 수당을 뺀 기본급+주휴수당 — 그 금액 기준으로 공제·실지급을 계산합니다.
        (명세서에서 기타 수당을 넣은 값(S.payExtra)이 카드에 섮이지 않게) */
     var grossCard = on ? calc.base + calc.weekly : calc.base;
-    var taxCard = calc.taxRate ? Math.round(grossCard * calc.taxRate / 100) : 0;
+    var taxCard = calcTax(grossCard, calc.taxType, S.settings.taxRate);
+    var badge = $('storeWageTax');
+    if (badge) {
+      badge.textContent = taxShortLabel(calc.taxType);
+      badge.className = 'store-wage__tax' + (calc.taxType === '4ins' ? ' is-ins' : calc.taxType === 'none' ? ' is-none' : ' is-tax');
+      badge.title = taxFullLabel(calc.taxType);
+    }
     var net = $('storeWageNet');
     if (net) {
-      if (taxCard) { net.hidden = false; net.textContent = '실지급 ' + money(grossCard - taxCard) + ' · ' + calc.taxRate + '% 공제'; }
-      else { net.hidden = true; net.textContent = ''; }
+      if (!grossCard) { net.hidden = true; net.textContent = ''; }
+      else if (taxCard.total) {
+        net.hidden = false;
+        net.textContent = '공제 -' + money(taxCard.total) + ' · 실지급 ' + money(grossCard - taxCard.total);
+      } else {
+        net.hidden = false;
+        net.textContent = '실지급 ' + money(grossCard) + ' · 공제 없음(실수령)';
+      }
     }
     var days = $('storeWageDays'); if (days) days.textContent = calc.days + '일';
     var hours = $('storeWageHours'); if (hours) hours.textContent = hoursText(calc.minutes);
@@ -3874,8 +3961,11 @@
     weeks.forEach(function (w) { weekly += w.amount; });
     var extra = Math.max(0, Math.round(Number(S.payExtra) || 0));
     var gross = base + weekly + extra;
-    var taxRate = S.settings.taxMode === 'none' ? 0 : (S.settings.taxMode === '3.3' ? 3.3 : (Number(S.settings.taxRate) || 0));
-    var tax = Math.round(gross * taxRate / 100);
+    /* 공제 — 근무자별 공제 방식(실수령자 · 3.3% · 4대보험). 근무자에 값이 없으면 방 설정을 따릅니다. */
+    var taxType = effectiveTaxType(staff);
+    var taxCalc = calcTax(gross, taxType, S.settings.taxRate);
+    var taxRate = taxCalc.rate;
+    var tax = taxCalc.total;
     var net = gross - tax;
     var absent = list.filter(function (s) { return s.status === 'absent'; }).length;
 
@@ -3893,6 +3983,9 @@
       weekly: weekly,
       extra: extra,
       gross: gross,
+      taxType: taxType,
+      taxCalc: taxCalc,
+      taxLabel: taxShortLabel(taxType),
       taxRate: taxRate,
       tax: tax,
       net: net,
@@ -3920,7 +4013,8 @@
     paid.forEach(function (c) { base += c.base; weekly += c.weekly; extra += c.extra; gross += c.gross; net += c.net; });
     wrap.hidden = false;
     wrap.innerHTML =
-      '<div class="pay-sum__head"><span>' + (isOwner() ? '이번 달 인건비' : '이번 달 내 급여') + '</span>'
+      '<div class="pay-sum__head"><span>' + (isOwner() ? '이번 달 인건비' : '이번 달 내 급여')
+      + (gross > net ? ' (공제 반영)' : '') + '</span>'
       + '<b>' + money(net) + '</b></div>'
       + '<div class="pay-sum__row"><span>기본급</span><b>' + money(base) + '</b></div>'
       + '<div class="pay-sum__row"><span>주휴수당</span><b>' + money(weekly) + '</b>'
@@ -3976,8 +4070,11 @@
       li.appendChild(body);
       var amt = document.createElement('span');
       amt.className = 'pay-row__amt';
+      var smallTxt = calc.taxType === '4ins'
+        ? '4대보험 -' + money(calc.tax)
+        : (calc.tax ? '공제 -' + money(calc.tax) : '공제 없음');
       amt.innerHTML = calc.minutes
-        ? money(calc.net) + (calc.tax ? '<small>공제 ' + money(calc.tax) + '</small>' : '')
+        ? money(calc.net) + '<small>' + smallTxt + '</small>'
         : '-';
       li.appendChild(amt);
       var btn = document.createElement('button');
@@ -4033,9 +4130,21 @@
     rows.forEach(function (r) {
       html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
     });
-    html += '<tr><th>' + (calc.taxRate ? '공제 (' + calc.taxRate + '%)' : '공제') + '</th><td>' + (calc.tax ? '-' + money(calc.tax) : money(0)) + '</td></tr>';
+    html += '<tr><th>공제 방식</th><td>' + taxFullLabel(calc.taxType) + '</td></tr>';
+    if (calc.taxCalc && calc.taxCalc.lines.length > 1) {
+      /* 4대보험 — 국민연금·건강보험·장기요양·고용보험을 각각 적고 합계를 냅니다. */
+      calc.taxCalc.lines.forEach(function (l) {
+        html += '<tr><th>' + l.label + '</th><td>-' + money(l.amount) + '</td></tr>';
+      });
+      html += '<tr><th>공제 합계</th><td>-' + money(calc.tax) + ' (약 ' + calc.taxRate + '%)</td></tr>';
+    } else if (calc.tax) {
+      html += '<tr><th>공제 (' + calc.taxRate + '%)</th><td>-' + money(calc.tax) + '</td></tr>';
+    } else {
+      html += '<tr><th>공제</th><td>' + money(0) + ' (실수령자)</td></tr>';
+    }
     html += '</tbody></table>';
     html += '<div class="pay-doc__net"><span>실지급액</span><b>' + money(calc.net) + '</b></div>';
+    if (calc.taxType === '4ins') html += '<p class="pay-doc__note">' + INS_NOTE + '</p>';
     if (calc.weeklyOn && calc.weeks && calc.weeks.length) {
       html += '<div class="pay-doc__weeks"><div class="pay-doc__weeks-head">주휴수당 계산 · 주 15시간 이상만</div>';
       calc.weeks.forEach(function (w) {
@@ -4116,10 +4225,21 @@
     }
     lines.push('- 기타 수당: ' + money(calc.extra));
     lines.push('- 총 급여: ' + money(calc.gross));
-    lines.push('- 공제' + (calc.taxRate ? '(' + calc.taxRate + '%)' : '') + ': ' + (calc.tax ? '-' + money(calc.tax) : money(0)));
+    if (calc.taxType === '4ins') {
+      lines.push('- 공제(4대보험 · 근로자 부담 약 9.72%)');
+      (calc.taxCalc && calc.taxCalc.lines || []).forEach(function (l) {
+        lines.push('  · ' + l.label + ': -' + money(l.amount));
+      });
+      lines.push('  · 공제 합계: -' + money(calc.tax));
+    } else if (calc.tax) {
+      lines.push('- 공제(' + calc.taxRate + '%): -' + money(calc.tax));
+    } else {
+      lines.push('- 공제: 없음 (실수령자)');
+    }
     lines.push('- 실지급액: ' + money(calc.net));
     lines.push('- 지급일: ' + payDayText(calc.y, calc.m));
     if (calc.absent) lines.push('- 결근 ' + calc.absent + '건은 계산에서 빠졌어요.');
+    if (calc.taxType === '4ins') lines.push('※ ' + INS_NOTE);
     lines.push('※ 앱에서 계산한 예상 금액이며 실제 지급액과 다를 수 있습니다.');
     return lines.join('\n');
   }
@@ -4143,6 +4263,7 @@
     if (!card) return;
     card.hidden = !isOwner();
     if (!isOwner()) return;
+    syncStaffAddTax();
     var list = $('staffList');
     if (!list) return;
     /* 고치는 중인 칸이 있으면 다시 그리지 않습니다 — 입력하던 글자가 지워지지 않게. */
@@ -4169,6 +4290,25 @@
       list.appendChild(head);
       retired.forEach(function (m) { list.appendChild(staffRow(m, true)); });
     }
+  }
+
+  /* 새 근무자 칸의 공제 기본값 — 방 설정(⚙️ 매장·급여 설정)을 따릅니다.
+     방 설정이 '직접 입력'이면 그 항목을 하나 더 넣어 고를 수 있게 합니다. */
+  function syncStaffAddTax() {
+    var sel = $('staffAddTax');
+    if (!sel) return;
+    var mode = roomTaxMode();
+    var custom = sel.querySelector('option[value="custom"]');
+    if (mode === 'custom' && !custom) {
+      var opt = document.createElement('option');
+      opt.value = 'custom';
+      opt.textContent = taxFullLabel('custom');
+      sel.insertBefore(opt, sel.firstChild);
+    } else if (mode !== 'custom' && custom) {
+      custom.parentNode.removeChild(custom);
+    }
+    var cur = String(sel.value || '');
+    if (!cur || (cur === 'custom' && mode !== 'custom')) sel.value = mode;
   }
 
   /* 근무자 한 줄 — 이름·시급·번호를 그 자리에서 고치고 [✓ 저장].
@@ -4229,6 +4369,7 @@
       var wageText = document.createElement('span');
       wageText.className = 'staff-row__note';
       wageText.textContent = (periodLabelOf(m.period) ? periodLabelOf(m.period) + ' · ' : '') + '시급 ' + money(m.hourly || 0)
+        + ' · 공제 ' + taxShortLabel(effectiveTaxType(m))
         + (m.retiredAt ? ' · ' + shortDay(m.retiredAt) + ' 퇴사' : '')
         + ' · 지난 근무·급여 기록은 그대로';
       li.appendChild(wageText);
@@ -4314,6 +4455,30 @@
     periodRow.appendChild(periodSel);
     li.appendChild(periodRow);
 
+    /* 3-1줄 — 급여 공제 방식 (실수령자 · 3.3% · 4대보험)
+       근무자에 값이 없으면 방 설정을 그대로 따르므로, 그 값으로 보여 줍니다. */
+    var taxRow = document.createElement('div');
+    taxRow.className = 'staff-row__taxrow';
+    var taxKey = document.createElement('span');
+    taxKey.className = 'staff-row__taxkey';
+    taxKey.textContent = '공제';
+    taxRow.appendChild(taxKey);
+    var taxSel = document.createElement('select');
+    taxSel.className = 'staff-row__tax';
+    taxSel.setAttribute('aria-label', m.name + ' 급여 공제 방식');
+    taxSel.title = '이 근무자 급여에서 뺄 공제 방식을 골라요 — 실수령자(0%) · 3.3% · 4대보험(약 9.72%)';
+    var taxChoices = STAFF_TAX_KEYS.map(function (k) { return [k, taxFullLabel(k)]; });
+    if (!staffTaxType(m) && roomTaxMode() === 'custom') taxChoices.unshift(['custom', taxFullLabel('custom')]);
+    taxChoices.forEach(function (o) {
+      var opt = document.createElement('option');
+      opt.value = o[0];
+      opt.textContent = o[1];
+      taxSel.appendChild(opt);
+    });
+    taxSel.value = staffTaxType(m) || roomTaxMode();
+    taxRow.appendChild(taxSel);
+    li.appendChild(taxRow);
+
     /* 4줄 — ☎️ 전화번호 */
     var telRow = document.createElement('div');
     telRow.className = 'staff-row__telrow';
@@ -4353,15 +4518,17 @@
     saveBtn.addEventListener('click', function () { save(); });
     li.appendChild(saveBtn);
 
-    function values() { return { name: name.value, hourly: wage.value, tel: telInput.value, period: periodSel.value }; }
+    function values() { return { name: name.value, hourly: wage.value, tel: telInput.value, period: periodSel.value, tax: taxSel.value }; }
 
     function isDirty() {
       var typedName = String(name.value || '').trim().slice(0, 12);
       var typedWage = Math.max(0, Math.round(Number(String(wage.value || '').replace(/[^\d]/g, '')) || 0));
       var typedTel = normTel(telInput.value);
       var typedPeriod = periodLabelOf(periodSel.value) ? periodSel.value : '';
+      var curTax = staffTaxType(m) || roomTaxMode();
       return typedName !== m.name || typedWage !== (m.hourly || 0) || typedTel !== telOf(m)
-        || typedPeriod !== (periodLabelOf(m.period) ? m.period : '');
+        || typedPeriod !== (periodLabelOf(m.period) ? m.period : '')
+        || taxSel.value !== curTax;
     }
 
     function syncDirty() {
@@ -4378,6 +4545,7 @@
     }
 
     periodSel.addEventListener('change', function () { save(); });
+    taxSel.addEventListener('change', function () { save(); });
     [name, wage, telInput].forEach(function (input) {
       input.addEventListener('input', syncDirty);
       /* 다른 곳을 누르면(포커스 아웃) 저장 */
@@ -4537,6 +4705,8 @@
     var tel = normTel(m.tel);
     if (tel) out.tel = tel;
     if (periodLabelOf(m.period)) out.period = m.period;
+    /* 급여 공제 방식 — 이름·시급을 고칠 때도 그대로 남아야 합니다. */
+    if (staffTaxType(m)) out.taxType = staffTaxType(m);
     if (m.photoDataUrl) out.photoDataUrl = m.photoDataUrl;
     /* 퇴사·계정 연결 정보는 이름·시급을 고칠 때도 그대로 남겨야 합니다. */
     if (m.uid) out.uid = String(m.uid).slice(0, 128);
@@ -4578,6 +4748,7 @@
       bg: /^#[0-9a-fA-F]{3,8}$/.test(x.bg || '') ? x.bg : '#e6fffb',
       hourly: Math.max(0, Math.round(Number(x.hourly) || 0)),
       period: periodLabelOf(x.period) ? x.period : '',
+      taxType: STAFF_TAX_KEYS.indexOf(String(x.taxType || '')) >= 0 ? String(x.taxType) : '',
       tel: normTel(x.tel),
       uid: String(x.uid || '').slice(0, 128),
       deviceId: String(x.deviceId || '').slice(0, 60),
@@ -4609,10 +4780,14 @@
       return;
     }
     var period = periodLabelOf(values.period) ? values.period : (values.period === '' ? '' : (m.period || ''));
+    /* 공제 방식 — '방 설정 따림'(custom)을 고르면 근무자에는 값을 두지 않고 방 설정을 따릅니다. */
+    var taxSel = String(values.tax || '');
+    var taxWanted = STAFF_TAX_KEYS.indexOf(taxSel) >= 0 ? taxSel : '';
     /* Enter(change)와 [✓ 저장]이 겹쳐 두 번 불려도 한 번만 저장되도록, 지금 목록의 값과 비교합니다. */
     var cur = staffById(m.id) || m;
+    var curTax = staffTaxType(cur);
     if (name === cur.name && hourly === (cur.hourly || 0) && tel === telOf(cur)
-      && period === (periodLabelOf(cur.period) ? cur.period : '')) {
+      && period === (periodLabelOf(cur.period) ? cur.period : '') && taxWanted === curTax) {
       renderStaffList();
       return;
     }
@@ -4624,6 +4799,7 @@
         out.hourly = hourly;
         if (tel) out.tel = tel; else delete out.tel;
         if (period) out.period = period; else delete out.period;
+        if (taxWanted) out.taxType = taxWanted; else delete out.taxType;
       }
       return out;
     });
@@ -4632,6 +4808,7 @@
     if (hourly !== (cur.hourly || 0)) changed.push('시급');
     if (tel !== telOf(cur)) changed.push('번호');
     if (period !== (periodLabelOf(cur.period) ? cur.period : '')) changed.push('구분');
+    if (taxWanted !== curTax) changed.push('공제 ' + taxShortLabel(taxWanted || roomTaxMode()));
     applyStaffLocal(next);
     StoreCloud.saveRoom({ staff: next }).then(function () {
       toast(name + ' 님 ' + changed.join('·') + ' 저장했어요');
@@ -4641,12 +4818,13 @@
     });
   }
 
-  /* ＋ 새 근무자 등록 — 이름·시급·번호만 넣으면 근무 등록·급여에 바로 쓸 수 있어요. */
+  /* ＋ 새 근무자 등록 — 이름·시급·번호·공제를 넣으면 근무 등록·급여에 바로 쓸 수 있어요. */
   function addStaffMember() {
     if (!isOwner()) return;
     var nameEl = $('staffAddName');
     var wageEl = $('staffAddWage');
     var telEl = $('staffAddTel');
+    var taxEl = $('staffAddTax');
     var errEl = $('staffAddError');
     function fail(msg) {
       if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
@@ -4665,6 +4843,9 @@
     if (tel && !telLooksValid(tel)) { fail('휴대폰 번호를 다시 확인해 주세요 (예: 010-1234-5678).'); return; }
     var palette = STAFF_COLORS[S.staff.length % STAFF_COLORS.length];
     var id = 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    /* 공제 방식 — '방 설정 따름'(custom)을 골랐으면 값을 두지 않고 방 설정을 따릅니다. */
+    var taxPick = String(taxEl ? taxEl.value : '');
+    var addedTax = STAFF_TAX_KEYS.indexOf(taxPick) >= 0 ? taxPick : '';
     var before = S.staff.slice();
     var next = S.staff.map(staffPlain);
     var added = {
@@ -4672,13 +4853,14 @@
       hourly: hourly || suggestedWage(), joinedAt: new Date(), active: true
     };
     if (tel) added.tel = tel;
+    if (addedTax) added.taxType = addedTax;
     next.push(added);
     if (nameEl) nameEl.value = '';
     if (wageEl) wageEl.value = '';
     if (telEl) telEl.value = '';
     applyStaffLocal(next);
     StoreCloud.saveRoom({ staff: next }).then(function () {
-      toast(name + ' 님을 근무자로 등록했어요 · ＋ 근무 등록에서 고를 수 있어요');
+      toast(name + ' 님을 근무자로 등록했어요 · 공제 ' + taxShortLabel(addedTax || roomTaxMode()) + ' · ＋ 근무 등록에서 고를 수 있어요');
     }).catch(function (err) {
       applyStaffLocal(before);
       window.alert('등록하지 못했어요 · ' + errorHint(err) + '\n\n전에 값으로 되돌렸어요.');

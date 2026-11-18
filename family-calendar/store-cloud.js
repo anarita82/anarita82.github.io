@@ -388,6 +388,8 @@
             hourly: Math.max(0, Math.round(Number(m.hourly) || 0)),
             /* 기본 근무 구분(오전·오후·야간·주말) — 상단 근무자 칩과 달력에 '오전알바(민지)'로 쓰입니다. */
             period: ['morning', 'afternoon', 'night', 'weekend', 'custom'].indexOf(String(m.period || '')) >= 0 ? String(m.period) : '',
+            /* 급여 공제 방식 — 없으면(예전 근무자) 화면에서 방 설정을 따릅니다. */
+            taxType: ['none', '3.3', '4ins'].indexOf(String(m.taxType || '')) >= 0 ? String(m.taxType) : '',
             tel: normTel(m.tel),
             uid: String(m.uid || '').slice(0, 128),
             deviceId: String(m.deviceId || '').slice(0, 60),
@@ -422,7 +424,7 @@
 
       var ps = d.payrollSettings && typeof d.payrollSettings === 'object' ? d.payrollSettings : {};
       var settings = {
-        taxMode: (ps.taxMode === '3.3' || ps.taxMode === 'custom') ? ps.taxMode : 'none',
+        taxMode: (ps.taxMode === '3.3' || ps.taxMode === 'custom' || ps.taxMode === '4ins') ? ps.taxMode : 'none',
         taxRate: ps.taxRate === undefined || ps.taxRate === null ? 3.3 : Number(ps.taxRate) || 0,
         /* 값이 없는 예전 방은 켜진 것으로 봅니다 — 기본 ON. */
         weeklyAllowance: ps.weeklyAllowance !== false,
