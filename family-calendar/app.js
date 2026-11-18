@@ -2810,6 +2810,19 @@
         b.classList.toggle('is-on', parsed.members.indexOf(b.getAttribute('data-id')) !== -1);
       });
       paintMembersCount();
+    } else if (!currentMembers().length && state.profile) {
+      /* 문자에 이름이 없으면 이 폰 주인을 담당으로 골라 둡니다(칩으로 바로 바꿀 수 있음). */
+      var me = null;
+      MEMBERS.forEach(function (m) { if (!me && m.name === state.profile) me = m; });
+      if (me) {
+        Array.prototype.forEach.call(el.fMembers.children, function (b) {
+          b.classList.toggle('is-on', b.getAttribute('data-id') === me.id);
+        });
+        paintMembersCount();
+        parsed.members = [me.id];
+        parsed.notes = (parsed.notes || []).filter(function (n) { return n.indexOf('담당 가족을 찾지') === -1; });
+        parsed.notes.push('담당은 ' + me.name + '으로 골라 뒀어요 · 다르면 직접 바꿔 주세요');
+      }
     }
     if (parsed.category) {
       Array.prototype.forEach.call(el.fCategories.children, function (b) {
