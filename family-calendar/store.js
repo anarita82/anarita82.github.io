@@ -4140,7 +4140,7 @@
     } else if (calc.tax) {
       html += '<tr><th>공제 (' + calc.taxRate + '%)</th><td>-' + money(calc.tax) + '</td></tr>';
     } else {
-      html += '<tr><th>공제</th><td>' + money(0) + ' (실수령자)</td></tr>';
+      html += '<tr><th>공제</th><td>' + money(0) + (calc.taxType === 'none' ? ' (실수령자)' : '') + '</td></tr>';
     }
     html += '</tbody></table>';
     html += '<div class="pay-doc__net"><span>실지급액</span><b>' + money(calc.net) + '</b></div>';
@@ -4233,8 +4233,10 @@
       lines.push('  · 공제 합계: -' + money(calc.tax));
     } else if (calc.tax) {
       lines.push('- 공제(' + calc.taxRate + '%): -' + money(calc.tax));
-    } else {
+    } else if (calc.taxType === 'none') {
       lines.push('- 공제: 없음 (실수령자)');
+    } else {
+      lines.push('- 공제: 0원');
     }
     lines.push('- 실지급액: ' + money(calc.net));
     lines.push('- 지급일: ' + payDayText(calc.y, calc.m));
