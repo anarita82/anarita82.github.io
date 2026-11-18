@@ -2789,9 +2789,22 @@
         updateMoreBadges();
         Array.prototype.forEach.call(wrap.children, function (x) { x.classList.remove('is-on'); });
         b.classList.add('is-on');
+        /* 위에 적힌 '이렇게 채웠어요'의 날짜도 같이 바꿔 줍니다. */
+        if (el.pasteStatus && !el.pasteStatus.hidden) {
+          el.pasteStatus.textContent = el.pasteStatus.textContent.replace(/📅 [0-9.~]+/,
+            '📅 ' + cand.date.replace(/-/g, '.') +
+            (cand.endDate && cand.endDate !== cand.date ? '~' + cand.endDate.slice(5).replace('-', '.') : ''));
+        }
       });
       wrap.appendChild(b);
     });
+  }
+
+  function withRo(name) {
+    var s = String(name || '');
+    var code = s.charCodeAt(s.length - 1);
+    if (code >= 0xAC00 && code <= 0xD7A3) return s + ((code - 0xAC00) % 28 ? '으로' : '로');
+    return s + '으로';
   }
 
   function applyPastedEvent(parsed) {
@@ -2820,7 +2833,7 @@
         paintMembersCount();
         parsed.members = [me.id];
         parsed.notes = (parsed.notes || []).filter(function (n) { return n.indexOf('담당 가족을 찾지') === -1; });
-        parsed.notes.push('담당은 ' + me.name + '으로 골라 뒀어요 · 다르면 직접 바꿔 주세요');
+        parsed.notes.push('담당은 ' + withRo(me.name) + ' 골라 뒀어요 · 다르면 직접 바꿔 주세요');
       }
     }
     if (parsed.category) {
