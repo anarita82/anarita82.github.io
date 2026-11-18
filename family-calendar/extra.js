@@ -45,6 +45,7 @@
 
   var el = {};
   var toastTimer = null;
+  var pasteUI = null;
 
   function $(id) { return document.getElementById(id); }
   function val(id) { var n = $(id); return n ? String(n.value == null ? '' : n.value) : ''; }
@@ -931,6 +932,7 @@
   function openEvent(ev, presetDate) {
     S.editingId = ev ? ev.id : null;
     var ro = ev ? !canEditEvent(ev) : false;
+    resetPasteBox();
     if ($('calEvTitle')) $('calEvTitle').textContent = ev ? '일정 수정' : '일정 추가';
     if ($('calEvTitleInput')) $('calEvTitleInput').value = ev ? ev.title : '';
     if ($('calEvDate')) $('calEvDate').value = ev ? ev.date : (presetDate || S.selected || todayISO());
@@ -945,6 +947,50 @@
     if (ro) err('calEvError', '다른 사람이 넣은 일정이라 볼 수만 있어요.');
     else hideErr('calEvError');
     if ($('calEventModal')) $('calEventModal').hidden = false;
+  }
+
+  /* ---------------- 문자·카톡 붙여넣기 (일반형) ---------------- */
+  function resetPasteBox() {
+    var area = $('calPasteArea');
+    if (area) area.value = '';
+    var st = $('calPasteStatus');
+    if (st) { st.hidden = true; st.textContent = ''; st.classList.remove('paste-status--warn'); }
+    var cands = $('calPasteCands');
+    if (cands) { cands.hidden = true; cands.innerHTML = ''; }
+    if (pasteUI) pasteUI.close();
+  }
+
+  function renderPasteCands(parsed) {
+    var wrap = $('calPasteCands');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    var list = (parsed && parsed.candidates) || [];
+    if (list.length < 2) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    list.forEach(function (cand) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'paste-cand' + (cand.date === parsed.date ? ' is-on' : '');
+      b.textContent = fmtMD(cand.date) + (cand.hasTime ? ' ' + cand.time : '');
+      b.addEventListener('click', function () {
+        if ($('calEvDate')) $('calEvDate').value = cand.date;
+        if ($('calEvTime')) $('calEvTime').value = cand.hasTime ? cand.time : '';
+        Array.prototype.forEach.call(wrap.children, function (x) { x.classList.remove('is-on'); });
+        b.classList.add('is-on');
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  function applyPastedEvent(parsed) {
+    if (!parsed) return;
+    if (parsed.date && $('calEvDate')) $('calEvDate').value = parsed.date;
+    if ($('calEvTime')) $('calEvTime').value = parsed.hasTime ? parsed.time : '';
+    if (parsed.title && $('calEvTitleInput')) $('calEvTitleInput').value = parsed.title.slice(0, 80);
+    if (parsed.memo && $('calEvMemo')) $('calEvMemo').value = parsed.memo.slice(0, 600);
+    renderPasteCands(parsed);
+    var st = $('calPasteStatus');
+    if (st) st.classList.toggle('paste-status--warn', !parsed.date);
   }
 
   function saveEventForm() {
@@ -1619,6 +1665,20 @@
     var evBackdrop = $('calEventModal') && $('calEventModal').querySelector('[data-close]');
     if (evBackdrop) evBackdrop.addEventListener('click', function () { $('calEventModal').hidden = true; });
     if ($('calEvSave')) $('calEvSave').addEventListener('click', saveEventForm);
+    if (window.CalendarPaste && $('calPasteBtn')) {
+      pasteUI = CalendarPaste.attachUI({
+        entry: $('calPasteBtn'),
+        box: $('calPasteBox'),
+        area: $('calPasteArea'),
+        runBtn: $('calPasteRunBtn'),
+        clipBtn: $('calPasteClipBtn'),
+        clearBtn: $('calPasteClearBtn'),
+        statusEl: $('calPasteStatus'),
+        tryClipboard: true,
+        getCtx: function () { return { members: [], today: todayISO() }; },
+        onFill: applyPastedEvent
+      });
+    }
     if ($('calEvDelete')) $('calEvDelete').addEventListener('click', deleteEventForm);
 
     /* 근무 모달 */

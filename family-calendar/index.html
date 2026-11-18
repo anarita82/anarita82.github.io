@@ -12,11 +12,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="가족 달력" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<link rel="stylesheet" href="styles.css?v=20261118b3" />
-<link rel="stylesheet" href="store.css?v=20261118b3" />
-<link rel="stylesheet" href="ledger.css?v=20261118b3" />
-<link rel="stylesheet" href="extra.css?v=20261118b3" />
-<link rel="stylesheet" href="polish.css?v=20261118b3" />
+<link rel="stylesheet" href="styles.css?v=20261118c1" />
+<link rel="stylesheet" href="store.css?v=20261118c1" />
+<link rel="stylesheet" href="ledger.css?v=20261118c1" />
+<link rel="stylesheet" href="extra.css?v=20261118c1" />
+<link rel="stylesheet" href="polish.css?v=20261118c1" />
 </head>
 <body>
 <div class="app">
@@ -591,6 +591,25 @@
 
     <p class="voice-status" id="eventVoiceStatus" hidden></p>
 
+    <div class="paste-entry">
+      <button type="button" class="paste-entry__btn" id="pasteBtn" aria-expanded="false" aria-controls="pasteBox">
+        📋 문자·카톡 붙여넣기
+        <span class="paste-entry__hint">복사한 안내 문자를 넣으면 날짜·시간·제목이 저절로 채워져요</span>
+      </button>
+    </div>
+    <div class="paste-box" id="pasteBox" hidden>
+      <label class="paste-box__label" for="pasteArea">문자·카톡 내용</label>
+      <textarea id="pasteArea" rows="4" placeholder="예) 11월 21일(금) 오후 2시 학부모 상담 안내드립니다…" autocomplete="off"></textarea>
+      <div class="paste-box__row">
+        <button type="button" class="btn-ghost btn-small" id="pasteClipBtn">📋 클립보드에서</button>
+        <button type="button" class="btn-primary btn-small" id="pasteRunBtn">자동 채우기</button>
+        <button type="button" class="btn-ghost btn-small" id="pasteClearBtn">지우기</button>
+      </div>
+      <p class="paste-box__hint">붙여넣으면 바로 채워져요. 원문은 메모에 그대로 남겨 둬요.</p>
+    </div>
+    <p class="paste-status" id="pasteStatus" hidden></p>
+    <div class="paste-cands" id="pasteCands" hidden></div>
+
     <div class="field field--title">
       <label for="fTitle">제목 <span class="req">*</span></label>
       <input id="fTitle" type="text" placeholder="예) 둘째 치과 검진" maxlength="60" autocomplete="off" required />
@@ -682,7 +701,7 @@
 
       <div class="field">
         <label for="fMemo">메모</label>
-        <textarea id="fMemo" rows="2" maxlength="200" placeholder="준비물, 장소 등"></textarea>
+        <textarea id="fMemo" rows="3" maxlength="600" placeholder="준비물, 장소 등"></textarea>
       </div>
     </div>
 
@@ -1829,6 +1848,24 @@
       <h2 id="calEvTitle">일정 추가</h2>
       <button class="sheet-close" id="calEvClose" type="button" aria-label="닫기">✕</button>
     </div>
+    <div class="paste-entry">
+      <button type="button" class="paste-entry__btn" id="calPasteBtn" aria-expanded="false" aria-controls="calPasteBox">
+        📋 문자·카톡 붙여넣기
+        <span class="paste-entry__hint">복사한 안내 문자를 넣으면 날짜·시간·제목이 저절로 채워져요</span>
+      </button>
+    </div>
+    <div class="paste-box" id="calPasteBox" hidden>
+      <label class="paste-box__label" for="calPasteArea">문자·카톡 내용</label>
+      <textarea id="calPasteArea" rows="4" placeholder="예) 11월 21일(금) 오후 2시 정기 모임 안내…" autocomplete="off"></textarea>
+      <div class="paste-box__row">
+        <button type="button" class="btn-ghost btn-small" id="calPasteClipBtn">📋 클립보드에서</button>
+        <button type="button" class="btn-primary btn-small" id="calPasteRunBtn">자동 채우기</button>
+        <button type="button" class="btn-ghost btn-small" id="calPasteClearBtn">지우기</button>
+      </div>
+      <p class="paste-box__hint">붙여넣으면 바로 채워져요. 원문은 메모에 그대로 남겨 둬요.</p>
+    </div>
+    <p class="paste-status" id="calPasteStatus" hidden></p>
+    <div class="paste-cands" id="calPasteCands" hidden></div>
     <div class="field">
       <label for="calEvTitleInput">제목 <span class="req">*</span></label>
       <input id="calEvTitleInput" type="text" maxlength="80" placeholder="예) 정기 모임, 발표회" autocomplete="off" />
@@ -1843,7 +1880,7 @@
     </div>
     <div class="field">
       <label for="calEvMemo">메모</label>
-      <textarea id="calEvMemo" maxlength="300" placeholder="장소·준비물·연락처 등"></textarea>
+      <textarea id="calEvMemo" maxlength="600" placeholder="장소·준비물·연락처 등"></textarea>
     </div>
     <p class="form-error" id="calEvError" hidden></p>
     <div class="sheet-actions">
@@ -1915,19 +1952,20 @@
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
 
-<script src="firebase-app-compat.js?v=20261118b3"></script>
-<script src="firebase-auth-compat.js?v=20261118b3"></script>
-<script src="firebase-firestore-compat.js?v=20261118b3"></script>
-<script src="lunar.js?v=20261118b3"></script>
-<script src="cloud.js?v=20261118b3"></script>
-<script src="app.js?v=20261118b3"></script>
-<script src="voice.js?v=20261118b3"></script>
-<script src="media.js?v=20261118b3"></script>
-<script src="store-cloud.js?v=20261118b3"></script>
-<script src="store.js?v=20261118b3"></script>
-<script src="ledger-cloud.js?v=20261118b3"></script>
-<script src="ledger.js?v=20261118b3"></script>
-<script src="extra-cloud.js?v=20261118b3"></script>
-<script src="extra.js?v=20261118b3"></script>
+<script src="firebase-app-compat.js?v=20261118c1"></script>
+<script src="firebase-auth-compat.js?v=20261118c1"></script>
+<script src="firebase-firestore-compat.js?v=20261118c1"></script>
+<script src="lunar.js?v=20261118c1"></script>
+<script src="cloud.js?v=20261118c1"></script>
+<script src="app.js?v=20261118c1"></script>
+<script src="voice.js?v=20261118c1"></script>
+<script src="paste.js?v=20261118c1"></script>
+<script src="media.js?v=20261118c1"></script>
+<script src="store-cloud.js?v=20261118c1"></script>
+<script src="store.js?v=20261118c1"></script>
+<script src="ledger-cloud.js?v=20261118c1"></script>
+<script src="ledger.js?v=20261118c1"></script>
+<script src="extra-cloud.js?v=20261118c1"></script>
+<script src="extra.js?v=20261118c1"></script>
 </body>
 </html>

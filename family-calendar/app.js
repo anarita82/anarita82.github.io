@@ -35,6 +35,7 @@
   var requests = [];
   var profileRequests = [];
   var photos = [];
+  var pasteUI = null;
   var cloudReady = false;
   var connectTimer = null;
   var toastTimer = null;
@@ -350,6 +351,14 @@
     el.dateRangeHint = document.getElementById('dateRangeHint');
     el.voiceBtn = document.getElementById('eventVoiceBtn');
     el.voiceStatus = document.getElementById('eventVoiceStatus');
+    el.pasteBtn = document.getElementById('pasteBtn');
+    el.pasteBox = document.getElementById('pasteBox');
+    el.pasteArea = document.getElementById('pasteArea');
+    el.pasteRunBtn = document.getElementById('pasteRunBtn');
+    el.pasteClipBtn = document.getElementById('pasteClipBtn');
+    el.pasteClearBtn = document.getElementById('pasteClearBtn');
+    el.pasteStatus = document.getElementById('pasteStatus');
+    el.pasteCands = document.getElementById('pasteCands');
     el.fAllDay = document.getElementById('fAllDay');
     el.fTime = document.getElementById('fTime');
     el.fMembers = document.getElementById('fMembers');
@@ -862,6 +871,26 @@
         statusEl: el.voiceStatus,
         idleLabel: '🎤 말로 입력하기',
         onText: applyVoiceEvent
+      });
+    }
+    if (window.CalendarPaste && el.pasteBtn) {
+      pasteUI = CalendarPaste.attachUI({
+        entry: el.pasteBtn,
+        box: el.pasteBox,
+        area: el.pasteArea,
+        runBtn: el.pasteRunBtn,
+        clipBtn: el.pasteClipBtn,
+        clearBtn: el.pasteClearBtn,
+        statusEl: el.pasteStatus,
+        tryClipboard: true,
+        getCtx: function () {
+          return {
+            members: MEMBERS.map(function (m) { return { id: m.id, name: m.name }; }),
+            today: todayISO()
+          };
+        },
+        memberName: function (id) { var m = memberById(id); return m ? m.name : ''; },
+        onFill: applyPastedEvent
       });
     }
     el.fRepeat.addEventListener('click', function (e) {
@@ -2367,6 +2396,7 @@
     el.fEndDate.value = ev && ev.endDate ? ev.endDate : '';
     el.fMemo.value = ev ? (ev.memo || '') : '';
     resetVoiceBox();
+    resetPasteBox();
     state.weekday = ev ? weekdayOf(ev) : parseISO(el.fDate.value || state.selected).getDay();
     state.weekdayTouched = !!ev;
     renderChecklistEditor(ev ? (ev.checklist || []) : []);
@@ -2716,6 +2746,83 @@
         (bits.length ? '→ ' + bits.join(' · ') + '\n맞는지 확인하고, 틀린 칸은 직접 고쳐 주세요.' :
           '→ 알아들은 날짜·시간이 없어요. 날짜와 시간을 직접 넣어 주세요.');
     }
+  }
+
+  /* ---------------- 문자·카톡 붙여넣기 ---------------- */
+  function resetPasteBox() {
+    if (el.pasteArea) el.pasteArea.value = '';
+    if (el.pasteStatus) {
+      el.pasteStatus.hidden = true;
+      el.pasteStatus.textContent = '';
+      el.pasteStatus.classList.remove('paste-status--warn');
+    }
+    if (el.pasteCands) {
+      el.pasteCands.hidden = true;
+      el.pasteCands.innerHTML = '';
+    }
+    if (pasteUI) pasteUI.close();
+  }
+
+  function renderPasteCands(parsed) {
+    var wrap = el.pasteCands;
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    var list = (parsed && parsed.candidates) || [];
+    if (list.length < 2) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    list.forEach(function (cand) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'paste-cand' + (cand.date === parsed.date ? ' is-on' : '');
+      b.textContent = fmtMD(cand.date) + (cand.hasTime ? ' ' + cand.time : '');
+      b.addEventListener('click', function () {
+        el.fDate.value = cand.date;
+        if (el.fEndDate) el.fEndDate.value = (cand.endDate && cand.endDate !== cand.date) ? cand.endDate : '';
+        if (cand.hasTime && cand.time) {
+          el.fAllDay.checked = false;
+          el.fTime.value = cand.time;
+        } else {
+          el.fAllDay.checked = true;
+        }
+        syncTimeField();
+        updateDateHint();
+        updateMoreBadges();
+        Array.prototype.forEach.call(wrap.children, function (x) { x.classList.remove('is-on'); });
+        b.classList.add('is-on');
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  function applyPastedEvent(parsed) {
+    if (!parsed) return;
+    if (parsed.date) el.fDate.value = parsed.date;
+    if (el.fEndDate) el.fEndDate.value = (parsed.endDate && parsed.endDate !== parsed.date) ? parsed.endDate : '';
+    if (parsed.hasTime && parsed.time) {
+      el.fAllDay.checked = false;
+      el.fTime.value = parsed.time;
+    } else if (parsed.date) {
+      el.fAllDay.checked = true;
+    }
+    syncTimeField();
+    if (parsed.members && parsed.members.length) {
+      Array.prototype.forEach.call(el.fMembers.children, function (b) {
+        b.classList.toggle('is-on', parsed.members.indexOf(b.getAttribute('data-id')) !== -1);
+      });
+      paintMembersCount();
+    }
+    if (parsed.category) {
+      Array.prototype.forEach.call(el.fCategories.children, function (b) {
+        b.classList.toggle('is-on', b.getAttribute('data-id') === parsed.category);
+      });
+    }
+    if (parsed.title) el.fTitle.value = parsed.title.slice(0, 60);
+    if (parsed.memo) el.fMemo.value = parsed.memo.slice(0, 600);
+    updateDateHint();
+    if (parsed.endDate || parsed.category || parsed.memo) toggleMore(true);
+    updateMoreBadges();
+    renderPasteCands(parsed);
+    if (el.pasteStatus) el.pasteStatus.classList.toggle('paste-status--warn', !parsed.date);
   }
 
   function saveEvent() {
