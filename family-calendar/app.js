@@ -2812,8 +2812,7 @@
       paintMembersCount();
     } else if (!currentMembers().length && state.profile) {
       /* 문자에 이름이 없으면 이 폰 주인을 담당으로 골라 둡니다(칩으로 바로 바꿀 수 있음). */
-      var me = null;
-      MEMBERS.forEach(function (m) { if (!me && m.name === state.profile) me = m; });
+      var me = memberById(state.profile);
       if (me) {
         Array.prototype.forEach.call(el.fMembers.children, function (b) {
           b.classList.toggle('is-on', b.getAttribute('data-id') === me.id);
