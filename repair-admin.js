@@ -566,9 +566,10 @@
   function bindList() {
     var box = $('ticket-list');
     box.addEventListener('click', function (event) {
+      try {
       var btn = event.target.closest('button');
       if (!btn) return;
-      var id = btn.getAttribute('data-id');
+      var id = btn.getAttribute('data-id') || btn.getAttribute('data-save-edit') || btn.getAttribute('data-delete') || btn.getAttribute('data-edit') || btn.getAttribute('data-copy-msg');
       var ticket = id ? findTicket(id) : null;
 
       if (btn.hasAttribute('data-action')) {
@@ -628,6 +629,7 @@
       }
       if (btn.hasAttribute('data-save-edit')) {
         var card = document.querySelector('.rp-ticket[data-id="' + ticket._id + '"] [data-edit-form]');
+        if (!card) return;
         var patch = {};
         card.querySelectorAll('[data-edit-field]').forEach(function (el) {
           var key = el.getAttribute('data-edit-field');
@@ -661,6 +663,9 @@
           render();
           toast('삭제했습니다');
         }).catch(function () { toast('삭제하지 못했습니다.'); });
+      }
+      } catch (err) {
+        toast('처리 중 오류가 생겼습니다. 새로고침 후 다시 시도해 주세요.');
       }
     });
   }
