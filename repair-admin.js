@@ -692,7 +692,7 @@
     var mark = '';
     try { mark = localStorage.getItem(PIN_MARK) || ''; } catch (e) { mark = ''; }
     $('pin-state').textContent = mark
-      ? 'PIN 변경일 ' + new Date(mark).toLocaleDateString('ko-KR') + '. 잊지 않도록 따로 적어 두세요.'
+      ? 'PIN 변경일 ' + new Date(mark).toLocaleDateString('ko-KR') + ' · 잊지 않도록 따로 적어 두세요.'
       : '아직 PIN을 바꾸지 않았습니다. 기본 PIN 대신 새 PIN으로 바꿔 주세요.';
   }
 
