@@ -503,7 +503,12 @@
 
     var q = new URLSearchParams(location.search);
     var storeParam = q.get('store');
+    var codeParam = q.get('code');
     if (storeParam) StoreCloud.rememberCode(storeParam);
+    if (codeParam && !storeParam) {
+      lsSet(LOCK_KEY, '');
+      lsSet(MODE_KEY, 'family');
+    }
 
     var familyCode = (window.FamilyCloud && FamilyCloud.storedCode()) || '';
     var hadOwner = isOwnerDevice();
@@ -5432,9 +5437,14 @@
     try {
       var q = new URLSearchParams(location.search);
       var storeParam = q.get('store');
+      var codeParam = q.get('code');
       if (storeParam) StoreCloud.rememberCode(storeParam);
       var familyCode = (window.FamilyCloud && FamilyCloud.storedCode()) || '';
       if (storeParam && !familyCode && ls(OWNER_KEY) !== '1') lsSet(LOCK_KEY, '1');
+      if (codeParam && !storeParam) {
+        lsSet(LOCK_KEY, '');
+        lsSet(MODE_KEY, 'family');
+      }
       if (StoreCloud.storedCode()) S.code = StoreCloud.storedCode();
     } catch (e) { /* 무시 */ }
   }
