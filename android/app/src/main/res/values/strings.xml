@@ -8,4 +8,5 @@
     <string name="widget_today">오늘 일정</string>
     <string name="widget_upcoming">다가오는 일정</string>
     <string name="widget_desc">오늘과 다가오는 가족 일정을 홈 화면에서 바로 봅니다.</string>
+    <string name="widget_need_app">앱을 열면 오늘 일정이 바로 보여요</string>
 </resources>
