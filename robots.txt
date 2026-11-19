@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /repair-admin.html
 
 Sitemap: https://anarita82.github.io/sitemap.xml
