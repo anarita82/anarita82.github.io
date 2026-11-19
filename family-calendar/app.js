@@ -694,7 +694,9 @@
     var st = (res && res.state) || '';
     state.gateState = st;
     if (st === 'member') {
+      cloudReady = true;
       if (el.roomJoinBox) el.roomJoinBox.hidden = true;
+      updateRoomInfo();
       closeRoomModal();
       setStatus('online', '공유 중');
       toast('승인되었어요 · 가족 달력이 열렸습니다');
@@ -750,12 +752,23 @@
     });
   }
 
+  var lastJoinAlertKey = '';
   /* 관리자 설정 — 기기 입장 요청 목록 */
   function renderAdminJoins() {
     if (!el.adminJoinList) return;
     var serverAdmin = !!(window.FamilyCloud && FamilyCloud.isAdmin && FamilyCloud.isAdmin());
     var list = serverAdmin ? (state.joins || []).filter(function (j) { return j && j.status === 'pending'; }) : [];
     if (el.adminJoinBlock) el.adminJoinBlock.hidden = !list.length;
+    if (list.length) {
+      var key = list.map(function (j) { return j.uid; }).join(',');
+      if (key !== lastJoinAlertKey) {
+        lastJoinAlertKey = key;
+        var names = list.map(function (j) { return j.name || '새 기기'; }).join(', ');
+        toast('📱 ' + names + ' 입장 요청 · ⚙️ 설정 → 🔑 관리자 설정에서 승인해 주세요');
+      }
+    } else {
+      lastJoinAlertKey = '';
+    }
     el.adminJoinList.innerHTML = '';
     list.forEach(function (j) {
       var li = document.createElement('li');

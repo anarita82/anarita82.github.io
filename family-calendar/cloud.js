@@ -487,6 +487,7 @@
         if (res.state === 'member' || res.state === 'claimed') {
           clearInterval(state.gatePoll);
           state.gatePoll = null;
+          rememberCode(state.code);
           begin();
           emit('onGate', { state: 'member', data: res.data || {} });
           return;
@@ -494,6 +495,22 @@
         if (res.state === 'rejected') emit('onGate', res);
       }, function () { /* 다음 차례에 다시 확인 */ });
     }, GATE_POLL_MS);
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible' || !state.gatePoll || !state.roomRef) return;
+      probeRoom().then(function (res) {
+        if (!state.roomRef || !state.gatePoll) return;
+        if (res.state === 'member' || res.state === 'claimed') {
+          clearInterval(state.gatePoll);
+          state.gatePoll = null;
+          rememberCode(state.code);
+          begin();
+          emit('onGate', { state: 'member', data: res.data || {} });
+        }
+      }, function () { /* 무시 */ });
+    });
   }
 
   function begin() {
