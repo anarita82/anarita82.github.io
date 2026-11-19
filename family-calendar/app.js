@@ -3945,6 +3945,8 @@
     if (!canManage()) return;
     el.memberError.hidden = true;
     el.pinChangeError.hidden = true;
+    var okEl = document.getElementById('pinChangeOk');
+    if (okEl) okEl.hidden = true;
     el.newMemberName.value = '';
     if (el.newMemberTel) el.newMemberTel.value = '';
     el.newPin.value = '';
@@ -4348,6 +4350,8 @@
   }
 
   function showPinChangeError(msg) {
+    var okEl = document.getElementById('pinChangeOk');
+    if (okEl) okEl.hidden = true;
     el.pinChangeError.textContent = msg;
     el.pinChangeError.hidden = false;
   }
@@ -4360,11 +4364,18 @@
     if (pin.length !== 4) { showPinChangeError('4자리 숫자를 넣어 주세요.'); return; }
     if (pin !== pin2) { showPinChangeError('두 번 넣은 PIN이 달라요.'); return; }
     el.pinChangeError.hidden = true;
+    var okEl = document.getElementById('pinChangeOk');
+    if (okEl) okEl.hidden = true;
+    try { el.newPin.blur(); el.newPin2.blur(); } catch (e) { /* 무시 */ }
     FamilyCloud.setPin(target.id, pin).then(function () {
       state.roomPins = state.roomPins || {};
       state.roomPins[target.id] = FamilyCloud.pinHash(target.id, pin);
       el.newPin.value = '';
       el.newPin2.value = '';
+      if (okEl) {
+        okEl.textContent = '✓ ' + target.name + ' 님 PIN을 저장했어요';
+        okEl.hidden = false;
+      }
       toast(target.name + ' 님 PIN을 저장했어요');
     }).catch(function (err) {
       showPinChangeError('저장하지 못했어요 · ' + errorHint(err));
