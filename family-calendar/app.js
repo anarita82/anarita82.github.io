@@ -1917,6 +1917,57 @@
     } catch (e) { /* 예약 실패해도 앱 동작에는 영향 없음 */ }
   }
 
+  /* ---------------- 📅 홈 화면 위젯 (안드로이드 앱) ----------------
+     앱이 열려 일정을 불러올 때마다 오늘 일정과 앞으로 14일 안의 다가오는 일정을 가볍게 만들어
+     AndroidApp.updateWidget(json) 으로 넘깁니다. 홈 화면 위젯은 그 내용을 저장해 두고 보여 줍니다.
+     일반 브라우저에는 브리지가 없어 조용히 지나갑니다. */
+  function widgetNameOf(ev) {
+    return String((ev && ev.title) || '').replace(/^\[샘플\]\s*/, '');
+  }
+
+  function buildWidgetPayload() {
+    var today = todayISO();
+    var todayList = events.filter(function (ev) {
+      return isEventLike(ev) && !!occurrenceCovering(ev, today);
+    }).sort(compareEvents).slice(0, 6).map(function (ev) {
+      return { t: ev.time || '', n: widgetNameOf(ev), w: memberNamesOf(ev.members) };
+    });
+
+    var from = addDaysISO(today, 1);
+    var to = addDaysISO(today, 14);
+    var upcoming = [];
+    events.forEach(function (ev) {
+      if (!isEventLike(ev)) return;
+      try {
+        occurrenceStarts(ev, from, to).forEach(function (occ) {
+          upcoming.push({
+            d: occ.start,
+            t: ev.time || '',
+            n: widgetNameOf(ev),
+            w: memberNamesOf(ev.members)
+          });
+        });
+      } catch (e) { /* 반복 계산이 안 되는 일정은 위젯에서 건너뜀 */ }
+    });
+    upcoming.sort(function (a, b) {
+      if (a.d !== b.d) return a.d < b.d ? -1 : 1;
+      var ta = a.t || '00:00', tb = b.t || '00:00';
+      if (ta !== tb) return ta < tb ? -1 : 1;
+      return a.n.localeCompare(b.n, 'ko');
+    });
+
+    return { date: today, today: todayList, upcoming: upcoming.slice(0, 6), ts: Date.now() };
+  }
+
+  function syncAndroidWidget() {
+    var bridge = window.AndroidApp;
+    if (!bridge || typeof bridge.updateWidget !== 'function') return;
+    if (!cloudReady || state.blocked) return;
+    try {
+      bridge.updateWidget(JSON.stringify(buildWidgetPayload()));
+    } catch (e) { /* 위젯 갱신 실패는 앱 동작에 영향 없음 */ }
+  }
+
   /* 새 일정 감지 — 동기화로 새로 들어온 일정 중 내 담당(또는 전체)인 것을 알립니다. */
   var knownEventIds = {};
   var knownReady = false;
@@ -1974,6 +2025,7 @@
     renderAll();
     if (!first) announceNewEvents(fresh);
     syncAndroidAlarms();
+    syncAndroidWidget();
   }
 
   function updateNotifyBtn() {

@@ -503,6 +503,20 @@ public class MainActivity extends Activity {
             return PaymentNotificationListener.pendingCount(getApplicationContext());
         }
 
+        /* 📅 홈 화면 위젯 — 웹앱이 넘긴 오늘·다가오는 일정(JSON)을 폰에 저장하고 위젯을 바로 다시 그립니다.
+           위젯이 없거나 위젯을 쓰지 않는 폰에서는 저장만 되고 아무 일도 일어나지 않습니다. */
+        @JavascriptInterface
+        public void updateWidget(String json) {
+            try {
+                CalendarWidgetProvider.savePayload(getApplicationContext(), json);
+            } catch (Exception e) {
+                /* 위젯 갱신 실패는 앱 동작에 영향 없음 */
+            }
+        }
+
+        @JavascriptInterface
+        public boolean hasWidget() { return true; }
+
         /* 출납부 CSV를 폰 '다운로드/우리 가족 달력'에 저장하고 경로를 돌려줍니다(실패하면 빈 문자열). */
         @JavascriptInterface
         public String saveTextFile(String name, String text) {
@@ -599,6 +613,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        /* 앱을 다시 열 때 위젯의 날짜·줄 수만 먼저 맞춰 둡니다(웹앱이 곧 최신 일정을 넘겨 줍니다). */
+        try {
+            CalendarWidgetProvider.refreshAll(getApplicationContext());
+        } catch (Exception ignored) { /* 위젯이 없으면 무시 */ }
     }
 
     @Override

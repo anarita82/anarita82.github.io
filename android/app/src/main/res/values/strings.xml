@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">우리 가족 달력</string>
+
+    <!-- 📅 홈 화면 위젯 -->
+    <string name="widget_title">📅 우리 가족 달력</string>
+    <string name="widget_refresh">새로고침</string>
+    <string name="widget_today">오늘 일정</string>
+    <string name="widget_upcoming">다가오는 일정</string>
+    <string name="widget_desc">오늘과 다가오는 가족 일정을 홈 화면에서 바로 봅니다.</string>
 </resources>

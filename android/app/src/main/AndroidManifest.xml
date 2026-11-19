@@ -55,6 +55,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- 📅 홈 화면 위젯 — 오늘·다가오는 가족 일정 (앱이 동기화할 때마다 갱신) -->
+        <receiver
+            android:name=".CalendarWidgetProvider"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calendar_widget_info" />
+        </receiver>
+
         <!-- 💰 금전출납부 — 카드·은행·카톡 입출금 알림 자동 수집 (사용자가 알림 접근 권한을 켠 경우에만 동작) -->
         <service
             android:name=".PaymentNotificationListener"
