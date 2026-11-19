@@ -661,12 +661,18 @@
     el.roomCodeNow.hidden = !code;
   }
 
+  function setRoomSubmitLabel(label) {
+    var btn = el.roomForm ? el.roomForm.querySelector('button[type="submit"]') : null;
+    if (btn) btn.textContent = label || '시작하기';
+  }
+
   function openRoomModal(firstRun) {
     el.roomError.hidden = true;
     el.roomError.textContent = '';
     el.roomCode.value = FamilyCloud.initialCode() || '';
     el.roomClose.hidden = !!firstRun;
     if (el.roomJoinBox) el.roomJoinBox.hidden = true;
+    setRoomSubmitLabel('시작하기');
     el.roomModal.hidden = false;
     try { el.roomCode.focus(); } catch (e) { /* 무시 */ }
   }
@@ -674,6 +680,7 @@
   function closeRoomModal() {
     if (el.roomModal) el.roomModal.hidden = true;
     if (el.roomJoinBox) el.roomJoinBox.hidden = true;
+    setRoomSubmitLabel('시작하기');
   }
 
   function showRoomError(msg) {
@@ -709,6 +716,7 @@
     el.roomJoinBtn.hidden = pending;
     el.roomPendingHint.hidden = !pending;
     el.roomJoinMsg.hidden = true;
+    setRoomSubmitLabel(pending ? '승인 상태 다시 확인' : '입장 요청 보내기');
     if (pending) {
       setStatus('pending', '관리자 승인을 기다리는 중이에요');
     } else {
@@ -791,6 +799,17 @@
     if (e) e.preventDefault();
     var code = FamilyCloud.normalizeCode(el.roomCode.value);
     if (!code) { showRoomError('가족 코드를 입력해 주세요.'); return; }
+    var currentCode = (window.FamilyCloud && FamilyCloud.currentCode) ? FamilyCloud.normalizeCode(FamilyCloud.currentCode()) : '';
+    if (el.roomJoinBox && !el.roomJoinBox.hidden && (!currentCode || code === currentCode)) {
+      if (state.gateState === 'need-request' || state.gateState === 'rejected') {
+        submitFamilyJoin();
+        return;
+      }
+      if (state.gateState === 'pending') {
+        toast('관리자 승인을 기다리는 중이에요');
+        return;
+      }
+    }
     FamilyCloud.stop();
     events = [];
     resetEventWatch();
