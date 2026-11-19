@@ -387,6 +387,22 @@
     el.saveBtn = document.getElementById('saveBtn');
 
     el.statusPill = document.getElementById('statusPill');
+    if (el.statusPill && !el.statusPill.dataset.boundTap) {
+      el.statusPill.dataset.boundTap = '1';
+      el.statusPill.style.cursor = 'pointer';
+      el.statusPill.title = '연결 상태 보기';
+      el.statusPill.addEventListener('click', function () {
+        if (window.StoreMode && window.StoreMode.isStoreActive()) return;
+        if (window.ExtraMode && typeof window.ExtraMode.isActive === 'function' && window.ExtraMode.isActive()) return;
+        var msg = (lastStatus && lastStatus.text) ? lastStatus.text : '연결 상태 정보가 아직 없어요.';
+        var codeNow = (state && state.roomCode) ? state.roomCode : '없음';
+        var uidNow = (window.FamilyCloud && typeof window.FamilyCloud.myUid === 'function') ? (window.FamilyCloud.myUid() || '미로그인') : '';
+        if (confirm('현재 상태: ' + msg + '\n가족 코드: ' + codeNow + (uidNow ? '\n기기 ID: ' + uidNow.slice(0, 8) + '…' : '') + '\n\n[확인]을 누르면 지금 다시 연결을 시도합니다.')) {
+          if (state && state.roomCode) connectToRoom(state.roomCode);
+          else if (typeof openRoomModal === 'function') openRoomModal();
+        }
+      });
+    }
     el.appBarNote = document.getElementById('appBarNote');
     el.roomModal = document.getElementById('roomModal');
     el.roomForm = document.getElementById('roomForm');
