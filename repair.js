@@ -226,6 +226,23 @@
     other: '기타'
   };
 
+  function toggleCarrierEtc(on) {
+    var wrap = $('f-carrier-etc-wrap');
+    if (!wrap) return;
+    wrap.hidden = !on;
+    var input = $('f-carrier-etc');
+    if (!input) return;
+    if (!on) { input.value = ''; return; }
+    if (document.activeElement === $('f-carrier')) setTimeout(function () { input.focus({ preventScroll: true }); }, 40);
+  }
+
+  function readCarrier() {
+    var picked = $('f-carrier').value;
+    if (picked !== 'etc') return picked;
+    var etc = $('f-carrier-etc') ? $('f-carrier-etc').value.trim().replace(/\s+/g, ' ').slice(0, 20) : '';
+    return etc || 'etc';
+  }
+
   function readIntakeForm() {
     var symptomsChecked = Array.prototype.slice.call(document.querySelectorAll('input[name="symptom"]:checked')).map(function (el) { return el.value; });
     return {
@@ -237,7 +254,7 @@
       qty: Number(onlyDigits($('f-qty').value) || 0),
       symptoms: symptomsChecked,
       symptomNote: $('f-symptom-note').value.trim(),
-      carrier: $('f-carrier').value,
+      carrier: readCarrier(),
       trackingNo: onlyDigits($('f-tracking').value),
       agree: $('f-agree').checked
     };
@@ -340,6 +357,7 @@
   function resetIntake() {
     $('intake-form').reset();
     $('f-qty').value = '1';
+    toggleCarrierEtc(false);
     $('intake-form').hidden = false;
     $('intake-done').hidden = true;
     showError($('intake-error'), '');
@@ -404,8 +422,8 @@
     if (ticket.expectedFrom && ticket.expectedTo) {
       html += '<dt>완료 예정</dt><dd><strong>' + formatKoreanDate(ticket.expectedFrom) + ' ~ ' + formatKoreanDate(ticket.expectedTo) + '</strong></dd>';
     }
-    if (ticket.trackingNo) {
-      html += '<dt>보내신 송장</dt><dd>' + escapeHtml(carrierName(ticket.carrier)) + ' ' + escapeHtml(ticket.trackingNo) + '</dd>';
+    if (ticket.trackingNo || ticket.carrier) {
+      html += '<dt>보내신 택배</dt><dd>' + escapeHtml(carrierName(ticket.carrier) || '택배사 미기재') + (ticket.trackingNo ? ' ' + escapeHtml(ticket.trackingNo) : '') + '</dd>';
     }
     if (ticket.status === 'done' || ticket.status === 'shipped') {
       if (ticket.quote) html += '<dt>수리 금액</dt><dd>' + Number(ticket.quote).toLocaleString('ko-KR') + '원</dd>';
@@ -415,8 +433,10 @@
     if (ticket.ownerMemo) {
       html += '<div class="rp-owner-note"><b>사장님 안내</b>' + escapeHtml(ticket.ownerMemo).replace(/\n/g, '<br>') + '</div>';
     }
-    if (ticket.returnTrackingNo || ticket.status === 'shipped') {
-      html += '<div class="rp-shipping"><b>반송 정보</b>' + escapeHtml(carrierName(ticket.returnCarrier) || '택배사 미등록') + ' ' + escapeHtml(ticket.returnTrackingNo || '송장번호 미등록') + '</div>';
+    if (ticket.returnCarrier || ticket.returnTrackingNo || ticket.status === 'shipped') {
+      var returnCarrier = carrierName(ticket.returnCarrier || 'post') || '우체국택배';
+      var returnTracking = ticket.returnTrackingNo ? '송장번호 ' + ticket.returnTrackingNo : '사전접수 후 송장번호를 알려드립니다';
+      html += '<div class="rp-shipping"><b>반송 정보</b>' + escapeHtml(returnCarrier) + ' · ' + escapeHtml(returnTracking) + '</div>';
     }
     html += '</div>';
 
@@ -433,8 +453,17 @@
     return STATUS[status] ? status : 'received';
   }
 
+  var CARRIERS = {
+    cj: 'CJ대한통운', post: '우체국택배', lotte: '롯데택배', hanjin: '한진택배',
+    logen: '로젠택배', kyungdong: '경동택배', daesin: '대신택배',
+    gs: 'GS25 편의점택배', cu: 'CU 편의점택배', etc: '기타 택배'
+  };
+
+  /* 직접입력한 택배사 이름은 코드가 아니라 이름 그대로 저장됩니다. */
   function carrierName(code) {
-    return { cj: 'CJ대한통운', post: '우체국택배', hanjin: '한진택배', lotte: '롯데택배', logen: '로젠택배', kyungdong: '경동택배', etc: '기타 택배' }[code] || '';
+    var key = String(code || '').trim();
+    if (!key) return '';
+    return CARRIERS[key] || key;
   }
 
   function escapeHtml(text) {
@@ -492,6 +521,7 @@
       this.value = out;
     });
     $('f-tracking').addEventListener('input', function () { this.value = onlyDigits(this.value).slice(0, 20); });
+    $('f-carrier').addEventListener('change', function () { toggleCarrierEtc(this.value === 'etc'); });
     $('l-phone4').addEventListener('input', function () { this.value = onlyDigits(this.value).slice(0, 4); });
     $('l-ticket').addEventListener('input', function () {
       var pos = this.selectionStart;

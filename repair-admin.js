@@ -22,7 +22,19 @@
     shipped: { label: '반송 발송', step: 4, chip: 'shipped' }
   };
   var SYMPTOM_NAMES = { double: '더블클릭', wheel: '휠 불량', cable: '케이블', other: '기타' };
-  var CARRIERS = { cj: 'CJ대한통운', post: '우체국택배', hanjin: '한진택배', lotte: '롯데택배', logen: '로젠택배', kyungdong: '경동택배', etc: '기타' };
+  /* 택배는 여러 브랜드에서 오므로 주요 택배사·편의점택배를 모두 둡니다.
+     기타(직접입력)는 코드 대신 고객이 적은 이름이 carrier 에 그대로 저장됩니다. */
+  var CARRIERS = {
+    post: '우체국택배', cj: 'CJ대한통운', lotte: '롯데택배', hanjin: '한진택배',
+    logen: '로젠택배', kyungdong: '경동택배', daesin: '대신택배',
+    gs: 'GS25 편의점택배', cu: 'CU 편의점택배', etc: '기타 택배'
+  };
+  var CARRIER_ORDER = ['cj', 'post', 'lotte', 'hanjin', 'logen', 'kyungdong', 'daesin', 'gs', 'cu', 'etc'];
+  /* 반송은 우체국 사전접수 후 창구에서 보내는 방식만 씁니다 — 기본값을 우체국택배로 고정합니다. */
+  var RETURN_CARRIER_ORDER = ['post', 'cj', 'lotte', 'hanjin', 'logen', 'kyungdong', 'daesin', 'gs', 'cu', 'etc'];
+  var DEFAULT_RETURN_CARRIER = 'post';
+  var EPOST_PARCEL = 'https://parcel.epost.go.kr/';
+  var OWNER_SENDER = '서울마우스(유상균) 010-3100-4361';
   var DEFAULT_AS_NOTE = '이전 수리에 케이블을 교체하지 않은 제품이 케이블 단선으로 고장 나면 AS 접수 시 케이블 교체 비용 2,000원이 발생합니다.';
 
   var state = { token: '', exp: 0, tickets: [], filter: 'all', search: '', openForm: '', openMessage: '', busy: false };
@@ -91,6 +103,43 @@
     if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
     if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
     return d;
+  }
+
+  /* 택배사 코드 → 이름. 직접입력한 이름이나 옛 데이터는 적힌 그대로 보여 줍니다. */
+  function carrierName(code) {
+    var key = String(code || '').trim();
+    if (!key) return '';
+    return CARRIERS[key] || key;
+  }
+
+  function carrierOptions(order, selected, allowEmpty) {
+    var current = String(selected || '').trim();
+    var html = allowEmpty ? '<option value=""' + (current ? '' : ' selected') + '>선택 안 함</option>' : '';
+    html += order.map(function (key) {
+      return '<option value="' + key + '"' + (current === key ? ' selected' : '') + '>' + CARRIERS[key] + '</option>';
+    }).join('');
+    /* 목록에없는 직접입력 이름도 고칠 수 있게 앞에 한 칸 둡니다. */
+    if (current && !CARRIERS[current]) {
+      html = '<option value="' + escapeHtml(current) + '" selected>' + escapeHtml(current) + '</option>' + html;
+    }
+    return html;
+  }
+
+  /* 인터넷우체국 「창구소포 간편사전접수」에 그대로 붙여넣을 정보 */
+  function postalInfoText(ticket) {
+    var address = String(ticket.address || '').replace(/\s+/g, ' ').trim();
+    var zip = (address.match(/^\(?(\d{5})\)?/) || [])[1] || '';
+    var rest = zip ? address.replace(/^\(?(\d{5}\)?)\s*/, '') : address;
+    var lines = [
+      '받는분 성명: ' + (ticket.name || ''),
+      '받는분 연락처: ' + (formatPhone(ticket.phone) || '')
+    ];
+    if (zip) lines.push('받는분 우편번호: ' + zip);
+    lines.push('받는분 주소: ' + rest);
+    lines.push('품명: ' + productLine(ticket));
+    lines.push('보내는분: ' + OWNER_SENDER);
+    if (ticket.ticketNo) lines.push('참고 접수번호: ' + ticket.ticketNo);
+    return lines.join('\n');
   }
 
   function apiCode(res) {
@@ -358,16 +407,18 @@
       if (ticket.quote) lines.push('· 수리 금액: ' + Number(ticket.quote).toLocaleString('ko-KR') + '원');
       if (ticket.ownerMemo) lines.push('· 수리 내용: ' + ticket.ownerMemo);
       lines.push('', ticket.asNote || DEFAULT_AS_NOTE);
-      lines.push('', '반송 송장번호는 발송 후 다시 알려드리겠습니다.', '서울마우스 · 010-3100-4361');
+      lines.push('', '반송은 우체국택배로 사전접수 후 보내드립니다. 송장번호는 발송한 뒤 다시 알려드리겠습니다.', '서울마우스 · 010-3100-4361');
     } else if (kind === 'shipped') {
+      var returnCarrier = carrierName(ticket.returnCarrier || DEFAULT_RETURN_CARRIER) || '우체국택배';
+      var returnTracking = onlyDigits(ticket.returnTrackingNo || '');
       lines = [
         '[서울마우스] 반송 발송했습니다',
         '',
-        name + '님, 수리한 ' + productLine(ticket) + ', 오늘 발송했습니다.',
+        name + '님, 수리한 ' + productLine(ticket) + ', ' + returnCarrier + '로 발송했습니다.',
         '',
         '· 접수번호: ' + ticket.ticketNo,
-        '· 택배사: ' + (CARRIERS[ticket.returnCarrier] || '택배'),
-        '· 송장번호: ' + (ticket.returnTrackingNo || '송장번호 확인 중'),
+        '· 택배사: ' + returnCarrier + (returnTracking ? '' : ' (사전접수)'),
+        '· 송장번호: ' + (returnTracking || '사전접수 완료 — 창구 접수 후 번호를 알려드리겠습니다'),
         '',
         '보통 1~2일 안에 도착합니다. 받으신 뒤 이상이 있으면 연락 주세요.',
         ticket.asNote || DEFAULT_AS_NOTE,
@@ -449,10 +500,14 @@
     html += '<b>' + escapeHtml(ticket.model || '') + '</b> ' + (ticket.qty || 1) + '개 · <span class="rp-sym">' + escapeHtml(symptoms || '증상 미기재') + '</span>';
     if (ticket.symptomNote) html += '<br>' + escapeHtml(ticket.symptomNote);
     html += '<br>' + escapeHtml(ticket.address || '');
-    if (ticket.trackingNo) html += '<br>보내신 송장 ' + escapeHtml(CARRIERS[ticket.carrier] || '') + ' ' + escapeHtml(ticket.trackingNo);
+    var incomingCarrier = carrierName(ticket.carrier);
+    if (ticket.trackingNo || incomingCarrier) html += '<br>보내신 택배 ' + escapeHtml(incomingCarrier || '택배사 미기재') + (ticket.trackingNo ? ' ' + escapeHtml(ticket.trackingNo) : '');
     html += '<br>접수 ' + koreanDate(ticket.createdAt) + arrivedLine + expectedLine;
     if (ticket.quote) html += ' · 금액 <b>' + Number(ticket.quote).toLocaleString('ko-KR') + '원</b>';
-    if (ticket.returnTrackingNo) html += '<br>반송 ' + escapeHtml(CARRIERS[ticket.returnCarrier] || '') + ' ' + escapeHtml(ticket.returnTrackingNo);
+    if (ticket.returnCarrier || ticket.returnTrackingNo || ticket.status === 'shipped') {
+      var returnLabel = carrierName(ticket.returnCarrier || DEFAULT_RETURN_CARRIER) || '우체국택배';
+      html += '<br>반송 ' + escapeHtml(returnLabel) + (ticket.returnTrackingNo ? ' ' + escapeHtml(ticket.returnTrackingNo) : ' <span class="rp-muted">사전접수 · 송장번호 미등록</span>');
+    }
     html += '</p>';
 
     html += '<div class="rp-ticket-actions">';
@@ -460,6 +515,9 @@
     if (ticket.status === 'arrived') html += actionBtn(ticket, 'repairing', '🔧 수리 시작');
     if (ticket.status === 'repairing') html += actionBtn(ticket, 'done', '✅ 수리 완료');
     if (ticket.status === 'done') html += actionBtn(ticket, 'shipped', '📮 반송 발송');
+    if (ticket.status === 'done' || ticket.status === 'shipped') {
+      html += '<button class="rp-act rp-act-postal" type="button" data-action="postal" data-id="' + escapeHtml(ticket._id) + '">📋 우체국 사전접수</button>';
+    }
     html += actionBtn(ticket, 'message', '📋 카톡 문구');
     html += '<button class="rp-act" type="button" data-edit="' + escapeHtml(ticket._id) + '">✏️ 수정</button>';
     html += '</div>';
@@ -480,6 +538,7 @@
   function formHtml(ticket) {
     var kind = state.openForm && state.openForm.indexOf(ticket._id + ':') === 0 ? state.openForm.split(':')[1] : '';
     if (!kind) return '';
+    if (kind === 'postal') return postalHtml(ticket);
     var html = '<div class="rp-inline-form">';
     if (kind === 'arrived') {
       html += '<div class="rp-field-row">';
@@ -499,15 +558,31 @@
       html += '<div class="rp-inline-form-actions"><button class="rp-act rp-act-primary" type="button" data-confirm="done" data-id="' + escapeHtml(ticket._id) + '">수리 완료 처리</button><button class="rp-act" type="button" data-cancel="1" data-id="' + escapeHtml(ticket._id) + '">취소</button></div>';
     } else if (kind === 'shipped') {
       html += '<div class="rp-field-row">';
-      html += '<div class="rp-field"><label>반송 택배사</label><select data-field="returnCarrier">' + Object.keys(CARRIERS).map(function (key) {
-        return '<option value="' + key + '"' + (ticket.returnCarrier === key ? ' selected' : '') + '>' + CARRIERS[key] + '</option>';
-      }).join('') + '</select></div>';
-      html += '<div class="rp-field"><label>반송 송장번호</label><input type="text" inputmode="numeric" data-field="returnTrackingNo" value="' + escapeHtml(ticket.returnTrackingNo || '') + '" placeholder="숫자만"></div>';
+      html += '<div class="rp-field"><label>반송 택배사</label><select data-field="returnCarrier">' + carrierOptions(RETURN_CARRIER_ORDER, ticket.returnCarrier || DEFAULT_RETURN_CARRIER) + '</select></div>';
+      html += '<div class="rp-field"><label>반송 송장번호 <span class="rp-opt">선택</span></label><input type="text" inputmode="numeric" data-field="returnTrackingNo" value="' + escapeHtml(ticket.returnTrackingNo || '') + '" placeholder="사전접수만 했으면 비워 두세요"></div>';
       html += '</div>';
+      html += '<p class="rp-postal-note">우체국택배로 사전접수하고 창구에서 보내는 방식이면 송장번호를 몰라도 그대로 발송 처리하면 됩니다. 번호는 나중에 ✏️ 수정에서 넣으면 됩니다.</p>';
       html += '<div class="rp-field"><label>고객 안내 메모 (선택)</label><input type="text" data-field="ownerMemo" value="' + escapeHtml(ticket.ownerMemo || '') + '" placeholder="예: 받으신 뒤 휠 감도 확인 부탁드립니다"></div>';
+      html += '<div class="rp-postal-copy">';
+      html += '<button class="rp-act rp-act-copy" type="button" data-copy-postal="' + escapeHtml(ticket._id) + '">📋 우체국 사전접수용 정보 복사</button>';
+      html += '<a class="rp-act" href="' + EPOST_PARCEL + '" target="_blank" rel="noopener noreferrer">인터넷우체국 열기</a>';
+      html += '</div>';
       html += '<div class="rp-inline-form-actions"><button class="rp-act rp-act-primary" type="button" data-confirm="shipped" data-id="' + escapeHtml(ticket._id) + '">발송 처리 + 문구 만들기</button><button class="rp-act" type="button" data-cancel="1" data-id="' + escapeHtml(ticket._id) + '">취소</button></div>';
     }
     html += '</div>';
+    return html;
+  }
+
+  function postalHtml(ticket) {
+    var html = '<div class="rp-postal">';
+    html += '<h4>📋 우체국 사전접수용 정보</h4>';
+    html += '<p class="rp-postal-note">아래 내용을 복사해 인터넷우체국 「창구소포 간편사전접수」에 넣으세요. 사전접수 후 우체국 창구나 Eco우체통에 넣으면 되고, 요금도 할인됩니다.</p>';
+    html += '<textarea data-postal-text rows="8" spellcheck="false">' + escapeHtml(postalInfoText(ticket)) + '</textarea>';
+    html += '<div class="rp-postal-copy">';
+    html += '<button class="rp-act rp-act-copy" type="button" data-copy-postal="' + escapeHtml(ticket._id) + '">📋 복사</button>';
+    html += '<a class="rp-act" href="' + EPOST_PARCEL + '" target="_blank" rel="noopener noreferrer">인터넷우체국 열기</a>';
+    html += '<button class="rp-act" type="button" data-cancel="1" data-id="' + escapeHtml(ticket._id) + '">닫기</button>';
+    html += '</div></div>';
     return html;
   }
 
@@ -534,13 +609,21 @@
     html += '</div>';
     html += '<div class="rp-field"><label>회송 주소</label><textarea rows="2" data-edit-field="address">' + escapeHtml(ticket.address || '') + '</textarea></div>';
     html += '<div class="rp-field-row">';
+    html += '<div class="rp-field"><label>보내신 택배사</label><select data-edit-field="carrier">' + carrierOptions(CARRIER_ORDER, ticket.carrier, true) + '</select></div>';
+    html += '<div class="rp-field"><label>보내신 송장번호</label><input type="text" inputmode="numeric" data-edit-field="trackingNo" value="' + escapeHtml(ticket.trackingNo || '') + '"></div>';
+    html += '</div>';
+    html += '<div class="rp-field-row">';
     html += '<div class="rp-field"><label>도착일</label><input type="date" data-edit-field="arrivedAt" value="' + escapeHtml(ticket.arrivedAt || '') + '"></div>';
     html += '<div class="rp-field"><label>예상 수리기간</label><input type="text" data-edit-field="expectedDays" value="' + escapeHtml(ticket.expectedDays || '15~20일') + '"></div>';
     html += '</div>';
     html += '<div class="rp-field"><label>사장님 안내 메모 (고객에게 보임)</label><textarea rows="2" data-edit-field="ownerMemo">' + escapeHtml(ticket.ownerMemo || '') + '</textarea></div>';
     html += '<div class="rp-field-row">';
     html += '<div class="rp-field"><label>수리 금액</label><input type="number" inputmode="numeric" data-edit-field="quote" value="' + escapeHtml(ticket.quote || '') + '"></div>';
-    html += '<div class="rp-field"><label>반송 송장번호</label><input type="text" data-edit-field="returnTrackingNo" value="' + escapeHtml(ticket.returnTrackingNo || '') + '"></div>';
+    html += '<div class="rp-field"><label>반송 택배사</label><select data-edit-field="returnCarrier">' + carrierOptions(RETURN_CARRIER_ORDER, ticket.returnCarrier || DEFAULT_RETURN_CARRIER) + '</select></div>';
+    html += '</div>';
+    html += '<div class="rp-field-row">';
+    html += '<div class="rp-field"><label>반송 송장번호</label><input type="text" inputmode="numeric" data-edit-field="returnTrackingNo" value="' + escapeHtml(ticket.returnTrackingNo || '') + '" placeholder="사전접수만 했으면 비워 두세요"></div>';
+    html += '<div class="rp-field"><label>보내는 방식</label><p class="rp-postal-note">반송은 우체국 사전접수 후 창구에서 보냅니다.</p></div>';
     html += '</div>';
     html += '<div class="rp-inline-form-actions"><button class="rp-act rp-act-primary" type="button" data-save-edit="' + escapeHtml(ticket._id) + '">저장</button>';
     html += '<button class="rp-act" type="button" data-cancel-edit="1" data-id="' + escapeHtml(ticket._id) + '">취소</button>';
@@ -569,7 +652,7 @@
       try {
       var btn = event.target.closest('button');
       if (!btn) return;
-      var id = btn.getAttribute('data-id') || btn.getAttribute('data-save-edit') || btn.getAttribute('data-delete') || btn.getAttribute('data-edit') || btn.getAttribute('data-copy-msg');
+      var id = btn.getAttribute('data-id') || btn.getAttribute('data-save-edit') || btn.getAttribute('data-delete') || btn.getAttribute('data-edit') || btn.getAttribute('data-copy-msg') || btn.getAttribute('data-copy-postal');
       var ticket = id ? findTicket(id) : null;
 
       if (btn.hasAttribute('data-action')) {
@@ -600,6 +683,14 @@
         });
         return;
       }
+      if (btn.hasAttribute('data-copy-postal')) {
+        var postalBox = document.querySelector('.rp-postal textarea[data-postal-text]');
+        var postalText = postalBox && postalBox.value ? postalBox.value : postalInfoText(ticket);
+        copyText(postalText).then(function (ok) {
+          toast(ok ? '사전접수 정보를 복사했습니다. 인터넷우체국에 붙여넣으세요.' : '복사가 안 되면 사전접수 칸에서 직접 눌러 복사해 주세요');
+        });
+        return;
+      }
       if (btn.hasAttribute('data-confirm')) {
         var kindName = btn.getAttribute('data-confirm');
         var values = readForm(ticket._id);
@@ -619,9 +710,8 @@
           if (values.ownerMemo) extra.ownerMemo = values.ownerMemo;
           extra.asNote = values.asNote || DEFAULT_AS_NOTE;
         } else if (kindName === 'shipped') {
-          extra.returnCarrier = values.returnCarrier || 'cj';
+          extra.returnCarrier = values.returnCarrier || DEFAULT_RETURN_CARRIER;
           extra.returnTrackingNo = onlyDigits(values.returnTrackingNo || '');
-          if (!extra.returnTrackingNo) { toast('반송 송장번호를 입력해 주세요.'); return; }
           if (values.ownerMemo) extra.ownerMemo = values.ownerMemo;
         }
         applyStatus(ticket, kindName, extra);
@@ -636,6 +726,7 @@
           var raw = el.value;
           if (key === 'quote') patch[key] = raw === '' ? 0 : Number(onlyDigits(raw));
           else if (key === 'phone') patch[key] = onlyDigits(raw);
+          else if (key === 'trackingNo' || key === 'returnTrackingNo') patch[key] = onlyDigits(raw);
           else patch[key] = raw;
         });
         if (patch.arrivedAt) {

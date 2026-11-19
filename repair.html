@@ -18,8 +18,8 @@
   <link rel="stylesheet" href="app.css?v=20261020-compact">
   <link rel="stylesheet" href="brand-sites.css?v=20261109-brands">
   <link rel="stylesheet" href="service-layout.css?v=20261119-online">
-  <link rel="stylesheet" href="repair.css?v=20261119-3">
-  <script src="repair.js?v=20261119-3" defer></script>
+  <link rel="stylesheet" href="repair.css?v=20261120-4">
+  <script src="repair.js?v=20261120-4" defer></script>
 </head>
 <body class="app-page repair-page">
   <a class="skip-link" href="#main">본문 바로가기</a>
@@ -113,16 +113,23 @@
           <h2 class="rp-card-title">택배 정보 <span class="rp-opt">아직 안 보내셨어도 됩니다</span></h2>
           <div class="rp-grid2">
             <div class="rp-field">
-              <label for="f-carrier">택배사</label>
+              <label for="f-carrier">보내신 택배사</label>
               <select id="f-carrier" name="carrier">
                 <option value="">선택 안 함</option>
-                <option value="cj">CJ대한통운</option>
-                <option value="post">우체국택배</option>
-                <option value="hanjin">한진택배</option>
-                <option value="lotte">롯데택배</option>
-                <option value="logen">로젠택배</option>
-                <option value="kyungdong">경동택배</option>
-                <option value="etc">기타</option>
+                <optgroup label="택배사">
+                  <option value="cj">CJ대한통운</option>
+                  <option value="post">우체국택배</option>
+                  <option value="lotte">롯데택배</option>
+                  <option value="hanjin">한진택배</option>
+                  <option value="logen">로젠택배</option>
+                  <option value="kyungdong">경동택배</option>
+                  <option value="daesin">대신택배</option>
+                </optgroup>
+                <optgroup label="편의점택배">
+                  <option value="gs">GS25 편의점택배</option>
+                  <option value="cu">CU 편의점택배</option>
+                </optgroup>
+                <option value="etc">기타 (직접입력)</option>
               </select>
             </div>
             <div class="rp-field">
@@ -130,7 +137,11 @@
               <input id="f-tracking" name="trackingNo" type="text" inputmode="numeric" maxlength="20" placeholder="숫자만 입력">
             </div>
           </div>
-          <p class="rp-hint">송장번호는 나중에 오픈카톡으로 알려 주셔도 됩니다. 접수번호는 택배 박스 안에 메모로 넣어 주세요.</p>
+          <div class="rp-field" id="f-carrier-etc-wrap" hidden>
+            <label for="f-carrier-etc">택배사 이름</label>
+            <input id="f-carrier-etc" name="carrierEtc" type="text" maxlength="20" placeholder="예: 대신택배, 쿠팡 배송, 직접 가져다 보냄">
+          </div>
+          <p class="rp-hint">어느 택배사로 보내셔도 됩니다. 송장번호는 나중에 오픈카톡으로 알려 주셔도 되고, 접수번호는 택배 박스 안에 메모로 넣어 주세요.</p>
 
           <label class="rp-agree">
             <input type="checkbox" id="f-agree" name="agree" required>

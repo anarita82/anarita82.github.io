@@ -167,6 +167,15 @@
 .rp-inline-form[hidden] { display: none; }
 .rp-inline-form .rp-field { margin: 0; }
 .rp-inline-form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 우체국 사전접수 */
+.rp-act-postal { background: #10261c; border-color: rgba(74, 222, 128, 0.45); color: #c8f7d8; }
+.rp-postal { display: grid; gap: 10px; margin-top: 12px; padding: 14px; background: #08130e; border: 1px solid rgba(74, 222, 128, 0.4); border-radius: 10px; }
+.rp-postal h4 { margin: 0; color: #d9ffe7; font-size: 14px; font-weight: 900; }
+.rp-postal textarea { min-height: 190px; font-family: inherit; font-size: 13.5px; line-height: 1.7; background: #0b1410; }
+.rp-postal-note { margin: 0; color: var(--muted-strong); font-size: 12.5px; line-height: 1.65; }
+.rp-postal-copy { display: flex; flex-wrap: wrap; gap: 8px; }
+.rp-postal-copy a.rp-act { display: inline-flex; align-items: center; text-decoration: none; }
 .rp-settings { margin-top: 26px; }
 .rp-settings summary { min-height: 44px; padding: 12px 0; color: var(--muted-strong); font-size: 14px; font-weight: 800; cursor: pointer; }
 .rp-admin-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; color: var(--muted); font-size: 12.5px; }
