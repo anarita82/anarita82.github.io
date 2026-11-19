@@ -639,6 +639,23 @@
     var prev = $('storePrevMonth'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
     var next = $('storeNextMonth'); if (next) next.addEventListener('click', function () { shiftMonth(1); });
     var todayBtn = $('storeTodayBtn'); if (todayBtn) todayBtn.addEventListener('click', goToday);
+    (function () {
+      var g = $('storeGrid');
+      if (!g) return;
+      var sx = 0, sy = 0, st = 0;
+      g.addEventListener('touchstart', function (e) {
+        if (!e.touches || e.touches.length !== 1) { st = 0; return; }
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      }, { passive: true });
+      g.addEventListener('touchend', function (e) {
+        if (!st || !e.changedTouches || !e.changedTouches.length) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+        st = 0;
+        if (dt > 700 || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        shiftMonth(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    })();
 
     /* 급여명세서 월 이동 */
     var pPrev = $('payrollPrev'); if (pPrev) pPrev.addEventListener('click', function () { shiftPayMonth(-1); });

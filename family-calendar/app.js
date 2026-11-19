@@ -831,10 +831,28 @@
     connectToRoom(code);
   }
 
+  function bindMonthSwipe(target, onShift) {
+    if (!target || typeof onShift !== 'function') return;
+    var sx = 0, sy = 0, st = 0;
+    target.addEventListener('touchstart', function (e) {
+      if (!e.touches || e.touches.length !== 1) { st = 0; return; }
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+    }, { passive: true });
+    target.addEventListener('touchend', function (e) {
+      if (!st || !e.changedTouches || !e.changedTouches.length) return;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+      st = 0;
+      if (dt > 700 || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      onShift(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+
   function bind() {
     document.getElementById('prevMonth').addEventListener('click', function () { shiftMonth(-1); });
     document.getElementById('nextMonth').addEventListener('click', function () { shiftMonth(1); });
     document.getElementById('todayBtn').addEventListener('click', goToday);
+    bindMonthSwipe(el.grid, shiftMonth);
     document.getElementById('addBtn').addEventListener('click', function () {
       if (!state.profile) { openProfileModal(); return; }
       openModal(null, state.selected);

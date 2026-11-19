@@ -1654,6 +1654,23 @@
     if ($('calvSPrev')) $('calvSPrev').addEventListener('click', function () { shiftMonth(-1); });
     if ($('calvSNext')) $('calvSNext').addEventListener('click', function () { shiftMonth(1); });
     if ($('calvSTodayBtn')) $('calvSTodayBtn').addEventListener('click', goToday);
+    ['calvGrid', 'calvSGrid'].forEach(function (gid) {
+      var g = $(gid);
+      if (!g) return;
+      var sx = 0, sy = 0, st = 0;
+      g.addEventListener('touchstart', function (e) {
+        if (!e.touches || e.touches.length !== 1) { st = 0; return; }
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      }, { passive: true });
+      g.addEventListener('touchend', function (e) {
+        if (!st || !e.changedTouches || !e.changedTouches.length) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+        st = 0;
+        if (dt > 700 || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        shiftMonth(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    });
 
     if ($('calvKakaoToday')) $('calvKakaoToday').addEventListener('click', function () { copyKakao('today'); });
     if ($('calvKakaoWeek')) $('calvKakaoWeek').addEventListener('click', function () { copyKakao('week'); });

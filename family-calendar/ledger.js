@@ -1397,6 +1397,21 @@
 
     var prev = $('lgPrev'); if (prev) prev.addEventListener('click', function () { shiftMonth(-1); });
     var next = $('lgNext'); if (next) next.addEventListener('click', function () { shiftMonth(1); });
+    if (el.grid) {
+      var sx = 0, sy = 0, st = 0;
+      el.grid.addEventListener('touchstart', function (e) {
+        if (!e.touches || e.touches.length !== 1) { st = 0; return; }
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+      }, { passive: true });
+      el.grid.addEventListener('touchend', function (e) {
+        if (!st || !e.changedTouches || !e.changedTouches.length) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+        st = 0;
+        if (dt > 700 || Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        shiftMonth(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    }
     if (el.fab) el.fab.addEventListener('click', function () { openEntry(null, S.day); });
     if (el.grid) {
       el.grid.addEventListener('click', function (ev) {
