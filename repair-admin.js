@@ -687,7 +687,14 @@
         var postalBox = document.querySelector('.rp-postal textarea[data-postal-text]');
         var postalText = postalBox && postalBox.value ? postalBox.value : postalInfoText(ticket);
         copyText(postalText).then(function (ok) {
-          toast(ok ? '사전접수 정보를 복사했습니다. 인터넷우체국에 붙여넣으세요.' : '복사가 안 되면 사전접수 칸에서 직접 눌러 복사해 주세요');
+          if (ok) { toast('사전접수 정보를 복사했습니다. 인터넷우체국에 붙여넣으세요.'); return; }
+          if (postalBox) {
+            postalBox.focus();
+            postalBox.select();
+            toast('복사가 안 되면 선택된 내용을 길게 눌러 복사해 주세요');
+            return;
+          }
+          toast('복사가 안 되면 📋 우체국 사전접수 칸을 열어 내용을 길게 눌러 복사해 주세요');
         });
         return;
       }
