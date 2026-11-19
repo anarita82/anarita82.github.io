@@ -117,10 +117,10 @@
     });
   }
 
-  function authFetch(url, body, token) {
+  function authFetch(url, body) {
     return fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': token ? 'Bearer ' + token : undefined },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }).then(function (res) {
       return res.text().then(function (text) {
@@ -746,11 +746,11 @@
       var btn = $('pin-submit');
       btn.disabled = true;
       derivePassword(a).then(function (password) {
-        return authFetch('https://identitytoolkit.googleapis.com/v1/accounts:update?key=' + API_KEY, { idToken: state.token, password: password, returnSecureToken: true }, state.token);
+        return authFetch('https://identitytoolkit.googleapis.com/v1/accounts:update?key=' + API_KEY, { idToken: state.token, password: password, returnSecureToken: true });
       }).then(function (res) {
         if (!res.ok) {
           var code = res.data && res.data.error ? res.data.error.message : '';
-          throw new Error(code === 'CREDENTIAL_TOO_OLD_LOGIN_AGAIN' ? 'relogin' : 'change_failed');
+          throw new Error(code === 'CREDENTIAL_TOO_OLD_LOGIN_AGAIN' ? 'relogin' : ('change_failed:' + code));
         }
         if (res.data.idToken) {
           state.token = res.data.idToken;
@@ -763,9 +763,10 @@
         openDashboard();
         toast('PIN을 바꿨습니다. 새 PIN ' + a + ' 로 기억해 두세요.');
       }).catch(function (err) {
-        showError($('pin-error'), err.message === 'relogin'
+        var message = err.message === 'relogin'
           ? '보안을 위해 다시 로그인한 뒤 PIN을 바꿔 주세요.'
-          : 'PIN을 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.');
+          : 'PIN을 바꾸지 못했습니다. ' + (err.message && err.message.indexOf('change_failed:') === 0 ? '(' + err.message.slice(14) + ') ' : '') + '잠시 후 다시 시도해 주세요.';
+        showError($('pin-error'), message);
       }).then(function () { btn.disabled = false; });
     });
 
