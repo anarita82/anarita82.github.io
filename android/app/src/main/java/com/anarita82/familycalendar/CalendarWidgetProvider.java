@@ -119,7 +119,8 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
         }
 
         // 위젯이 실제로 차지한 높이에 맞춰 줄 수를 정합니다(작은 4×2에서도 잘리지 않게).
-        int heightDp = 160;
+        // 한 줄 높이: 오늘 23dp · 다가오는 20dp · 머리들 83dp(여백 포함)
+        int heightDp = 236;
         try {
             Bundle opts = manager.getAppWidgetOptions(widgetId);
             if (opts != null) {
@@ -127,8 +128,14 @@ public class CalendarWidgetProvider extends AppWidgetProvider {
                 if (h > 0) heightDp = h;
             }
         } catch (Exception ignored) { /* 기본값 사용 */ }
-        int todayCap = heightDp >= 190 ? 3 : (heightDp >= 130 ? 2 : 1);
-        int upCap = heightDp >= 230 ? 3 : (heightDp >= 165 ? 2 : (heightDp >= 120 ? 1 : 0));
+        int todayCap;
+        int upCap;
+        if (heightDp >= 245) { todayCap = 3; upCap = 3; }
+        else if (heightDp >= 205) { todayCap = 3; upCap = 2; }
+        else if (heightDp >= 180) { todayCap = 2; upCap = 2; }
+        else if (heightDp >= 158) { todayCap = 2; upCap = 1; }
+        else if (heightDp >= 132) { todayCap = 1; upCap = 1; }
+        else { todayCap = 1; upCap = 0; }
 
         Payload data = readPayload(context, todayIso);
 
