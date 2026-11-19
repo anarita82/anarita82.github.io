@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#050507">
+  <meta name="description" content="서울마우스 택배 접수 관리자 페이지">
+  <title>택배 접수 관리 | 서울마우스</title>
+  <link rel="icon" href="seoulmouse-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css?v=20261015-app">
+  <link rel="stylesheet" href="app.css?v=20261020-compact">
+  <link rel="stylesheet" href="brand-sites.css?v=20261109-brands">
+  <link rel="stylesheet" href="service-layout.css?v=20261112-clean">
+  <link rel="stylesheet" href="repair.css?v=20261119-repair">
+  <script src="repair-admin.js?v=20261119-repair" defer></script>
+</head>
+<body class="app-page repair-page rp-admin">
+  <a class="skip-link" href="#main">본문 바로가기</a>
+  <header class="brand-shell">
+    <div class="brand-switch" aria-label="브랜드 선택">
+      <a href="index.html">서울마우스</a>
+      <a href="oxpc.html">OX PC방 상일동역점</a>
+    </div>
+    <div class="brand-identity">
+      <a class="brand-home" href="app.html"><img src="seoulmouse-192.png" alt="" width="44" height="44"><span>서울마우스<small>마우스 전문 수리 · 상담 환영</small></span></a>
+    </div>
+    <nav class="brand-local-nav" aria-label="서울마우스 메뉴">
+      <a href="app.html">수리 안내</a>
+      <a href="repair.html">택배 접수·조회</a>
+      <a href="repair-admin.html" aria-current="page">접수 관리</a>
+    </nav>
+  </header>
+
+  <main id="main" class="app-main service-main">
+    <section class="rp-admin-hero">
+      <p class="eyebrow">REPAIR DESK</p>
+      <h1>택배 접수 관리</h1>
+      <p>접수 확인 · 택배 도착 처리 · 카톡 안내 문구 복사</p>
+    </section>
+
+    <div class="rp-wrap">
+      <!-- PIN -->
+      <section class="rp-gate" id="gate">
+        <form class="rp-card" id="gate-form" novalidate>
+          <h2 class="rp-card-title">관리자 PIN</h2>
+          <div class="rp-field">
+            <label for="pin-input" class="rp-visually-hidden">관리자 PIN</label>
+            <input id="pin-input" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="••••" required>
+          </div>
+          <p class="rp-error" id="gate-error" role="alert" hidden></p>
+          <button class="button button-primary rp-submit" id="gate-submit" type="submit">열기</button>
+          <p class="rp-gate-hint">사장님만 아는 PIN입니다. PIN을 잊으셨다면 삼남매에게 재설정을 요청해 주세요.</p>
+        </form>
+      </section>
+
+      <!-- 대시보드 -->
+      <section id="dashboard" hidden>
+        <div class="rp-toolbar">
+          <div class="rp-filters" id="filters" role="group" aria-label="상태 필터">
+            <button class="rp-filter" type="button" data-status="all" aria-pressed="true">전체 <span data-count="all">0</span></button>
+            <button class="rp-filter" type="button" data-status="received" aria-pressed="false">접수대기 <span data-count="received">0</span></button>
+            <button class="rp-filter" type="button" data-status="arrived" aria-pressed="false">택배도착 <span data-count="arrived">0</span></button>
+            <button class="rp-filter" type="button" data-status="repairing" aria-pressed="false">수리중 <span data-count="repairing">0</span></button>
+            <button class="rp-filter" type="button" data-status="done" aria-pressed="false">수리완료 <span data-count="done">0</span></button>
+            <button class="rp-filter" type="button" data-status="shipped" aria-pressed="false">발송완료 <span data-count="shipped">0</span></button>
+          </div>
+          <div class="rp-toolbar-row">
+            <input id="search" type="search" placeholder="성함 · 접수번호 · 송장번호 검색" autocomplete="off">
+            <button class="rp-mini" id="reload" type="button">새로고침</button>
+          </div>
+          <p class="rp-summary" id="summary">접수를 불러오는 중…</p>
+        </div>
+
+        <div id="ticket-list"></div>
+
+        <details class="rp-settings">
+          <summary>PIN 변경 · 로그아웃</summary>
+          <form class="rp-card" id="pin-form" novalidate>
+            <h3 class="rp-card-title">관리자 PIN 변경</h3>
+            <div class="rp-field-row">
+              <div class="rp-field">
+                <label for="pin-new">새 PIN</label>
+                <input id="pin-new" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" placeholder="숫자 4~12자리">
+              </div>
+              <div class="rp-field">
+                <label for="pin-new2">새 PIN 확인</label>
+                <input id="pin-new2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" placeholder="한 번 더">
+              </div>
+            </div>
+            <p class="rp-error" id="pin-error" role="alert" hidden></p>
+            <button class="button button-primary rp-submit" id="pin-submit" type="submit">PIN 변경</button>
+            <p class="rp-fineprint" id="pin-state">아직 PIN을 바꾸지 않았습니다. 기본 PIN을 그대로 쓰지 마세요.</p>
+          </form>
+        </details>
+
+        <p class="rp-admin-foot">
+          <a href="repair.html" class="rp-textlink">고객용 접수·조회 페이지 열기</a>
+          <button id="signout" type="button">로그아웃</button>
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="brand-footer app-footer">
+    <p><strong>서울마우스</strong><br>관리자 페이지 · 접수 데이터는 Firebase에 저장됩니다</p>
+    <nav aria-label="바로가기">
+      <a href="app.html">수리 안내</a>
+      <a href="repair.html">택배 접수·조회</a>
+      <a href="privacy.html">개인정보 안내</a>
+    </nav>
+  </footer>
+</body>
+</html>

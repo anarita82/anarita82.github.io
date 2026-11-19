@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#050507">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="서울마우스 접수">
+  <meta name="description" content="서울마우스 택배 수리 온라인 접수와 수리 진행 조회. 접수번호만 있으면 도착·수리·반송 진행 상황을 확인할 수 있습니다.">
+  <title>택배 접수 · 진행 조회 | 서울마우스</title>
+  <link rel="canonical" href="https://anarita82.github.io/repair.html">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="seoulmouse-apple-touch-icon.png">
+  <link rel="icon" href="seoulmouse-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css?v=20261015-app">
+  <link rel="stylesheet" href="app.css?v=20261020-compact">
+  <link rel="stylesheet" href="brand-sites.css?v=20261109-brands">
+  <link rel="stylesheet" href="service-layout.css?v=20261112-clean">
+  <link rel="stylesheet" href="repair.css?v=20261119-repair">
+  <script src="repair.js?v=20261119-repair" defer></script>
+</head>
+<body class="app-page repair-page">
+  <a class="skip-link" href="#main">본문 바로가기</a>
+  <header class="brand-shell">
+    <div class="brand-switch" aria-label="브랜드 선택">
+      <a href="index.html" aria-current="page">서울마우스</a>
+      <a href="oxpc.html">OX PC방 상일동역점</a>
+    </div>
+    <div class="brand-identity">
+      <a class="brand-home" href="app.html"><img src="seoulmouse-192.png" alt="" width="44" height="44"><span>서울마우스<small>마우스 전문 수리 · 상담 환영</small></span></a>
+    </div>
+    <nav class="brand-local-nav" aria-label="서울마우스 메뉴">
+      <a href="app.html">수리 안내</a>
+      <a href="app.html#repair-pricing">수리 가격</a>
+      <a href="mouse-test.html">마우스 테스트</a>
+      <a href="repair.html" aria-current="page">택배 접수·조회</a>
+      <a href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">오픈카톡 상담</a>
+    </nav>
+  </header>
+
+  <main id="main" class="app-main service-main">
+    <section class="rp-hero" aria-labelledby="rp-title">
+      <p class="eyebrow">PARCEL RECEPTION</p>
+      <h1 id="rp-title">택배 접수 · 진행 조회</h1>
+      <p class="mouse-home-lead">접수 신청을 하면 접수번호가 발급됩니다.<br>마우스를 보내실 때 접수번호를 메모해 함께 넣어 주세요.</p>
+      <ul class="rp-hero-points">
+        <li>전국 택배 접수 · 왕복 택배비 매장 부담</li>
+        <li>도착 · 수리 · 반송까지 진행 상황 확인</li>
+      </ul>
+    </section>
+
+    <section class="rp-wrap">
+      <div class="rp-tabs" role="tablist" aria-label="접수 및 조회">
+        <button class="rp-tab" id="tab-intake" type="button" role="tab" aria-selected="true" aria-controls="panel-intake" data-tab="intake">택배 접수 신청</button>
+        <button class="rp-tab" id="tab-lookup" type="button" role="tab" aria-selected="false" aria-controls="panel-lookup" data-tab="lookup">수리 진행 조회</button>
+      </div>
+
+      <!-- 접수 신청 -->
+      <div class="rp-panel" id="panel-intake" role="tabpanel" aria-labelledby="tab-intake">
+        <noscript><p class="rp-note">접수 신청은 자바스크립트가 켜진 환경에서 이용할 수 있습니다. 전화(010-3100-4361) 또는 오픈카톡으로 접수해 주세요.</p></noscript>
+
+        <form class="rp-card" id="intake-form" novalidate>
+          <h2 class="rp-card-title">보내시는 분 정보</h2>
+          <div class="rp-grid2">
+            <div class="rp-field">
+              <label for="f-name">성함 <span class="rp-req">필수</span></label>
+              <input id="f-name" name="name" type="text" autocomplete="name" maxlength="30" placeholder="홍길동" required>
+            </div>
+            <div class="rp-field">
+              <label for="f-phone">연락처 <span class="rp-req">필수</span></label>
+              <input id="f-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="010-0000-0000" required>
+            </div>
+          </div>
+          <div class="rp-field">
+            <label for="f-kakao">오픈카톡 닉네임 <span class="rp-opt">선택</span></label>
+            <input id="f-kakao" name="kakao" type="text" maxlength="30" placeholder="카톡방에서 찾을 수 있는 닉네임">
+            <small>카톡으로 안내드릴 때 확인용입니다. 없으면 비워 두세요.</small>
+          </div>
+          <div class="rp-field">
+            <label for="f-address">회송 받으실 주소 <span class="rp-req">필수</span></label>
+            <textarea id="f-address" name="address" rows="2" maxlength="120" autocomplete="street-address" placeholder="우편번호 포함 주소와 상세 주소" required></textarea>
+            <small>수리한 마우스를 받으실 주소입니다.</small>
+          </div>
+
+          <h2 class="rp-card-title">제품 정보</h2>
+          <div class="rp-grid2">
+            <div class="rp-field">
+              <label for="f-model">마우스 모델 <span class="rp-req">필수</span></label>
+              <input id="f-model" name="model" type="text" maxlength="40" placeholder="예: 로지텍 G102" required>
+            </div>
+            <div class="rp-field">
+              <label for="f-qty">수량 <span class="rp-req">필수</span></label>
+              <input id="f-qty" name="qty" type="number" inputmode="numeric" min="1" max="20" step="1" value="1" required>
+            </div>
+          </div>
+
+          <fieldset class="rp-fieldset">
+            <legend>고장 증상 <span class="rp-req">필수</span></legend>
+            <div class="rp-checks">
+              <label class="rp-check"><input type="checkbox" name="symptom" value="double"><span>더블클릭</span></label>
+              <label class="rp-check"><input type="checkbox" name="symptom" value="wheel"><span>휠 불량</span></label>
+              <label class="rp-check"><input type="checkbox" name="symptom" value="cable"><span>케이블</span></label>
+              <label class="rp-check"><input type="checkbox" name="symptom" value="other"><span>기타</span></label>
+            </div>
+            <div class="rp-field rp-field-inset">
+              <label for="f-symptom-note">증상 상세 메모 <span class="rp-opt">선택</span></label>
+              <textarea id="f-symptom-note" name="symptomNote" rows="2" maxlength="300" placeholder="예: 왼쪽 버튼이 가끔 두 번 눌립니다. 휠이 한 칸씩 건너뜁니다."></textarea>
+            </div>
+          </fieldset>
+
+          <h2 class="rp-card-title">택배 정보 <span class="rp-opt">아직 안 보내셨어도 됩니다</span></h2>
+          <div class="rp-grid2">
+            <div class="rp-field">
+              <label for="f-carrier">택배사</label>
+              <select id="f-carrier" name="carrier">
+                <option value="">선택 안 함</option>
+                <option value="cj">CJ대한통운</option>
+                <option value="post">우체국택배</option>
+                <option value="hanjin">한진택배</option>
+                <option value="lotte">롯데택배</option>
+                <option value="logen">로젠택배</option>
+                <option value="kyungdong">경동택배</option>
+                <option value="etc">기타</option>
+              </select>
+            </div>
+            <div class="rp-field">
+              <label for="f-tracking">송장번호</label>
+              <input id="f-tracking" name="trackingNo" type="text" inputmode="numeric" maxlength="20" placeholder="숫자만 입력">
+            </div>
+          </div>
+          <p class="rp-hint">송장번호는 나중에 오픈카톡으로 알려 주셔도 됩니다. 접수번호는 택배 박스 안에 메모로 넣어 주세요.</p>
+
+          <label class="rp-agree">
+            <input type="checkbox" id="f-agree" name="agree" required>
+            <span>수리 안내와 반송을 위해 성함·연락처·주소를 수집하는 데 동의합니다. (<a href="privacy.html">개인정보 안내</a>)</span>
+          </label>
+
+          <p class="rp-error" id="intake-error" role="alert" hidden></p>
+          <button class="button button-primary rp-submit" id="intake-submit" type="submit">접수 신청하고 접수번호 받기</button>
+          <p class="rp-fineprint">신청 후 15~20일(택배 도착일 기준) 안에 수리해 반송합니다. 수리 불가 판정 시 연락드립니다.</p>
+        </form>
+
+        <!-- 접수 완료 -->
+        <section class="rp-card rp-done" id="intake-done" hidden aria-live="polite">
+          <p class="rp-done-badge">접수 완료</p>
+          <h2 class="rp-card-title">접수번호가 발급되었습니다</h2>
+          <p class="rp-ticket-no" id="done-ticket">SM-000000-0000</p>
+          <p class="rp-done-guide">이 번호를 꼭 저장해 주세요. 택배 박스 안에 접수번호를 적은 메모를 함께 넣어 주시면 도착 확인이 빠릅니다.</p>
+          <div class="rp-copy-row">
+            <button class="button button-ghost rp-copy" id="copy-ticket" type="button" data-copy="done-ticket">접수번호 복사</button>
+            <a class="button button-kakao" id="done-kakao" href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">오픈카톡 열기</a>
+          </div>
+          <div class="rp-done-actions">
+            <a class="rp-textlink" id="done-lookup-link" href="repair.html">내 수리 현황 조회하기 →</a>
+            <button class="rp-textlink" id="done-again" type="button">새 접수 한 건 더 하기</button>
+          </div>
+          <p class="rp-address-box"><strong>보내실 곳</strong><span>서울특별시 송파구 풍납동 78-83 지층 제노PC방</span><span>서울마우스 / 유상균 · 010-3100-4361</span></p>
+        </section>
+      </div>
+
+      <!-- 진행 조회 -->
+      <div class="rp-panel" id="panel-lookup" role="tabpanel" aria-labelledby="tab-lookup" hidden>
+        <form class="rp-card" id="lookup-form" novalidate>
+          <h2 class="rp-card-title">접수번호로 조회</h2>
+          <div class="rp-grid2">
+            <div class="rp-field">
+              <label for="l-ticket">접수번호</label>
+              <input id="l-ticket" name="ticket" type="text" maxlength="20" autocapitalize="characters" spellcheck="false" placeholder="SM-261119-A7K2" autocomplete="off">
+            </div>
+            <div class="rp-field">
+              <label for="l-phone4">연락처 뒤 4자리</label>
+              <input id="l-phone4" name="phone4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+            </div>
+          </div>
+          <p class="rp-error" id="lookup-error" role="alert" hidden></p>
+          <button class="button button-primary rp-submit" id="lookup-submit" type="submit">진행 상황 조회</button>
+          <p class="rp-fineprint">접수번호를 잊으셨다면 오픈카톡이나 전화(010-3100-4361)로 알려 주세요.</p>
+        </form>
+
+        <div class="rp-result" id="lookup-result" hidden aria-live="polite"></div>
+
+        <div class="rp-card rp-empty" id="lookup-empty">
+          <p>접수번호를 입력하면 지금 어디까지 진행됐는지 보여 드립니다.</p>
+          <ol class="rp-steps-guide">
+            <li><span>1</span>접수 대기</li>
+            <li><span>2</span>택배 도착</li>
+            <li><span>3</span>수리 중</li>
+            <li><span>4</span>수리 완료</li>
+            <li><span>5</span>반송 발송</li>
+          </ol>
+        </div>
+      </div>
+
+      <section class="rp-info">
+        <article>
+          <h3>택배 보내실 곳</h3>
+          <address>서울특별시 송파구 풍납동 78-83 지층 제노PC방<br><strong>서울마우스 / 유상균</strong><br>010-3100-4361</address>
+          <p>왕복 택배비는 매장에서 부담합니다.</p>
+        </article>
+        <article>
+          <h3>수리 기간과 비용</h3>
+          <p>일반 수리·AS 처리기간은 택배 도착일 기준 <strong>15~20일</strong>입니다. 기본 수리 7,000원, 케이블 교체 2,000원, 휠 롤러 교체 4,000원이며 자세한 내용은 <a href="app.html#repair-pricing">수리 가격표</a>에서 확인하실 수 있습니다.</p>
+        </article>
+        <article>
+          <h3>문의</h3>
+          <p><a href="tel:01031004361">전화 010-3100-4361</a><br><a href="https://open.kakao.com/o/sFZ6mCSi" target="_blank" rel="noopener noreferrer">오픈카톡 1:1 상담</a><br><a href="https://blog.naver.com/anarita" target="_blank" rel="noopener noreferrer">네이버 블로그 수리 사례</a></p>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <footer class="brand-footer app-footer">
+    <p><strong>서울마우스</strong><br>마우스 전문 수리 · 서울 송파구 풍납동 78-83 지층 제노PC방</p>
+    <nav aria-label="바로가기">
+      <a href="app.html">수리 안내</a>
+      <a href="repair.html">택배 접수·조회</a>
+      <a href="oxpc.html">OX PC방 상일동역점</a>
+      <a href="privacy.html">개인정보 안내</a>
+    </nav>
+  </footer>
+</body>
+</html>

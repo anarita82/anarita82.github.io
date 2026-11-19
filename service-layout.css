@@ -101,3 +101,11 @@
   .service-main .repair-flow span { min-height: 48px; }
 }
 .app-page .service-main.repair-main .repair-flow { display: none; }
+
+/* 온라인 접수 안내 (app.html #seoulmouse-delivery) */
+.service-online { display: grid; gap: 16px; margin-top: 26px; padding: 22px; background: linear-gradient(135deg, #24101a, #12101a 70%); border: 1px solid var(--line-strong); border-radius: 12px; }
+.service-online h3 { margin: 0 0 6px; font-size: 19px; line-height: 1.4; }
+.service-online p { margin: 0; color: var(--muted-strong); font-size: 14px; line-height: 1.8; }
+.service-online-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.service-online .button { min-height: 46px; padding-inline: 18px; font-size: 14.5px; }
+@media (min-width: 760px) { .service-online { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 26px; } }
