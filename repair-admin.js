@@ -323,7 +323,7 @@
       lines = [
         '[서울마우스] 택배 도착했습니다',
         '',
-        name + '님, 보내주신 ' + productLine(ticket) + '이 ' + koreanDate(ticket.arrivedAt || todayYmd()) + ' 도착했습니다.',
+        name + '님, 보내주신 ' + productLine(ticket) + ', ' + koreanDate(ticket.arrivedAt || todayYmd()) + ' 도착했습니다.',
         '',
         '· 접수번호: ' + ticket.ticketNo,
         '· 예상 수리기간: ' + (ticket.expectedDays || '15~20일') + ' (도착일 기준)',
@@ -363,7 +363,7 @@
       lines = [
         '[서울마우스] 반송 발송했습니다',
         '',
-        name + '님, 수리한 ' + productLine(ticket) + '을 발송했습니다.',
+        name + '님, 수리한 ' + productLine(ticket) + ', 오늘 발송했습니다.',
         '',
         '· 접수번호: ' + ticket.ticketNo,
         '· 택배사: ' + (CARRIERS[ticket.returnCarrier] || '택배'),
@@ -592,7 +592,10 @@
         var area = document.querySelector('.rp-msg[data-msg="' + btn.getAttribute('data-copy-msg') + '"] textarea');
         if (!area) return;
         copyText(area.value).then(function (ok) {
-          toast(ok ? '카톡 문구를 복사했습니다. 카톡방에 붙여넣으세요.' : '복사가 안 되면 문구를 길게 눌러 직접 복사해 주세요');
+          if (ok) { toast('카톡 문구를 복사했습니다. 카톡방에 붙여넣으세요.'); return; }
+          area.focus();
+          area.select();
+          toast('복사가 안 되면 선택된 문구를 길게 눌러 복사해 주세요');
         });
         return;
       }
