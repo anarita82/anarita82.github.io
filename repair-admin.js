@@ -86,6 +86,17 @@
     document.body.removeChild(area);
     return ok;
   }
+  function formatPhone(value) {
+    var d = onlyDigits(value);
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return d;
+  }
+
+  function apiCode(res) {
+    return res && res.data && res.data.error ? (res.data.error.status || res.data.error.message || '') : '';
+  }
+
   function showError(el, message) {
     if (!el) return;
     if (!message) { el.hidden = true; el.textContent = ''; return; }
@@ -197,7 +208,17 @@
     if (!state.token) return Promise.reject(new Error('no_session'));
     var url = DOCS + path;
     if (params) {
-      url += '?' + Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+      var pairs = [];
+      Object.keys(params).forEach(function (key) {
+        var value = params[key];
+        if (Array.isArray(value)) value.forEach(function (item) { pairs.push([key, item]); });
+        else pairs.push([key, value]);
+      });
+      if (pairs.length) {
+        url += '?' + pairs.map(function (pair) {
+          return encodeURIComponent(pair[0]) + '=' + encodeURIComponent(pair[1]);
+        }).join('&');
+      }
     }
     return fetch(url, {
       method: method,
@@ -239,7 +260,7 @@
 
   function patchTicket(id, fields) {
     var payload = { fields: toFields(fields) };
-    return fsFetch('PATCH', '/' + COLLECTION + '/' + encodeURIComponent(id), payload, { 'updateMask.fieldPaths': Object.keys(fields).join(',') });
+    return fsFetch('PATCH', '/' + COLLECTION + '/' + encodeURIComponent(id), payload, { 'updateMask.fieldPaths': Object.keys(fields) });
   }
 
   function deleteTicket(id) {
@@ -266,7 +287,7 @@
     if (state.busy) return;
     state.busy = true;
     patchTicket(ticket._id, fields).then(function (res) {
-      if (!res.ok) throw new Error('save_failed');
+      if (!res.ok) throw new Error('save_failed:' + apiCode(res));
       Object.keys(fields).forEach(function (key) { ticket[key] = fields[key]; });
       state.openForm = '';
       state.openMessage = status === 'done' || status === 'shipped' || status === 'arrived' || status === 'repairing' ? ticket._id + ':' + status : '';
@@ -274,7 +295,7 @@
       toast(STATUS[status].label + ' 처리 완료 · 카톡 문구가 준비되었습니다');
     }).catch(function (err) {
       if (err && err.message === 'session') { lock('PIN 세션이 만료되었습니다. 다시 열어 주세요.'); return; }
-      toast('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      toast('저장하지 못했습니다. ' + (err && err.message && err.message.indexOf('save_failed:') === 0 ? '(' + err.message.slice(12) + ') ' : '') + '다시 시도해 주세요.');
     }).then(function () { state.busy = false; });
   }
 
@@ -424,7 +445,7 @@
     html += '<article class="rp-ticket st-' + status.chip + '" data-id="' + escapeHtml(ticket._id) + '">';
     html += '<div class="rp-ticket-top"><span class="rp-ticket-no-sm">' + escapeHtml(ticket.ticketNo) + '</span>';
     html += '<span class="rp-status-chip rp-status-' + status.chip + '">' + status.label + '</span></div>';
-    html += '<p class="rp-ticket-meta"><b>' + escapeHtml(ticket.name || '') + '</b> · ' + escapeHtml(ticket.phone || '') + (ticket.kakao ? ' · 카톡 ' + escapeHtml(ticket.kakao) : '') + '<br>';
+    html += '<p class="rp-ticket-meta"><b>' + escapeHtml(ticket.name || '') + '</b> · ' + escapeHtml(formatPhone(ticket.phone)) + (ticket.kakao ? ' · 카톡 ' + escapeHtml(ticket.kakao) : '') + '<br>';
     html += '<b>' + escapeHtml(ticket.model || '') + '</b> ' + (ticket.qty || 1) + '개 · <span class="rp-sym">' + escapeHtml(symptoms || '증상 미기재') + '</span>';
     if (ticket.symptomNote) html += '<br>' + escapeHtml(ticket.symptomNote);
     html += '<br>' + escapeHtml(ticket.address || '');
@@ -620,12 +641,12 @@
         patch.updatedAt = new Date().toISOString();
         state.busy = true;
         patchTicket(ticket._id, patch).then(function (res) {
-          if (!res.ok) throw new Error('save_failed');
+          if (!res.ok) throw new Error(apiCode(res));
           Object.keys(patch).forEach(function (key) { ticket[key] = patch[key]; });
           state.openForm = '';
           render();
           toast('수정했습니다');
-        }).catch(function () { toast('저장하지 못했습니다.'); }).then(function () { state.busy = false; });
+        }).catch(function (err) { toast('저장하지 못했습니다. ' + (err && err.message ? '[' + err.message + ']' : '')); }).then(function () { state.busy = false; });
         return;
       }
       if (btn.hasAttribute('data-delete')) {
