@@ -5414,17 +5414,23 @@
   }
 
   function changeOwnerPin() {
-    if (!isOwner()) return;
+    if (!isOwner()) {
+      showPinMsg('사장님 모드에서만 PIN을 저장할 수 있어요.');
+      return;
+    }
     var p1 = $('storeNewPin'), p2 = $('storeNewPin2'), msg = $('storePinMsg');
     var pin1 = (p1 ? p1.value : '').replace(/\D/g, '');
     var pin2 = (p2 ? p2.value : '').replace(/\D/g, '');
     if (pin1.length !== 4) { showPinMsg('4자리 숫자를 넣어 주세요.'); return; }
     if (pin1 !== pin2) { showPinMsg('두 번 넣은 PIN이 달라요.'); return; }
-    StoreCloud.saveRoom({ storePins: { owner: StoreCloud.pinHash(pin1) } }).then(function () {
+    var hash = StoreCloud.pinHash(pin1);
+    StoreCloud.saveRoom({ storePins: { owner: hash } }).then(function () {
+      S.pins = S.pins || {};
+      S.pins.owner = hash;
       if (msg) msg.hidden = true;
       if (p1) p1.value = '';
       if (p2) p2.value = '';
-      toast('사장님 PIN을 바꿨어요');
+      toast('사장님 PIN을 저장했어요');
     }).catch(function (err) {
       showPinMsg('저장하지 못했어요 · ' + errorHint(err));
     });

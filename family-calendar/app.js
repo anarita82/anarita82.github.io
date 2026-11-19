@@ -4361,9 +4361,11 @@
     if (pin !== pin2) { showPinChangeError('두 번 넣은 PIN이 달라요.'); return; }
     el.pinChangeError.hidden = true;
     FamilyCloud.setPin(target.id, pin).then(function () {
+      state.roomPins = state.roomPins || {};
+      state.roomPins[target.id] = FamilyCloud.pinHash(target.id, pin);
       el.newPin.value = '';
       el.newPin2.value = '';
-      toast(target.name + ' 님 PIN을 바꿨어요');
+      toast(target.name + ' 님 PIN을 저장했어요');
     }).catch(function (err) {
       showPinChangeError('저장하지 못했어요 · ' + errorHint(err));
     });
