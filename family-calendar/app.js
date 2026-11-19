@@ -4394,7 +4394,11 @@
       }
       toast(target.name + ' 님 PIN을 저장했어요');
     }).catch(function (err) {
-      showPinChangeError('저장하지 못했어요 · ' + errorHint(err));
+      if (err && err.code === 'permission-denied') {
+        showPinChangeError('이 기기가 관리자 승인 목록에 없거나 방에 연결되지 않았어요. 상단 상태를 눌러 다시 연결해 주세요.');
+      } else {
+        showPinChangeError('저장하지 못했어요 · ' + errorHint(err));
+      }
     });
   }
 

@@ -790,7 +790,10 @@
     }, function (err) {
       var code = (err && err.code) || '';
       if (code === 'permission-denied') {
-        emit('onStatus', { kind: 'error', text: '가족 방에 들어갈 수 없어요 (코드를 확인해 주세요)' });
+        emit('onStatus', { kind: 'error', text: '이 기기가 아직 방에 승인되지 않았거나 코드가 맞지 않아요' });
+        readMyJoinRequest().then(function (res) {
+          if (res && res.state) emit('onGate', res);
+        }).catch(function () { /* 무시 */ });
       } else if (code === 'unavailable') {
         emit('onStatus', { kind: 'offline', text: '연결을 기다리는 중이에요' });
       } else {
