@@ -677,7 +677,7 @@
     var pending = (c.received || 0) + (c.arrived || 0) + (c.repairing || 0);
     var low = lowParts().length;
     $('summary').textContent = '전체 ' + c.all + '건 · 진행 중 ' + pending + '건 · 입금 대기 '
-      + state.tickets.filter(function (t) { return normalizeStatus(t.status) === 'repaired' && !t.paid; }).length + '건'
+      + state.tickets.filter(function (t) { var s = normalizeStatus(t.status); return (s === 'repaired' || s === 'shipped') && !t.paid; }).length + '건'
       + ' · 부족 부품 ' + low + '종 · 마지막 갱신 '
       + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 
@@ -745,10 +745,12 @@
     var show = fee || cost || used.length || ticket.paid || key === 'repaired' || key === 'shipped';
     if (!show) return '';
     var html = '<div class="rp-settle">';
-    html += '<span>수리비 <b>' + won(fee) + '</b></span>';
-    html += '<span>부품 원가 <b>' + won(cost) + '</b></span>';
-    if (fee || cost) html += '<span>수리비−부품원가 <b>' + won(fee - cost) + '</b></span>';
-    html += '<span>' + (ticket.paid ? '<span class="rp-pay-done">입금 완료' + (ticket.paidAt ? ' · ' + escapeHtml(ticket.paidAt) : '') + '</span>' : '<span class="rp-pay-wait">입금 대기</span>') + '</span>';
+    html += '<span>수리비 <b>' + (fee ? won(fee) : '미정') + '</b></span>';
+    if (cost) html += '<span>부품 원가 <b>' + won(cost) + '</b></span>';
+    if (fee) html += '<span>수리비−부품원가 <b>' + won(fee - cost) + '</b></span>';
+    if (key === 'repaired' || key === 'shipped' || ticket.paid) {
+      html += '<span>' + (ticket.paid ? '<span class="rp-pay-done">입금 완료' + (ticket.paidAt ? ' · ' + escapeHtml(ticket.paidAt) : '') + '</span>' : '<span class="rp-pay-wait">입금 대기</span>') + '</span>';
+    }
     if (used.length) {
       html += '<span class="rp-settle-parts">사용 부품: ' + used.map(function (item) {
         return escapeHtml(item.name || '부품') + ' ' + (item.qty || 1) + '개';
