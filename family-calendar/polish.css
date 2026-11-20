@@ -321,3 +321,60 @@ body.store-mode .day__ev > .day__ev-h {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .day__evs { gap: 1px; }
+
+/* ---------- ✨ 제목에 맞춘 이모티콘 (일정 추가·수정 모달) ---------- */
+.field .title-row { display: flex; align-items: center; gap: 8px; }
+.field .title-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+.title-emoji {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #e3e5ec; border-radius: 13px;
+  background: #f4f5fb; cursor: pointer;
+  font-size: 23px; line-height: 1;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+.title-emoji:active { transform: scale(.94); }
+.title-emoji.is-open { border-color: #a5a3f5; background: #eef0ff; }
+.title-emoji.is-manual { background: #fff7e6; border-color: #fde3a7; }
+.title-emoji__hint { margin-top: 6px !important; }
+.title-emoji__hint.is-auto { color: #4d47c9; }
+
+.emoji-picker {
+  margin-top: 8px; padding: 10px;
+  border: 1px solid #e3e5ec; border-radius: 14px;
+  background: #fbfbfd;
+}
+.emoji-picker__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+.emoji-picker__title { font-size: 12px; font-weight: 800; color: #4b5160; }
+.emoji-picker__auto {
+  border: 0; border-radius: 999px; padding: 6px 10px;
+  background: #eef0ff; color: #3730a3;
+  font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;
+}
+.emoji-picker__auto:active { transform: scale(.97); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.emoji-cell {
+  border: 1px solid transparent; border-radius: 10px;
+  background: #fff; padding: 6px 0;
+  font-size: 19px; line-height: 1.15; cursor: pointer;
+}
+.emoji-cell.is-on { border-color: #4f46e5; background: #eef0ff; }
+.emoji-cell.is-recent { background: #fff8ec; }
+.emoji-cell.is-recent.is-on { background: #eef0ff; }
+.emoji-custom { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.emoji-custom input {
+  flex: 1 1 auto; min-width: 0;
+  border: 1px solid #e3e5ec; border-radius: 10px;
+  background: #fff; padding: 8px 10px; font-size: 14px; outline: none;
+}
+.emoji-custom input:focus { border-color: #a5a3f5; box-shadow: 0 0 0 3px rgba(79, 70, 229, .12); }
+.emoji-custom .btn-ghost { flex: 0 0 auto; }
+
+/* 칸이 아주 좁은 폰에서는 이모티콘 칸을 여섯 줄로 나눠 누르기 쉽게 */
+@media (max-width: 359px) {
+  .emoji-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}

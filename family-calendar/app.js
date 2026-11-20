@@ -65,7 +65,14 @@
     sheetDate: '',
     sheetOpen: '',
     ddayOpen: false,
-    moreOpen: false
+    moreOpen: false,
+    /* 제목에 맞춘 자동 카테고리·이모티콘 */
+    emoji: '',
+    emojiSource: 'auto',
+    emojiMatched: false,
+    emojiLocked: false,
+    catLocked: false,
+    emojiPickerOpen: false
   };
 
   function isEventLike(ev) {
@@ -147,6 +154,104 @@
   function categoryById(id) {
     for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i];
     return CATEGORIES[CATEGORIES.length - 1];
+  }
+
+  /* 일정에 저장된 이모티콘이 있으면 그것, 없으면(예전 일정) 카테고리 기본 이모티콘.
+     달력 칸·목록·시트·위젯·카톡 요약 등 가족 일정 이모티콘을 그리는 곳은 모두 이 함수를 씁니다. */
+  function eventEmoji(ev) {
+    return (ev && ev.emoji) || categoryById(ev && ev.category).emoji;
+  }
+
+  /* ---------------- 제목 → 카테고리·이모티콘 자동 추론 ----------------
+     위쪽 규칙이 먼저 맞습니다(더 구체적인 낱말을 위에). 맞는 낱말이 없으면 null. */
+  var META_RULES = [
+    /* 제사·차례 */
+    { category: 'memorial', emoji: '🕯️', words: ['제사', '차례', '성묘', '벌초', '추도', '기제사', '49재', '사십구재'] },
+    /* 생일·기념일 */
+    { category: 'birthday', emoji: '🎂', words: ['생일', '생신', '돌잔치', '돌상', '백일', '환갑', '칠순'] },
+    { category: 'birthday', emoji: '💐', words: ['결혼기념일', '기념일', '주년', '결혼식', '웨딩', '프로포즈'] },
+    /* 병원·건강 — 진료과·접종을 먼저 봅니다 */
+    { category: 'hospital', emoji: '🦷', words: ['치과', '충치', '스케일링', '교정', '임플란트', '신경치료'] },
+    { category: 'hospital', emoji: '👁️', words: ['안과', '시력', '라식', '라섹', '눈검사', '안경'] },
+    { category: 'hospital', emoji: '👂', words: ['이비인후과', '중이염', '청력'] },
+    { category: 'hospital', emoji: '💉', words: ['예방접종', '접종', '백신', '주사', '독감', '항체'] },
+    { category: 'hospital', emoji: '💊', words: ['약국', '처방', '조제', '복약', '영양제'] },
+    { category: 'hospital', emoji: '🏥', words: ['병원', '의원', '소아과', '내과', '외과', '피부과', '정형외과', '산부인과', '비뇨기과', '정신과', '진료', '검진', '건강검진', '치료', '수술', '응급', '재활', '물리치료', '한의원', '감기약', '약 먹', '약먹', '약 챙', '처방약'] },
+    /* 학교·학원·아이 */
+    { category: 'school', emoji: '🚌', words: ['체험학습', '현장학습', '견학', '소풍', '수학여행', '봉사활동'] },
+    { category: 'school', emoji: '📝', words: ['시험', '고사', '수행평가', '모의고사', '단원평가', '받아쓰기', '문제풀이', '오답'] },
+    { category: 'school', emoji: '📚', words: ['학원', '과외', '숙제', '공부', '독서', '도서관', '문제집', '영어', '수학', '논술'] },
+    { category: 'school', emoji: '🎓', words: ['입학', '졸업', '학예회', '발표회', '수료', '오리엔테이션'] },
+    { category: 'school', emoji: '🎽', words: ['운동회', '체육대회', '체육'] },
+    { category: 'school', emoji: '🏫', words: ['등교', '하교', '학교', '학부모', '상담', '개학', '방학', '반장', '선생님', '담임'] },
+    /* 생활·외출·소비 */
+    { category: 'etc', emoji: '💇', words: ['미용실', '이발', '네일', '파마', '염색', '커트', '머리'] },
+    { category: 'etc', emoji: '🛒', words: ['장보기', '마트', '쿠팡', '쇼핑', '구매', '이마트', '코스트코', '편의점', '주문'] },
+    { category: 'etc', emoji: '🍽️', words: ['외식', '식사', '저녁', '점심', '아침', '회식', '카페', '커피', '약속', '모임', '식당', '치킨', '고기'] },
+    { category: 'etc', emoji: '⚾', words: ['야구', '직관', '야구장'] },
+    { category: 'etc', emoji: '🏊', words: ['수영', '수영장'] },
+    { category: 'etc', emoji: '⚽', words: ['축구', '태권도', '농구', '배드민턴', '운동', '헬스', '줄넘기', '테니스', '골프', '클라이밍', '자전거'] },
+    { category: 'etc', emoji: '🎬', words: ['영화', '공연', '전시', '뮤지컬', '콘서트', '연극', '미술관'] },
+    { category: 'etc', emoji: '🏨', words: ['호텔', '숙소', '리조트', '펜션', '체크인', '숙박'] },
+    { category: 'etc', emoji: '✈️', words: ['여행', '공항', '비행기', '출발', '오사카', '제주', '해외', '입국', '출국', '항공'] },
+    { category: 'etc', emoji: '💳', words: ['세금', '납부', '이체', '결제', '카드', '대출', '보험', '공과금', '관리비', '월세', '급여', '재산세', '자동차세'] },
+    { category: 'etc', emoji: '📦', words: ['택배', '배송', '수령', '반품'] },
+    { category: 'etc', emoji: '🧹', words: ['청소', '수리', '점검', '정리', '빨래', '이사', '설치'] },
+    { category: 'etc', emoji: '💼', words: ['회의', '미팅', '출근', '알바', '야근', '회사', '업무', '면접', '근무', '사업'] }
+  ];
+
+  /* 제목에서 가장 어울리는 카테고리·이모티콘을 찾습니다. 없으면 null. */
+  function inferEventMeta(title) {
+    var t = String(title || '').replace(/\s+/g, ' ').trim();
+    if (!t) return null;
+    var lower = t.toLowerCase();
+    for (var i = 0; i < META_RULES.length; i++) {
+      var rule = META_RULES[i];
+      for (var j = 0; j < rule.words.length; j++) {
+        var w = rule.words[j];
+        if (lower.indexOf(w) !== -1) {
+          return { category: rule.category, emoji: rule.emoji, word: w };
+        }
+      }
+    }
+    return null;
+  }
+
+  /* 직접 고를 수 있는 이모티콘 (가족 일정에서 자주 쓰는 것) */
+  var EMOJI_CHOICES = ['🎂', '🎉', '💐', '🕯️', '🌸', '🏫', '🎓', '📚', '📝', '🚌', '🎒', '🏥',
+    '🦷', '👁️', '👂', '💉', '💊', '🩺', '🛒', '🍽️', '☕', '💇', '💅', '🧹',
+    '🔧', '📦', '🚚', '⚾', '⚽', '🏊', '🥋', '🎮', '✈️', '🏨', '🚗', '🎡',
+    '🎬', '🎤', '💳', '💰', '🏦', '💼', '🏢', '📌', '🙏', '✨', '🔔', '🐶'];
+  var EMOJI_RECENT_KEY = 'family-calendar.emojis.v1';
+
+  function recentEmojis() {
+    try {
+      var raw = localStorage.getItem(EMOJI_RECENT_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 8) : [];
+    } catch (e) { return []; }
+  }
+
+  function rememberEmoji(emoji) {
+    if (!emoji) return;
+    try {
+      var list = recentEmojis().filter(function (x) { return x !== emoji; });
+      list.unshift(emoji);
+      localStorage.setItem(EMOJI_RECENT_KEY, JSON.stringify(list.slice(0, 8)));
+    } catch (e) { /* 저장 못 해도 이모티콘 선택은 동작 */ }
+  }
+
+  /* 직접 입력한 글자에서 이모티콘 한 글자만 뽑습니다(🕯️처럼 두 코드인 것도 온전히). */
+  function firstEmojiOf(text) {
+    var s = String(text || '').trim();
+    if (!s) return '';
+    try {
+      if (window.Intl && typeof window.Intl.Segmenter === 'function') {
+        var it = new window.Intl.Segmenter('ko', { granularity: 'grapheme' }).segment(s);
+        for (var seg of it) return seg.segment;
+      }
+    } catch (e) { /* 아래 기본 처리로 */ }
+    return Array.from(s).slice(0, 2).join('');
   }
 
   /* ---------------- 반복 일정 계산 ---------------- */
@@ -346,6 +451,14 @@
     el.modal = document.getElementById('modal');
     el.form = document.getElementById('eventForm');
     el.fTitle = document.getElementById('fTitle');
+    el.fEmojiBtn = document.getElementById('fEmojiBtn');
+    el.fEmojiNow = document.getElementById('fEmojiNow');
+    el.fEmojiHint = document.getElementById('fEmojiHint');
+    el.fEmojiPicker = document.getElementById('fEmojiPicker');
+    el.fEmojiGrid = document.getElementById('fEmojiGrid');
+    el.fEmojiAuto = document.getElementById('fEmojiAuto');
+    el.fEmojiCustom = document.getElementById('fEmojiCustom');
+    el.fEmojiCustomBtn = document.getElementById('fEmojiCustomBtn');
     el.fDate = document.getElementById('fDate');
     el.fEndDate = document.getElementById('fEndDate');
     el.dateRangeHint = document.getElementById('dateRangeHint');
@@ -927,6 +1040,21 @@
     });
     if (el.fMemo) el.fMemo.addEventListener('input', updateMoreBadges);
     if (el.fCategories) el.fCategories.addEventListener('click', function () { setTimeout(updateMoreBadges, 0); });
+    /* 제목을 쓰면 어울리는 카테고리·이모티콘을 자동으로 (직접 고른 칸은 건드리지 않음) */
+    if (el.fTitle) el.fTitle.addEventListener('input', applyAutoMeta);
+    if (el.fEmojiBtn) el.fEmojiBtn.addEventListener('click', toggleEmojiPicker);
+    if (el.fEmojiAuto) el.fEmojiAuto.addEventListener('click', function () {
+      state.catLocked = false;
+      state.emojiLocked = false;
+      state.emojiSource = 'auto';
+      state.emoji = '';
+      applyAutoMeta();
+      closeEmojiPicker();
+    });
+    if (el.fEmojiCustomBtn) el.fEmojiCustomBtn.addEventListener('click', applyCustomEmoji);
+    if (el.fEmojiCustom) el.fEmojiCustom.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); applyCustomEmoji(); }
+    });
     /* 다가오는 일정 더 보기 */
     var ddayMore = document.getElementById('ddayMoreBtn');
     if (ddayMore) ddayMore.addEventListener('click', function () {
@@ -1253,8 +1381,8 @@
           bar.style.background = c.color;
           row.appendChild(bar);
           var tx = document.createElement('span');
-          /* 칸이 좁아서 '[샘플]' 머리말은 빼고 보여 줍니다. */
-          tx.textContent = String(ev.title || '').replace(/^\[샘플\]\s*/, '');
+          /* 칸이 좁아서 '[샘플]' 머리말은 빼고 보여 줍니다. 이모티콘은 제목 앞에 붙습니다. */
+          tx.textContent = eventEmoji(ev) + ' ' + String(ev.title || '').replace(/^\[샘플\]\s*/, '');
           row.appendChild(tx);
           evs.appendChild(row);
         });
@@ -1466,7 +1594,7 @@
 
     var emoji = document.createElement('span');
     emoji.className = 'sheet-row__emoji';
-    emoji.textContent = cat.emoji;
+    emoji.textContent = eventEmoji(ev);
     row.appendChild(emoji);
 
     var title = document.createElement('span');
@@ -1946,7 +2074,7 @@
     var todayList = events.filter(function (ev) {
       return isEventLike(ev) && !!occurrenceCovering(ev, today);
     }).sort(compareEvents).slice(0, 6).map(function (ev) {
-      return { t: ev.time || '', n: widgetNameOf(ev), w: memberNamesOf(ev.members) };
+      return { t: ev.time || '', n: eventEmoji(ev) + ' ' + widgetNameOf(ev), e: eventEmoji(ev), w: memberNamesOf(ev.members) };
     });
 
     var from = addDaysISO(today, 1);
@@ -1959,7 +2087,8 @@
           upcoming.push({
             d: occ.start,
             t: ev.time || '',
-            n: widgetNameOf(ev),
+            n: eventEmoji(ev) + ' ' + widgetNameOf(ev),
+            e: eventEmoji(ev),
             w: memberNamesOf(ev.members)
           });
         });
@@ -2131,7 +2260,7 @@
     title.className = 'event__title';
     var catEl = document.createElement('span');
     catEl.className = 'event__cat';
-    catEl.textContent = cat.emoji;
+    catEl.textContent = eventEmoji(ev);
     title.appendChild(catEl);
     title.appendChild(document.createTextNode(ev.title));
     body.appendChild(title);
@@ -2344,7 +2473,7 @@
 
       var title = document.createElement('div');
       title.className = 'dday__title';
-      title.textContent = cat.emoji + ' ' + ev.title;
+      title.textContent = eventEmoji(ev) + ' ' + ev.title;
       body.appendChild(title);
 
       var meta = document.createElement('div');
@@ -2427,7 +2556,7 @@
       var m = memberById(id);
       return m ? m.name : '';
     }).filter(Boolean);
-    var line = '· ' + (ev.time ? ev.time + ' ' : '종일 ') + cat.emoji + ' ' + ev.title;
+    var line = '· ' + (ev.time ? ev.time + ' ' : '종일 ') + eventEmoji(ev) + ' ' + ev.title;
     if (names.length) line += ' — ' + names.join('·');
     var c = checklistDone(ev);
     if (c.total) line += ' (준비물 ' + c.done + '/' + c.total + ')';
@@ -2514,6 +2643,13 @@
     el.modalTitle.textContent = ev ? (manage ? '일정 수정' : '일정 보기') : (manage ? '일정 추가' : '일정 등록 요청');
     el.deleteBtn.hidden = !ev || !manage;
     el.formError.hidden = true;
+    /* 이모티콘·카테고리 자동 선택 상태 — 수정할 때는 저장된 값을 그대로 지킵니다. */
+    state.emoji = ev ? (ev.emoji || '') : '';
+    state.emojiSource = ev ? 'saved' : 'auto';
+    state.emojiMatched = false;
+    state.emojiLocked = !!(ev && ev.emoji);
+    state.catLocked = !!ev;
+    closeEmojiPicker();
     el.saveBtn.textContent = ev ? '저장' : (manage ? '저장' : '등록 요청 보내기');
     el.requestNote.hidden = manage || !!ev;
 
@@ -2569,13 +2705,19 @@
       b.style.setProperty('--fgc', cat.color);
       b.textContent = cat.emoji + ' ' + cat.label;
       b.addEventListener('click', function () {
-        Array.prototype.forEach.call(el.fCategories.children, function (child) {
-          child.classList.remove('is-on');
-        });
-        b.classList.add('is-on');
+        paintCategorySelection(cat.id);
+        state.catLocked = true;
+        if (!state.emojiLocked) {
+          state.emoji = cat.emoji;
+          state.emojiSource = 'auto';
+        }
+        state.emojiMatched = false;
+        paintEmojiBadge();
+        updateMoreBadges();
       });
       el.fCategories.appendChild(b);
     });
+    paintEmojiBadge();
 
     setRepeat(ev ? ev.repeat : 'none');
     setRemind(ev && ev.remind !== null && ev.remind !== undefined ? String(ev.remind) : 'none');
@@ -2596,6 +2738,7 @@
     el.modal.hidden = true;
     document.body.style.overflow = '';
     state.editingId = null;
+    closeEmojiPicker();
     resetVoiceBox();
   }
 
@@ -2799,6 +2942,130 @@
     return on ? on.getAttribute('data-id') : 'etc';
   }
 
+  /* ---------------- 제목에 맞춘 카테고리·이모티콘 (편집 모달) ---------------- */
+  function currentEmojiValue() {
+    return state.emoji || categoryById(currentCategory()).emoji;
+  }
+
+  /* 카테고리 버튼의 선택 표시만 바꿉니다(누른 것으로 치지 않음). */
+  function paintCategorySelection(id) {
+    if (!el.fCategories) return;
+    Array.prototype.forEach.call(el.fCategories.children, function (child) {
+      child.classList.toggle('is-on', child.getAttribute('data-id') === id);
+    });
+  }
+
+  function paintEmojiBadge() {
+    if (!el.fEmojiNow) return;
+    var shown = currentEmojiValue();
+    var cat = categoryById(currentCategory());
+    el.fEmojiNow.textContent = shown;
+    if (el.fEmojiBtn) {
+      el.fEmojiBtn.classList.toggle('is-manual', state.emojiSource === 'manual' || state.emojiSource === 'saved');
+      el.fEmojiBtn.setAttribute('aria-label', '이모티콘 ' + shown + ' · 바꾸기');
+      el.fEmojiBtn.title = '이모티콘 바꾸기';
+    }
+    if (!el.fEmojiHint) return;
+    var hint;
+    if (state.emojiSource === 'manual') hint = '내가 고른 이모티콘 ' + shown + ' · 눌러서 바꿀 수 있어요';
+    else if (state.emojiSource === 'saved') hint = '저장된 이모티콘 ' + shown + ' · 눌러서 바꿀 수 있어요';
+    else if (state.emojiMatched) hint = '제목에 맞춰 ' + shown + ' · ' + cat.label + '(으)로 골랐어요';
+    else if (el.fTitle && el.fTitle.value.trim()) hint = shown + ' ' + cat.label + ' · 눌러서 이모티콘을 바꿀 수 있어요';
+    else hint = '제목을 쓰면 어울리는 이모티콘을 골라 드려요 · 눌러서 직접 고를 수도 있어요';
+    el.fEmojiHint.textContent = hint;
+    el.fEmojiHint.classList.toggle('is-auto', state.emojiSource === 'auto');
+  }
+
+  /* 이모티콘 저장값과 표시를 함께 갱신합니다. */
+  function setEditorEmoji(emoji, source) {
+    state.emoji = String(emoji || '');
+    state.emojiSource = source || 'auto';
+    state.emojiMatched = false;
+    paintEmojiBadge();
+  }
+
+  /* 제목·말로 입력·붙여넣기로 제목이 바뀔 때 호출 — 손대지 않은 칸만 자동으로 채용합니다. */
+  function applyAutoMeta() {
+    var meta = inferEventMeta(el.fTitle ? el.fTitle.value : '');
+    if (!meta) {
+      state.emojiMatched = false;
+      /* 제목에서 어울리는 낱말이 사라지면(지웠거나 다른 말로 바꿈) 자동값은 기본값으로 되돌립니다. */
+      if (!state.catLocked) paintCategorySelection('etc');
+      if (!state.emojiLocked && state.emojiSource === 'auto') state.emoji = '';
+      paintEmojiBadge();
+      updateMoreBadges();
+      return;
+    }
+    if (!state.catLocked) paintCategorySelection(meta.category);
+    var appliedEmoji = false;
+    if (!state.emojiLocked && (!state.catLocked || currentCategory() === meta.category)) {
+      state.emoji = meta.emoji;
+      state.emojiSource = 'auto';
+      appliedEmoji = true;
+    }
+    state.emojiMatched = appliedEmoji;
+    paintEmojiBadge();
+    updateMoreBadges();
+  }
+
+  function renderEmojiGrid() {
+    if (!el.fEmojiGrid) return;
+    el.fEmojiGrid.innerHTML = '';
+    var recents = recentEmojis();
+    var list = recents.slice();
+    EMOJI_CHOICES.forEach(function (em) { if (list.indexOf(em) === -1) list.push(em); });
+    var now = currentEmojiValue();
+    list.slice(0, 60).forEach(function (em) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'emoji-cell' + (em === now ? ' is-on' : '') + (recents.indexOf(em) !== -1 ? ' is-recent' : '');
+      b.textContent = em;
+      b.setAttribute('aria-label', '이모티콘 ' + em);
+      b.addEventListener('click', function () { chooseEmoji(em); });
+      el.fEmojiGrid.appendChild(b);
+    });
+  }
+
+  function openEmojiPicker() {
+    if (!el.fEmojiPicker) return;
+    renderEmojiGrid();
+    el.fEmojiPicker.hidden = false;
+    state.emojiPickerOpen = true;
+    if (el.fEmojiBtn) {
+      el.fEmojiBtn.setAttribute('aria-expanded', 'true');
+      el.fEmojiBtn.classList.add('is-open');
+    }
+    if (el.fEmojiCustom) el.fEmojiCustom.value = '';
+  }
+
+  function closeEmojiPicker() {
+    if (!el.fEmojiPicker) return;
+    el.fEmojiPicker.hidden = true;
+    state.emojiPickerOpen = false;
+    if (el.fEmojiBtn) {
+      el.fEmojiBtn.setAttribute('aria-expanded', 'false');
+      el.fEmojiBtn.classList.remove('is-open');
+    }
+  }
+
+  function toggleEmojiPicker() {
+    if (state.emojiPickerOpen) closeEmojiPicker();
+    else openEmojiPicker();
+  }
+
+  function chooseEmoji(emoji) {
+    setEditorEmoji(emoji, 'manual');
+    state.emojiLocked = true;
+    rememberEmoji(emoji);
+    closeEmojiPicker();
+  }
+
+  function applyCustomEmoji() {
+    var em = firstEmojiOf(el.fEmojiCustom ? el.fEmojiCustom.value : '');
+    if (!em) { toast('이모티콘을 하나 넣어 주세요'); return; }
+    chooseEmoji(em);
+  }
+
   function currentMembers() {
     return Array.prototype.map.call(el.fMembers.querySelectorAll('.pick.is-on'), function (b) {
       return b.getAttribute('data-id');
@@ -2927,6 +3194,9 @@
       });
     }
     if (parsed.title) el.fTitle.value = parsed.title.slice(0, 60);
+    /* 말로 정한 카테고리는 그대로 두고, 이모티콘만 제목에 맞춰 골라 줍니다. */
+    state.catLocked = state.catLocked || !!parsed.category;
+    applyAutoMeta();
     if (parsed.lunar) setRepeat('yearly-lunar');
     updateDateHint();
     /* 말로 채운 부가 항목(기간·카테고리·반복)은 바로 보이게 펼칩니다. */
@@ -3049,6 +3319,8 @@
     }
     if (parsed.title) el.fTitle.value = parsed.title.slice(0, 60);
     if (parsed.memo) el.fMemo.value = parsed.memo.slice(0, 600);
+    state.catLocked = state.catLocked || !!parsed.category;
+    applyAutoMeta();
     updateDateHint();
     if (parsed.endDate || parsed.category || parsed.memo) toggleMore(true);
     updateMoreBadges();
@@ -3102,6 +3374,11 @@
     }
 
     var time = el.fAllDay.checked ? null : (el.fTime.value || null);
+    var category = currentCategory();
+    /* 카테고리 기본 이모티콘과 같으면 저장하지 않습니다(예전 일정과 모양이 같고, 카테고리를
+       나중에 바꿔도 기본 이모티콘이 따라갑니다). 다를 때만 emoji를 남깁니다. */
+    var chosenEmoji = currentEmojiValue();
+    var emojiToSave = chosenEmoji && chosenEmoji !== categoryById(category).emoji ? chosenEmoji.slice(0, 8) : null;
     var payload = {
       title: title,
       date: date,
@@ -3109,7 +3386,8 @@
       time: time,
       remind: state.remind && state.remind !== 'none' ? Number(state.remind) : null,
       members: memberIds,
-      category: currentCategory(),
+      category: category,
+      emoji: emojiToSave,
       memo: el.fMemo.value.trim(),
       repeat: state.repeat,
       weekday: weekday,
@@ -3420,7 +3698,7 @@
     var top = document.createElement('div');
     top.className = 'req-card__top';
     var title = document.createElement('strong');
-    title.textContent = cat.emoji + ' ' + r.title;
+    title.textContent = eventEmoji(r) + ' ' + r.title;
     top.appendChild(title);
     var chip = document.createElement('span');
     chip.className = 'req-status req-status--' + r.status;
@@ -4407,7 +4685,7 @@
     var y = Number(ev.date.slice(0, 4));
     var cat = categoryById(ev.category);
     var dt = parseISO(ev.date);
-    el.detailTitle.textContent = cat.emoji + ' ' + ev.title;
+    el.detailTitle.textContent = eventEmoji(ev) + ' ' + ev.title;
     el.detailBody.innerHTML = '';
     var rows = [];
     rows.push(['날짜', dt.getFullYear() + '년 ' + (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 (' + WEEKDAYS[dt.getDay()] + ')']);
@@ -4519,6 +4797,8 @@
 
   window.FamilyCalendar = {
     get events() { return events; },
+    eventEmoji: eventEmoji,
+    inferEventMeta: inferEventMeta,
     get requests() { return requests; },
     occurrenceForYear: occurrenceForYear,
     occurrenceRange: occurrenceRange,

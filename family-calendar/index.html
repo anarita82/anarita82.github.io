@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="store.css?v=20261118e5" />
 <link rel="stylesheet" href="ledger.css?v=20261118e5" />
 <link rel="stylesheet" href="extra.css?v=20261118e5" />
-<link rel="stylesheet" href="polish.css?v=20261118e5" />
+<link rel="stylesheet" href="polish.css?v=20261120a1" />
 </head>
 <body>
 <div class="app">
@@ -656,7 +656,22 @@
 
     <div class="field field--title">
       <label for="fTitle">제목 <span class="req">*</span></label>
-      <input id="fTitle" type="text" placeholder="예) 둘째 치과 검진" maxlength="60" autocomplete="off" required />
+      <div class="title-row">
+        <input id="fTitle" type="text" placeholder="예) 둘째 치과 검진" maxlength="60" autocomplete="off" required />
+        <button type="button" class="title-emoji" id="fEmojiBtn" aria-expanded="false" aria-controls="fEmojiPicker" aria-label="이모티콘 바꾸기" title="이모티콘 바꾸기"><span id="fEmojiNow">✈️</span></button>
+      </div>
+      <p class="field-hint title-emoji__hint is-auto" id="fEmojiHint">제목을 쓰면 어울리는 이모티콘을 골라 드려요 · 눌러서 직접 고를 수도 있어요</p>
+      <div class="emoji-picker" id="fEmojiPicker" hidden>
+        <div class="emoji-picker__head">
+          <span class="emoji-picker__title">이모티콘 고르기</span>
+          <button type="button" class="emoji-picker__auto" id="fEmojiAuto">✨ 제목으로 자동</button>
+        </div>
+        <div class="emoji-grid" id="fEmojiGrid"></div>
+        <div class="emoji-custom">
+          <input id="fEmojiCustom" type="text" maxlength="8" placeholder="직접 입력 (예: 🐶)" autocomplete="off" />
+          <button type="button" class="btn-ghost btn-small" id="fEmojiCustomBtn">적용</button>
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -2088,8 +2103,8 @@
 <script src="firebase-firestore-compat.js?v=20261118e5"></script>
 <script src="lunar.js?v=20261118e5"></script>
 <script src="vaccines.js?v=20261118e5"></script>
-<script src="cloud.js?v=20261119a9"></script>
-<script src="app.js?v=20261119a9"></script>
+<script src="cloud.js?v=20261120a1"></script>
+<script src="app.js?v=20261120a1"></script>
 <script src="voice.js?v=20261118e5"></script>
 <script src="paste.js?v=20261118e5"></script>
 <script src="media.js?v=20261118e5"></script>
