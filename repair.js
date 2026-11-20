@@ -332,7 +332,7 @@
       /* 직접 입력 중이면 이미 입력한 내용을 지우지 않고 검색으로 되돌립니다. */
       addr.manual = false;
       var back = $('f-addr-base');
-      if (back) back.readOnly = true;
+      if (back) { back.readOnly = true; back.placeholder = ADDR_PLACEHOLDER; }
       var backAlt = $('addr-manual');
       if (backAlt) backAlt.textContent = '주소 검색 창이 안 열리면 직접 입력';
       var backHelp = $('addr-help');
