@@ -212,7 +212,10 @@
      별도 API 키가 필요 없는 무료 서비스입니다. 우편번호와 기본주소를 채우고 고객은 상세주소만 입력합니다.
      저장은 기존 address 한 필드에만 하므로 Firestore 규칙(hasOnly 화이트리스트)을 바꾸지 않습니다.
      포맷: "(12345) 기본주소 상세주소" — 관리자 화면의 우체국 사전접수가 이 앞자리 우편번호를 그대로 뽑아 씁니다. */
-  var POSTCODE_SRC = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+  var POSTCODE_SRC = [
+    'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js',
+    'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+  ];
   var ADDR_HELP = '주소 검색을 누르면 우편번호와 기본주소가 자동으로 들어갑니다. 상세주소만 입력하시면 됩니다. 수리한 마우스를 받으실 주소입니다.';
   var ADDR_HELP_MANUAL = '직접 입력하실 때는 우편번호 5자리부터 적어 주세요. (예: 05203 서울특별시 강동구 고덕로83길 6 101동 1001호)';
   var ADDR_PLACEHOLDER = '🔍 주소 검색을 눌러 주세요';
@@ -223,9 +226,18 @@
   function loadPostcode() {
     if (window.daum && window.daum.Postcode) return Promise.resolve(window.daum.Postcode);
     if (postcodePromise) return postcodePromise;
-    postcodePromise = new Promise(function (resolve, reject) {
+    /* t1.daumcdn.net은 2026-11-30 종료 안내가 있어 새 주소(t1.kakaocdn.net)를 먼저 쓰고, 실패하면 옛 주소로 한 번 더 시도합니다. */
+    postcodePromise = injectPostcodeScript(POSTCODE_SRC[0]).catch(function () {
+      return injectPostcodeScript(POSTCODE_SRC[1]);
+    });
+    postcodePromise.catch(function () { postcodePromise = null; });
+    return postcodePromise;
+  }
+
+  function injectPostcodeScript(src) {
+    return new Promise(function (resolve, reject) {
       var script = document.createElement('script');
-      script.src = POSTCODE_SRC;
+      script.src = src;
       script.async = true;
       script.onload = function () {
         if (window.daum && window.daum.Postcode) resolve(window.daum.Postcode);
@@ -234,8 +246,28 @@
       script.onerror = function () { reject(new Error('postcode_network')); };
       document.head.appendChild(script);
     });
-    postcodePromise.catch(function () { postcodePromise = null; });
-    return postcodePromise;
+  }
+
+  /* 우편번호 서비스는 embed 할 때 같은 출처의 about:blank 문서를 한 장 만들고 그 안에 실제 프레임을 넣습니다.
+     그 안쪽 프레임이 인라인으로 계산되면 300×150 기본 크기에 머물러 검색창이 잘리므로 크기를 다시 잡아 줍니다.
+     (라이브러리 구조가 바뀌면 조용히 넣지 않고 넘어갑니다.) */
+  function sizeEmbeddedFrame(host) {
+    var apply = function () {
+      var outer = host.querySelector('iframe');
+      var doc = outer && outer.contentDocument;
+      var inner = doc && doc.querySelector('iframe');
+      if (!inner) return false;
+      inner.style.display = 'block';
+      inner.style.width = '100%';
+      inner.style.height = '100%';
+      return true;
+    };
+    if (apply()) return;
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      if (apply() || tries >= 20) clearInterval(timer);
+    }, 100);
   }
 
   function composeAddress() {
@@ -326,6 +358,7 @@
         height: '100%',
         animation: false
       }).embed(frame);
+      sizeEmbeddedFrame(frame);
       var close = $('addr-close');
       if (close) close.focus({ preventScroll: true });
     }).catch(function () {
