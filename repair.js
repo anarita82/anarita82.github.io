@@ -12,14 +12,28 @@
   var OPEN_CHAT = 'https://open.kakao.com/o/sFZ6mCSi';
   var TICKET_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+  /* 고객에게 보이는 5단계.
+     예전 데이터는 수리 완료를 done 으로 저장했으므로 repaired 로 읽어 줍니다. */
   var STATUS = {
-    received: { label: '접수 대기', step: 0 },
-    arrived: { label: '택배 도착', step: 1 },
-    repairing: { label: '수리 중', step: 2 },
-    done: { label: '수리 완료', step: 3 },
-    shipped: { label: '반송 발송', step: 4 }
+    received: { label: '접수·발송', step: 0 },
+    arrived: { label: '매장 도착', step: 1 },
+    repairing: { label: '수리 진행', step: 2 },
+    repaired: { label: '수리 완료', step: 3 },
+    shipped: { label: '발송 완료', step: 4 }
   };
-  var STEP_NAMES = ['접수 대기', '택배 도착', '수리 중', '수리 완료', '반송 발송'];
+  var LEGACY_STATUS = { done: 'repaired' };
+  var STEPS = [
+    { key: 'received', title: '접수·발송', desc: '접수 완료 및 고객님 택배 발송' },
+    { key: 'arrived', title: '매장 도착', desc: '매장 수령·도착 등록 완료 · 수리 대기 중' },
+    { key: 'repairing', title: '수리 진행', desc: '담당 수리 작업 중입니다' },
+    { key: 'repaired', title: '수리 완료', desc: '점검 완료 · 입금/반송 준비' },
+    { key: 'shipped', title: '발송 완료', desc: '우체국 택배 발송 완료 · 송장번호 확인' }
+  ];
+
+  function normalizeStatus(value) {
+    var key = String(value || '');
+    return LEGACY_STATUS[key] || key;
+  }
 
   var state = { auth: null, submitting: false, lastTicket: '' };
 
@@ -398,18 +412,34 @@
 
   function renderTicket(ticket) {
     var box = $('lookup-result');
-    var status = STATUS[ticket.status] || STATUS.received;
+    var key = normalizeStatus(ticket.status);
+    var status = STATUS[key] || STATUS.received;
     var step = status.step;
-    var symptomText = (ticket.symptoms || []).map(function (key) { return symptoms[key] || key; }).join(' · ') || '미기재';
+    var symptomText = (ticket.symptoms || []).map(function (k) { return symptoms[k] || k; }).join(' · ') || '미기재';
+    var dates = stepDates(ticket);
+    var percent = Math.round(((step + 1) / STEPS.length) * 100);
     var html = '';
 
     html += '<div class="rp-card">';
-    html += '<div class="rp-ticket-head"><strong>' + escapeHtml(ticket.ticketNo) + '</strong><span class="rp-status-chip rp-status-' + statusKey(ticket.status) + '">' + status.label + '</span></div>';
+    html += '<div class="rp-ticket-head"><strong>' + escapeHtml(ticket.ticketNo) + '</strong><span class="rp-status-chip rp-status-' + key + '">' + status.label + '</span></div>';
     html += '<p class="rp-ticket-sub">' + escapeHtml(ticket.model || '') + ' · ' + (ticket.qty || 1) + '개 · ' + escapeHtml(ticket.name || '') + '님</p>';
-    html += '<ol class="rp-steps">';
-    STEP_NAMES.forEach(function (name, index) {
-      var cls = index < step ? 'is-done' : (index === step ? 'is-current' : '');
-      html += '<li class="' + cls + '">' + name + '</li>';
+    html += '<div class="rp-progress" role="img" aria-label="5단계 중 ' + (step + 1) + '단계 진행 중"><span style="width:' + percent + '%"></span></div>';
+    html += '<p class="rp-progress-label">' + (step + 1) + ' / ' + STEPS.length + ' 단계 · ' + status.label + '</p>';
+    html += '<ol class="rp-track" aria-label="수리 진행 5단계">';
+    STEPS.forEach(function (item, index) {
+      var cls = index < step ? 'is-done' : (index === step ? 'is-current' : 'is-todo');
+      var when = dates[item.key] ? formatKoreanDate(dates[item.key]) : '';
+      var mark = index < step ? '✓' : String(index + 1);
+      html += '<li class="' + cls + '">';
+      html += '<span class="rp-track-dot" aria-hidden="true">' + mark + '</span>';
+      html += '<div class="rp-track-body">';
+      html += '<p class="rp-track-title">' + item.title + '<span class="rp-visually-hidden">' + (index < step ? ' 완료' : (index === step ? ' 진행 중' : ' 예정')) + '</span></p>';
+      html += '<p class="rp-track-desc">' + item.desc + (item.key === 'arrived' && index <= step ? ' <span class="rp-muted">(예상 ' + escapeHtml(ticket.expectedDays || '15~20일') + ')</span>' : '') + '</p>';
+      if (when) html += '<p class="rp-track-date">' + when + '</p>';
+      if (item.key === 'arrived' && index <= step && ticket.expectedFrom && ticket.expectedTo) {
+        html += '<p class="rp-track-date">완료 예정 ' + formatKoreanDate(ticket.expectedFrom) + ' ~ ' + formatKoreanDate(ticket.expectedTo) + '</p>';
+      }
+      html += '</div></li>';
     });
     html += '</ol>';
     html += '<dl class="rp-kv">';
@@ -425,18 +455,22 @@
     if (ticket.trackingNo || ticket.carrier) {
       html += '<dt>보내신 택배</dt><dd>' + escapeHtml(carrierName(ticket.carrier) || '택배사 미기재') + (ticket.trackingNo ? ' ' + escapeHtml(ticket.trackingNo) : '') + '</dd>';
     }
-    if (ticket.status === 'done' || ticket.status === 'shipped') {
-      if (ticket.quote) html += '<dt>수리 금액</dt><dd>' + Number(ticket.quote).toLocaleString('ko-KR') + '원</dd>';
+    var fee = Number(ticket.repairFee || ticket.quote || 0);
+    if (key === 'repaired' || key === 'shipped') {
+      if (fee) html += '<dt>수리 금액</dt><dd><strong>' + fee.toLocaleString('ko-KR') + '원</strong>' + (ticket.paid ? ' <span class="rp-muted">(입금 확인)</span>' : '') + '</dd>';
       if (ticket.asNote) html += '<dt>AS 안내</dt><dd>' + escapeHtml(ticket.asNote) + '</dd>';
     }
     html += '</dl>';
     if (ticket.ownerMemo) {
       html += '<div class="rp-owner-note"><b>사장님 안내</b>' + escapeHtml(ticket.ownerMemo).replace(/\n/g, '<br>') + '</div>';
     }
-    if (ticket.returnCarrier || ticket.returnTrackingNo || ticket.status === 'shipped') {
+    if (ticket.returnCarrier || ticket.returnTrackingNo || key === 'shipped') {
       var returnCarrier = carrierName(ticket.returnCarrier || 'post') || '우체국택배';
-      var returnTracking = ticket.returnTrackingNo ? '송장번호 ' + ticket.returnTrackingNo : '사전접수 후 송장번호를 알려드립니다';
-      html += '<div class="rp-shipping"><b>반송 정보</b>' + escapeHtml(returnCarrier) + ' · ' + escapeHtml(returnTracking) + '</div>';
+      var trackingNo = ticket.returnTrackingNo ? String(ticket.returnTrackingNo) : '';
+      var returnTracking = trackingNo ? '송장번호 ' + escapeHtml(trackingNo) : '사전접수 후 송장번호를 알려드립니다';
+      html += '<div class="rp-shipping"><b>반송 정보</b>' + escapeHtml(returnCarrier) + ' · ' + returnTracking;
+      if (trackingNo) html += '<br><a href="' + trackingUrl(ticket.returnCarrier, trackingNo) + '" target="_blank" rel="noopener noreferrer">배송 조회하기 →</a>';
+      html += '</div>';
     }
     html += '</div>';
 
@@ -449,8 +483,26 @@
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function statusKey(status) {
-    return STATUS[status] ? status : 'received';
+  /* 단계별 날짜 — statusHistory(관리자가 상태를 바꾼 시각)를 우선 쓰고, 없으면 저장된 날짜를 씁니다. */
+  function stepDates(ticket) {
+    var map = {};
+    if (ticket.createdAt) map.received = ticket.createdAt;
+    if (ticket.arrivedAt) map.arrived = ticket.arrivedAt;
+    (ticket.statusHistory || []).forEach(function (row) {
+      if (!row || !row.status) return;
+      var key = normalizeStatus(row.status);
+      map[key] = row.at || map[key];
+    });
+    return map;
+  }
+
+  /* 우체국택배만 인터넷우체국 배송조회로 바로 연결합니다. */
+  function trackingUrl(carrier, trackingNo) {
+    var name = carrierName(carrier || 'post');
+    if (String(trackingNo || '').length === 13 || /우체국/.test(name)) {
+      return 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=' + encodeURIComponent(trackingNo);
+    }
+    return 'https://search.naver.com/search.naver?query=' + encodeURIComponent(name + ' ' + trackingNo + ' 배송조회');
   }
 
   var CARRIERS = {

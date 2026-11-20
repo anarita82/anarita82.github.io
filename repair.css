@@ -75,7 +75,7 @@
 .rp-status-received { color: #dbe6ff; background: #24334f; }
 .rp-status-arrived { color: #d6ecff; background: #163e5c; }
 .rp-status-repairing { color: #fff3d6; background: #5a3c0d; }
-.rp-status-done { color: #d9ffe7; background: #14512f; }
+.rp-status-done, .rp-status-repaired { color: #d9ffe7; background: #14512f; }
 .rp-status-shipped { color: #ffe3ea; background: #5a1630; }
 .rp-ticket-sub { margin: 0; color: var(--muted); font-size: 13.5px; }
 
@@ -89,6 +89,30 @@
 .rp-steps li.is-done::before { background: #e8213d; border-color: #ff8a9c; }
 .rp-steps li.is-current { color: #fff; }
 .rp-steps li.is-current::before { background: #fff; border-color: #e8213d; box-shadow: 0 0 0 5px rgba(232, 33, 61, 0.28); }
+
+/* ---------- 고객 5단계 진행 바(타임라인) ---------- */
+.rp-progress { height: 8px; margin: 18px 0 8px; background: #1c2029; border-radius: 999px; overflow: hidden; }
+.rp-progress span { display: block; height: 100%; min-width: 8%; background: linear-gradient(90deg, #b3162c, #e8213d 60%, #ff8a9c); border-radius: 999px; transition: width 0.45s ease; }
+.rp-progress-label { margin: 0 0 16px; color: var(--muted); font-size: 12.5px; font-weight: 800; letter-spacing: 0.2px; }
+.rp-track { display: grid; margin: 0; padding: 0; list-style: none; }
+.rp-track li { position: relative; display: flex; gap: 14px; padding-bottom: 18px; }
+.rp-track li::before { content: ""; position: absolute; left: 15px; top: 34px; bottom: -2px; width: 2px; background: #262a34; }
+.rp-track li:last-child { padding-bottom: 0; }
+.rp-track li:last-child::before { display: none; }
+.rp-track-dot { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; color: #8b93a2; background: #171a22; border: 2px solid #353a46; border-radius: 50%; font-size: 14px; font-weight: 900; line-height: 1; }
+.rp-track-body { min-width: 0; padding-top: 4px; }
+.rp-track-title { margin: 0; color: #aeb5c3; font-size: 15px; font-weight: 800; line-height: 1.4; }
+.rp-track-desc { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.rp-track-desc .rp-muted { font-size: 12.5px; }
+.rp-track-date { margin: 4px 0 0; color: #8b93a2; font-size: 12.5px; font-weight: 700; }
+.rp-track li.is-done::before { background: linear-gradient(180deg, #e8213d, #7d1424); }
+.rp-track li.is-done .rp-track-dot { color: #fff; background: #e8213d; border-color: #ff8a9c; }
+.rp-track li.is-done .rp-track-title { color: #e6ebf5; }
+.rp-track li.is-current .rp-track-dot { color: #0b0b10; background: #fff; border-color: #e8213d; box-shadow: 0 0 0 5px rgba(232, 33, 61, 0.24); }
+.rp-track li.is-current .rp-track-title { color: #fff; font-size: 16.5px; }
+.rp-track li.is-current .rp-track-desc { color: #d7dfee; }
+.rp-track li.is-current .rp-track-date { color: #ff8a9c; }
+.rp-track li.is-current .rp-track-body { padding: 10px 12px 10px 4px; border-radius: 10px; background: linear-gradient(90deg, rgba(232, 33, 61, 0.13), transparent 80%); }
 
 .rp-kv { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 9px 12px; margin: 16px 0 0; font-size: 14px; }
 .rp-kv dt { color: var(--muted); font-weight: 700; }
@@ -144,7 +168,7 @@
 .rp-ticket.st-received { border-left-color: #4c6fa8; }
 .rp-ticket.st-arrived { border-left-color: #3a92c9; }
 .rp-ticket.st-repairing { border-left-color: #d99a2b; }
-.rp-ticket.st-done { border-left-color: #34b06b; }
+.rp-ticket.st-done, .rp-ticket.st-repaired { border-left-color: #34b06b; }
 .rp-ticket.st-shipped { border-left-color: #c2405f; }
 .rp-ticket-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .rp-ticket-no-sm { font-family: "SFMono-Regular", Consolas, monospace; font-size: 15.5px; font-weight: 800; color: #fff; letter-spacing: 0.4px; }
@@ -181,6 +205,60 @@
 .rp-admin-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; color: var(--muted); font-size: 12.5px; }
 .rp-admin-foot button { color: #ff8a9c; background: none; border: 0; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 
+/* ---------- 상단 탭 (① 접수·수리·정산 / ② 부품·재고) ---------- */
+.rp-apptabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; padding: 5px; background: #101218; border: 1px solid var(--rp-line); border-radius: 12px; }
+.rp-apptab { position: relative; min-height: 50px; padding: 6px 10px; color: var(--muted-strong); background: transparent; border: 0; border-radius: 9px; font: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; line-height: 1.35; }
+.rp-apptab[aria-selected="true"] { color: #fff; background: linear-gradient(135deg, #e8213d, #9f1428); box-shadow: 0 8px 22px rgba(232, 33, 61, 0.24); }
+.rp-apptab:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.rp-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 5px; color: #fff; background: #e8213d; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 999px; font-size: 11.5px; font-weight: 900; vertical-align: 2px; }
+.rp-badge[hidden] { display: none; }
+
+/* ---------- 사용 부품 선택 ---------- */
+.rp-parts { display: grid; gap: 8px; padding: 12px; background: #0d1017; border: 1px solid var(--rp-line); border-radius: 10px; }
+.rp-parts-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.rp-parts-head b { color: #fff; font-size: 13.5px; }
+.rp-parts-rows { display: grid; gap: 6px; }
+.rp-part-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px 40px; gap: 6px; align-items: center; }
+.rp-part-row select, .rp-part-row input { min-height: 44px; padding: 8px 10px; font-size: 14px; }
+.rp-row-del { min-height: 44px; padding: 0; color: #ff8a9c; background: #1c1116; border: 1px solid rgba(255, 82, 106, 0.4); border-radius: 8px; font: inherit; font-size: 15px; font-weight: 900; cursor: pointer; }
+.rp-row-del[disabled] { opacity: 0.35; cursor: not-allowed; }
+.rp-parts-sum { margin: 0; color: var(--muted-strong); font-size: 12.5px; font-weight: 700; }
+.rp-parts-empty { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+
+/* ---------- 건별 정산 ---------- */
+.rp-settle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 10px; padding: 10px 12px; background: #0f1420; border: 1px solid rgba(120, 150, 255, 0.22); border-radius: 10px; color: var(--muted-strong); font-size: 13px; line-height: 1.7; }
+.rp-settle b { color: #fff; }
+.rp-settle .rp-pay-wait { color: #ffb3be; font-weight: 800; }
+.rp-settle .rp-pay-done { color: #86efac; font-weight: 800; }
+.rp-settle-parts { flex: 1 1 100%; color: var(--muted); font-size: 12.5px; }
+
+/* ---------- 부품·재고 ---------- */
+.rp-part { padding: 14px; margin-bottom: 10px; background: var(--rp-panel); border: 1px solid var(--rp-line); border-left: 4px solid #3a3f4b; border-radius: 12px; }
+.rp-part.is-low { border-left-color: #e8213d; background: #170e12; }
+.rp-part-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rp-part-cat { padding: 3px 9px; color: #c3cad8; background: #1f2430; border-radius: 999px; font-size: 11.5px; font-weight: 800; }
+.rp-part-name { color: #fff; font-size: 15px; font-weight: 800; }
+.rp-part-qty { margin-left: auto; color: #fff; font-size: 15px; font-weight: 900; }
+.rp-part.is-low .rp-part-qty { color: #ff8a9c; }
+.rp-part-low-tag { padding: 3px 8px; color: #fff; background: #e8213d; border-radius: 999px; font-size: 11px; font-weight: 900; }
+.rp-part-meta { margin: 7px 0 0; color: var(--muted-strong); font-size: 13px; line-height: 1.75; }
+.rp-part-meta b { color: #fff; }
+.rp-part-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rp-part-form { display: grid; gap: 10px; margin-top: 12px; padding: 12px; background: #0a0b0f; border: 1px dashed var(--rp-line); border-radius: 10px; }
+.rp-part-form .rp-field { margin: 0; }
+.rp-part-form[hidden] { display: none; }
+.rp-low-banner { display: grid; gap: 4px; margin-bottom: 12px; padding: 12px 14px; color: #ffd9de; background: #2a1016; border: 1px solid rgba(255, 82, 106, 0.45); border-radius: 10px; font-size: 13px; line-height: 1.7; }
+.rp-low-banner b { color: #fff; }
+.rp-low-banner[hidden] { display: none; }
+.rp-log { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-log:last-child { border-bottom: 0; }
+.rp-log .rp-log-type { font-weight: 800; }
+.rp-log .rp-log-type.is-in { color: #86efac; }
+.rp-log .rp-log-type.is-out { color: #ffb3be; }
+.rp-log .rp-log-type.is-adjust { color: #ffd38a; }
+.rp-log .rp-log-qty { color: #fff; font-weight: 800; white-space: nowrap; }
+.rp-parts-summary { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 13px; }
+
 @media (max-width: 560px) {
   .rp-wrap { padding: 18px 12px 44px; }
   .rp-card { padding: 16px; }
@@ -190,6 +268,9 @@
   .rp-ticket-no { letter-spacing: 0.6px; }
   .rp-field-row { grid-template-columns: 1fr; }
   .rp-steps li { font-size: 11px; }
+  .rp-parts-head { flex-wrap: wrap; }
+  .rp-part-row { grid-template-columns: 1fr 78px 38px; }
+  .rp-settle { font-size: 12.5px; }
 }
 @media (min-width: 720px) {
   .rp-info { grid-template-columns: repeat(3, minmax(0, 1fr)); }
