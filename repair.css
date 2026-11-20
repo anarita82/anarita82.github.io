@@ -147,6 +147,12 @@ body.rp-addr-open { overflow: hidden; }
 .rp-postcode-close:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
 .rp-postcode-frame { position: relative; min-height: 0; background: #fff; }
 .rp-postcode-frame iframe { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; max-width: 720px; margin: 0 auto; border: 0; }
+@media (min-width: 700px) {
+  body.rp-addr-open::before { content: ""; position: fixed; inset: 0; z-index: 79; background: rgba(4, 4, 7, 0.72); }
+  .rp-postcode { inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(680px, calc(100vw - 48px)); height: min(860px, calc(100vh - 64px)); overflow: hidden; border: 1px solid var(--rp-line); border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.62); }
+  .rp-postcode-head { border-radius: 16px 16px 0 0; }
+  .rp-postcode-frame iframe { max-width: none; }
+}
 
 /* 안내 3칸 */
 .rp-info { display: grid; gap: 12px; margin-top: 22px; }
