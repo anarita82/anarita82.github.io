@@ -296,7 +296,7 @@
     var zone = String(info.zonecode || '').trim();
     var text = ((zone ? '(' + zone + ') ' : '') + String(base)).replace(/\s+/g, ' ').trim();
     var baseInput = $('f-addr-base');
-    if (baseInput && text) baseInput.value = text.slice(0, 120);
+    if (baseInput && text) baseInput.value = text;
     addr.manual = false;
     baseInput && (baseInput.readOnly = true);
     var alt = $('addr-manual');
@@ -310,6 +310,8 @@
       detail.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
     toast(text ? '주소를 채웠습니다. 상세주소를 입력해 주세요' : '주소를 찾지 못했습니다. 직접 입력해 주세요');
+    /* 규칙상 address는 120자까지라, 넘으면 조용히 잘라 저장하지 않고 직접 입력으로 넘겨 고쳐 쓰게 합니다. */
+    if (composeAddress().length > 120) enableAddressManual('주소가 120자를 넘습니다. 직접 입력에서 줄여 주세요.');
   }
 
   function enableAddressManual(message) {
