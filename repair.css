@@ -128,6 +128,26 @@
 .rp-steps-guide li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #12141b; border-radius: 8px; }
 .rp-steps-guide span { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 auto; background: #262a34; border-radius: 50%; color: #cfd6e4; font-size: 12px; font-weight: 900; }
 
+/* ---------- 주소 검색 (카카오/다음 우편번호) ---------- */
+.rp-addr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+.repair-page .rp-addr-row input[readonly] { background: #12141b; cursor: pointer; }
+.repair-page .rp-addr-row input[readonly]:focus { cursor: text; }
+.rp-addr-btn { min-height: 50px; padding: 0 16px; color: #fff; background: #262a34; border: 1px solid var(--rp-line); border-radius: 9px; font: inherit; font-size: 15px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.rp-addr-btn:hover { background: #303542; }
+.rp-addr-btn[disabled] { opacity: 0.6; cursor: progress; }
+.rp-addr-btn:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.rp-addr-alt { margin: 0; font-size: 12.5px; }
+.rp-addr-alt .rp-textlink { font-size: 12.5px; font-weight: 700; }
+body.rp-addr-open { overflow: hidden; }
+.rp-postcode { position: fixed; inset: 0; z-index: 80; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #fff; }
+.rp-postcode[hidden] { display: none; }
+.rp-postcode-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); background: #0d0e13; border-bottom: 1px solid var(--rp-line); }
+.rp-postcode-head strong { color: #fff; font-size: 15px; font-weight: 900; }
+.rp-postcode-close { min-height: 40px; padding: 0 12px; color: #fff; background: #232733; border: 1px solid var(--rp-line); border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+.rp-postcode-close:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.rp-postcode-frame { position: relative; min-height: 0; background: #fff; }
+.rp-postcode-frame iframe { position: absolute; inset: 0; display: block; width: 100% !important; height: 100% !important; max-width: 720px; margin: 0 auto; border: 0; }
+
 /* 안내 3칸 */
 .rp-info { display: grid; gap: 12px; margin-top: 22px; }
 .rp-info article { padding: 18px; background: #0b0c10; border: 1px solid var(--line); border-radius: 12px; }
@@ -263,6 +283,8 @@
   .rp-wrap { padding: 18px 12px 44px; }
   .rp-card { padding: 16px; }
   .rp-grid2 { grid-template-columns: 1fr; }
+  .rp-addr-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .rp-addr-btn { padding: 0 12px; font-size: 14px; }
   .rp-checks { grid-template-columns: 1fr 1fr; }
   .rp-kv { grid-template-columns: 88px minmax(0, 1fr); }
   .rp-ticket-no { letter-spacing: 0.6px; }

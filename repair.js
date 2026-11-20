@@ -208,6 +208,145 @@
     });
   }
 
+  /* ---------------- 주소 검색 (다음/카카오 우편번호 서비스) ----------------
+     별도 API 키가 필요 없는 무료 서비스입니다. 우편번호와 기본주소를 채우고 고객은 상세주소만 입력합니다.
+     저장은 기존 address 한 필드에만 하므로 Firestore 규칙(hasOnly 화이트리스트)을 바꾸지 않습니다.
+     포맷: "(12345) 기본주소 상세주소" — 관리자 화면의 우체국 사전접수가 이 앞자리 우편번호를 그대로 뽑아 씁니다. */
+  var POSTCODE_SRC = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+  var ADDR_HELP = '주소 검색을 누르면 우편번호와 기본주소가 자동으로 들어갑니다. 상세주소만 입력하시면 됩니다. 수리한 마우스를 받으실 주소입니다.';
+  var ADDR_HELP_MANUAL = '직접 입력하실 때는 우편번호 5자리부터 적어 주세요. (예: 05203 서울특별시 강동구 고덕로83길 6 101동 1001호)';
+  var ADDR_PLACEHOLDER = '🔍 주소 검색을 눌러 주세요';
+  var ADDR_PLACEHOLDER_MANUAL = '예: 05203 서울특별시 강동구 고덕로83길 6';
+  var postcodePromise = null;
+  var addr = { open: false, manual: false };
+
+  function loadPostcode() {
+    if (window.daum && window.daum.Postcode) return Promise.resolve(window.daum.Postcode);
+    if (postcodePromise) return postcodePromise;
+    postcodePromise = new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = POSTCODE_SRC;
+      script.async = true;
+      script.onload = function () {
+        if (window.daum && window.daum.Postcode) resolve(window.daum.Postcode);
+        else reject(new Error('postcode_unavailable'));
+      };
+      script.onerror = function () { reject(new Error('postcode_network')); };
+      document.head.appendChild(script);
+    });
+    postcodePromise.catch(function () { postcodePromise = null; });
+    return postcodePromise;
+  }
+
+  function composeAddress() {
+    var base = $('f-addr-base') ? $('f-addr-base').value : '';
+    var detail = $('f-addr-detail') ? $('f-addr-detail').value : '';
+    return (String(base) + ' ' + String(detail)).replace(/\s+/g, ' ').trim();
+  }
+
+  function closeAddressLayer() {
+    var layer = $('addr-layer');
+    var frame = $('addr-frame');
+    if (frame) frame.innerHTML = '';
+    if (layer) { layer.hidden = true; layer.classList.remove('is-open'); }
+    document.body.classList.remove('rp-addr-open');
+    addr.open = false;
+    var button = $('addr-search');
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+
+  /* 검색 결과를 기본주소 칸에 넣고 상세주소 칸으로 넘깁니다. */
+  function applySearchAddress(data) {
+    var info = data || {};
+    var base = info.userSelectedType === 'J'
+      ? (info.jibunAddress || info.autoJibunAddress || info.address || '')
+      : (info.roadAddress || info.autoRoadAddress || info.address || '');
+    var zone = String(info.zonecode || '').trim();
+    var text = ((zone ? '(' + zone + ') ' : '') + String(base)).replace(/\s+/g, ' ').trim();
+    var baseInput = $('f-addr-base');
+    if (baseInput && text) baseInput.value = text.slice(0, 120);
+    addr.manual = false;
+    baseInput && (baseInput.readOnly = true);
+    var alt = $('addr-manual');
+    if (alt) alt.textContent = '주소 검색 창이 안 열리면 직접 입력';
+    var help = $('addr-help');
+    if (help) help.textContent = ADDR_HELP;
+    closeAddressLayer();
+    var detail = $('f-addr-detail');
+    if (detail) {
+      detail.focus({ preventScroll: true });
+      detail.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    toast(text ? '주소를 채웠습니다. 상세주소를 입력해 주세요' : '주소를 찾지 못했습니다. 직접 입력해 주세요');
+  }
+
+  function enableAddressManual(message) {
+    var base = $('f-addr-base');
+    if (!base) return;
+    addr.manual = true;
+    base.readOnly = false;
+    base.placeholder = ADDR_PLACEHOLDER_MANUAL;
+    var alt = $('addr-manual');
+    if (alt) alt.textContent = '주소 검색 다시 쓰기';
+    var help = $('addr-help');
+    if (help) help.textContent = ADDR_HELP_MANUAL;
+    if (message) toast(message);
+    base.focus({ preventScroll: true });
+  }
+
+  function openAddressSearch() {
+    if (addr.open) { closeAddressLayer(); return; }
+    if (addr.manual) {
+      /* 직접 입력 중이면 이미 입력한 내용을 지우지 않고 검색으로 되돌립니다. */
+      addr.manual = false;
+      var back = $('f-addr-base');
+      if (back) back.readOnly = true;
+      var backAlt = $('addr-manual');
+      if (backAlt) backAlt.textContent = '주소 검색 창이 안 열리면 직접 입력';
+      var backHelp = $('addr-help');
+      if (backHelp) backHelp.textContent = ADDR_HELP;
+    }
+    var layer = $('addr-layer');
+    var frame = $('addr-frame');
+    var button = $('addr-search');
+    if (!layer || !frame) return;
+    if (button) { button.disabled = true; button.textContent = '불러오는 중…'; }
+    loadPostcode().then(function (Postcode) {
+      if (button) { button.disabled = false; button.textContent = '🔍 주소 검색'; }
+      frame.innerHTML = '';
+      layer.hidden = false;
+      layer.classList.add('is-open');
+      document.body.classList.add('rp-addr-open');
+      addr.open = true;
+      if (button) button.setAttribute('aria-expanded', 'true');
+      new Postcode({
+        oncomplete: applySearchAddress,
+        onclose: function () { closeAddressLayer(); },
+        width: '100%',
+        height: '100%',
+        animation: false
+      }).embed(frame);
+      var close = $('addr-close');
+      if (close) close.focus({ preventScroll: true });
+    }).catch(function () {
+      if (button) { button.disabled = false; button.textContent = '🔍 주소 검색'; }
+      enableAddressManual('주소 검색을 불러오지 못했습니다. 주소를 직접 입력해 주세요.');
+    });
+  }
+
+  function resetAddress() {
+    closeAddressLayer();
+    var base = $('f-addr-base');
+    if (base) { base.value = ''; base.readOnly = true; base.placeholder = ADDR_PLACEHOLDER; }
+    var detail = $('f-addr-detail');
+    if (detail) detail.value = '';
+    addr.manual = false;
+    var alt = $('addr-manual');
+    if (alt) alt.textContent = '주소 검색 창이 안 열리면 직접 입력';
+    var help = $('addr-help');
+    if (help) help.textContent = ADDR_HELP;
+  }
+
   /* ---------------- 접수번호 ---------------- */
   function randomCode() {
     var out = '';
@@ -263,7 +402,7 @@
       name: $('f-name').value.trim(),
       phone: onlyDigits($('f-phone').value),
       kakao: $('f-kakao').value.trim(),
-      address: $('f-address').value.trim().replace(/\s+/g, ' '),
+      address: composeAddress(),
       model: $('f-model').value.trim(),
       qty: Number(onlyDigits($('f-qty').value) || 0),
       symptoms: symptomsChecked,
@@ -278,8 +417,8 @@
     if (!data.name) return '성함을 입력해 주세요.';
     if (data.name.length > 30) return '성함은 30자 이내로 입력해 주세요.';
     if (!/^0[0-9]{8,10}$/.test(data.phone)) return '연락처를 정확히 입력해 주세요. (예: 010-1234-5678)';
-    if (!data.address) return '회송 받으실 주소를 입력해 주세요.';
-    if (data.address.length > 120) return '주소는 120자 이내로 입력해 주세요.';
+    if (!data.address) return '회송 받으실 주소를 입력해 주세요. 「🔍 주소 검색」을 누르면 우편번호·주소가 자동으로 들어갑니다.';
+    if (data.address.length > 120) return '주소는 120자 이내로 입력해 주세요. 상세주소가 길면 줄여 주세요.';
     if (!data.model) return '마우스 모델을 입력해 주세요.';
     if (data.model.length > 40) return '모델명은 40자 이내로 입력해 주세요.';
     if (!(data.qty >= 1 && data.qty <= 20)) return '수량은 1~20 사이로 입력해 주세요.';
@@ -371,6 +510,7 @@
   function resetIntake() {
     $('intake-form').reset();
     $('f-qty').value = '1';
+    resetAddress();
     toggleCarrierEtc(false);
     $('intake-form').hidden = false;
     $('intake-done').hidden = true;
@@ -581,6 +721,20 @@
       this.value = normalizeTicket(this.value);
       var diff = this.value.length - before;
       try { this.setSelectionRange(pos + diff, pos + diff); } catch (e) { /* 무시 */ }
+    });
+
+    $('addr-search').addEventListener('click', function (event) { event.preventDefault(); openAddressSearch(); });
+    $('addr-close').addEventListener('click', function () { closeAddressLayer(); $('addr-search').focus({ preventScroll: true }); });
+    $('addr-manual').addEventListener('click', function () {
+      if (addr.manual) { openAddressSearch(); return; }
+      enableAddressManual('');
+    });
+    $('f-addr-base').addEventListener('click', function () { if (!addr.manual) openAddressSearch(); });
+    $('f-addr-base').addEventListener('keydown', function (event) {
+      if (!addr.manual && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openAddressSearch(); }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && addr.open) { closeAddressLayer(); $('addr-search').focus({ preventScroll: true }); }
     });
 
     $('copy-ticket').addEventListener('click', function () {
