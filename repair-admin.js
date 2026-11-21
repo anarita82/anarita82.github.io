@@ -2070,7 +2070,8 @@
     });
   }
 
-  /* 접수는 있는데 고객 카드가 없는 번호를 한 번에 만들어 둡니다(접수 시 자동 누적). */
+  /* 접수는 있는데 고객 카드가 없는 번호를 한 번에 만들어 두고,
+     기존 카드에 빠진 보유 모델도 접수 이력에서 채웁니다(메모·주의는 그대로). */
   function syncMissingCustomers() {
     if (!Array.isArray(state.customers)) return Promise.resolve([]);
     var writes = [];
@@ -2078,10 +2079,22 @@
     state.tickets.forEach(function (t) {
       if (writes.length >= 20) return;
       var phone = customerKey(t.phone);
-      if (!phone || seen[phone] || findCustomer(phone)) return;
+      if (!phone || seen[phone]) return;
       seen[phone] = true;
-      var write = customerWriteFor(t);
-      if (write) writes.push(write);
+      var rec = findCustomer(phone);
+      if (!rec) {
+        var create = customerWriteFor(t);
+        if (create) writes.push(create);
+        return;
+      }
+      var models = Array.isArray(rec.models) ? rec.models.slice() : [];
+      var before = models.length;
+      ticketsForCustomer(phone).forEach(function (row) {
+        if (row.model && models.indexOf(row.model) < 0) models.push(row.model);
+      });
+      if (models.length !== before) {
+        writes.push(writeUpdate(CUSTOMERS, rec._id, { models: models.slice(0, 20), updatedAt: nowIso() }, ['models', 'updatedAt']));
+      }
     });
     if (!writes.length) return Promise.resolve([]);
     return commit(writes).then(function (res) {
