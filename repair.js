@@ -61,7 +61,8 @@
 
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(text).catch(function () { return legacyCopy(text); });
+      /* writeText는 성공해도 undefined를 돌려주므로, 성공을 true로 바꿔 넘깁니다. */
+      return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return legacyCopy(text); });
     }
     return Promise.resolve(legacyCopy(text));
   }
