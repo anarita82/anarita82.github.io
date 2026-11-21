@@ -2060,12 +2060,34 @@
 
   function refresh() {
     return Promise.all([loadTickets(), loadParts(), loadLogs(), loadCustomers()]).then(function () {
+      return syncMissingCustomers();
+    }).then(function () {
       renderAll();
       showError($('gate-error'), '');
     }).catch(function (err) {
       if (err && err.message === 'session') { lock('PIN 세션이 만료되었습니다. 다시 열어 주세요.'); return; }
       $('summary').textContent = '데이터를 불러오지 못했습니다. 새로고침을 눌러 주세요.';
     });
+  }
+
+  /* 접수는 있는데 고객 카드가 없는 번호를 한 번에 만들어 둡니다(접수 시 자동 누적). */
+  function syncMissingCustomers() {
+    if (!Array.isArray(state.customers)) return Promise.resolve([]);
+    var writes = [];
+    var seen = {};
+    state.tickets.forEach(function (t) {
+      if (writes.length >= 20) return;
+      var phone = customerKey(t.phone);
+      if (!phone || seen[phone] || findCustomer(phone)) return;
+      seen[phone] = true;
+      var write = customerWriteFor(t);
+      if (write) writes.push(write);
+    });
+    if (!writes.length) return Promise.resolve([]);
+    return commit(writes).then(function (res) {
+      if (!res.ok) throw new Error('sync_failed');
+      return loadCustomers();
+    }).catch(function () { return []; });
   }
 
   function init() {
