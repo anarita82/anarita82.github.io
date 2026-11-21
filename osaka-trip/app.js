@@ -139,7 +139,7 @@
     });
     mainEl.appendChild(route);
 
-    drawRoute(v.stops, i2color(t, v));
+    drawRoute(v.stops, i2color(t, v), t);
   }
 
   function i2color(t, v) { return v.accent || t.accent || "#2f6bff"; }
@@ -287,6 +287,9 @@
   function layoutPoints(stops) {
     if (!map || !stops.length) return [];
     var z = map.getZoom();
+    var c = map.getCenter();
+    var mpp = 156543.03392 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z);
+    var maxShift = Math.min(52, 400 / mpp);   // 실제 위치에서 400m 넘게 밀지 않는다
     var origin = stops.map(function (s) { return map.project([s.lat, s.lng], z); });
     var pts = origin.map(function (p) { return L.point(p.x, p.y); });
     var MIN = 33;
@@ -307,19 +310,19 @@
       }
       if (!moved) break;
     }
-    // 실제 위치에서 너무 멀어지지 않게(최대 52px)
+    // 실제 위치에서 너무 멀어지지 않게
     for (var k = 0; k < pts.length; k++) {
       var ox = pts[k].x - origin[k].x, oy = pts[k].y - origin[k].y;
       var len = Math.sqrt(ox * ox + oy * oy);
-      if (len > 52) {
-        pts[k].x = origin[k].x + ox * 52 / len;
-        pts[k].y = origin[k].y + oy * 52 / len;
+      if (len > maxShift) {
+        pts[k].x = origin[k].x + ox * maxShift / len;
+        pts[k].y = origin[k].y + oy * maxShift / len;
       }
     }
     return pts.map(function (p) { return map.unproject(p, z); });
   }
 
-  function drawRoute(stops, accent) {
+  function drawRoute(stops, accent, tab) {
     initMap();
     if (!map) return;
     layerGroup.clearLayers();
@@ -327,8 +330,18 @@
     lines = [];
     currentStops = stops;
 
-    var bounds = L.latLngBounds(stops.map(function (s) { return [s.lat, s.lng]; }));
+    var fitStops = stops;
+    if (tab && tab.fitKind) {
+      var sub = stops.filter(function (s) { return s.kind === tab.fitKind; });
+      if (sub.length > 1) fitStops = sub;
+    }
+
+    var bounds = L.latLngBounds(fitStops.map(function (s) { return [s.lat, s.lng]; }));
     map.fitBounds(bounds, { padding: [34, 34], maxZoom: 15 });
+    if (hintEl && tab && tab.mapHint) {
+      hintEl.textContent = tab.mapHint;
+      hintEl.classList.remove("warn");
+    }
 
     var pts = layoutPoints(stops);
 
