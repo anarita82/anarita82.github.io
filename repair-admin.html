@@ -7,15 +7,15 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#050507">
-  <meta name="description" content="서울마우스 택배 접수·수리·정산·부품 재고 관리자 페이지">
-  <title>수리·재고 관리 | 서울마우스</title>
+  <meta name="description" content="서울마우스 택배 접수·수리·정산·부품 재고·고객·월별 정산 관리자 페이지">
+  <title>수리·재고·고객·정산 관리 | 서울마우스</title>
   <link rel="icon" href="seoulmouse-192.png" type="image/png">
   <link rel="stylesheet" href="styles.css?v=20261015-app">
   <link rel="stylesheet" href="app.css?v=20261020-compact">
   <link rel="stylesheet" href="brand-sites.css?v=20261109-brands">
   <link rel="stylesheet" href="service-layout.css?v=20261119-online">
-  <link rel="stylesheet" href="repair.css?v=20261121-erp1">
-  <script src="repair-admin.js?v=20261121-erp1" defer></script>
+  <link rel="stylesheet" href="repair.css?v=20261121-erp2">
+  <script src="repair-admin.js?v=20261121-erp2" defer></script>
 </head>
 <body class="app-page repair-page rp-admin">
   <a class="skip-link" href="#main">본문 바로가기</a>
@@ -37,8 +37,8 @@
   <main id="main" class="app-main service-main">
     <section class="rp-admin-hero">
       <p class="eyebrow">REPAIR DESK · ERP</p>
-      <h1>수리 · 재고 관리</h1>
-      <p>접수 확인 · 수리 진행 · 입금 정산 · 부품 재고를 한 화면에서 처리합니다.</p>
+      <h1>수리 · 재고 · 고객 관리</h1>
+      <p>접수 확인 · 수리 진행 · 입금 정산 · 부품 재고 · 고객 이력 · 월별 정산을 한 화면에서 처리합니다.</p>
     </section>
 
     <div class="rp-wrap">
@@ -61,6 +61,8 @@
         <div class="rp-apptabs" role="tablist" aria-label="관리 화면 선택">
           <button class="rp-apptab" id="tab-repair" type="button" role="tab" aria-selected="true" aria-controls="pane-repair" data-tab="repair">① 접수·수리·정산</button>
           <button class="rp-apptab" id="tab-parts" type="button" role="tab" aria-selected="false" aria-controls="pane-parts" data-tab="parts">② 부품·재고 관리<span class="rp-badge" id="parts-badge" hidden>0</span></button>
+          <button class="rp-apptab" id="tab-customers" type="button" role="tab" aria-selected="false" aria-controls="pane-customers" data-tab="customers">③ 고객 관리</button>
+          <button class="rp-apptab" id="tab-settle" type="button" role="tab" aria-selected="false" aria-controls="pane-settle" data-tab="settle">④ 월별 정산</button>
         </div>
 
         <!-- ① 접수·수리·정산 -->
@@ -102,6 +104,43 @@
             <summary>최근 입출고 이력</summary>
             <div id="part-logs"></div>
           </details>
+        </div>
+
+        <!-- ③ 고객 관리 -->
+        <div id="pane-customers" role="tabpanel" aria-labelledby="tab-customers" hidden>
+          <div class="rp-toolbar">
+            <div class="rp-toolbar-row">
+              <input id="customer-search" type="search" placeholder="성함 · 연락처 · 카톡 닉네임 · 보유 모델 검색" autocomplete="off">
+              <button class="rp-mini" id="customers-reload" type="button">새로고침</button>
+            </div>
+            <p class="rp-parts-summary" id="customers-summary">고객 목록을 불러오는 중…</p>
+          </div>
+
+          <div id="customer-list"></div>
+        </div>
+
+        <!-- ④ 월별 정산 -->
+        <div id="pane-settle" role="tabpanel" aria-labelledby="tab-settle" hidden>
+          <div class="rp-toolbar">
+            <div class="rp-toolbar-row rp-month-row">
+              <button class="rp-mini" id="month-prev" type="button" aria-label="이전 달">◀ 이전 달</button>
+              <input id="month-pick" type="month" aria-label="정산 월" autocomplete="off">
+              <button class="rp-mini" id="month-next" type="button" aria-label="다음 달">다음 달 ▶</button>
+              <button class="rp-mini" id="month-now" type="button">이번 달</button>
+            </div>
+            <p class="rp-parts-summary" id="settle-summary">정산을 불러오는 중…</p>
+          </div>
+
+          <div class="rp-kpi-grid" id="settle-cards"></div>
+
+          <div class="rp-settle-head"><b>미수금 · 입금 대기</b><span class="rp-muted" id="settle-unpaid-count"></span></div>
+          <div id="settle-unpaid"></div>
+
+          <div class="rp-settle-head"><b>건별 내역</b><span class="rp-muted" id="settle-rows-count"></span></div>
+          <div id="settle-rows"></div>
+
+          <div class="rp-settle-head"><b>부족 부품</b><span class="rp-muted">안전재고 이하</span></div>
+          <div id="settle-low"></div>
         </div>
 
         <details class="rp-settings">

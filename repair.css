@@ -306,3 +306,72 @@ body.rp-addr-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .rp-toast { transition: none; }
 }
+
+/* ---------- 상단 탭 4개 (① 접수·수리·정산 / ② 부품·재고 / ③ 고객 / ④ 월별 정산) ---------- */
+.rp-apptabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 640px) {
+  .rp-apptabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rp-apptab { font-size: 13.5px; }
+}
+
+/* ---------- ③ 고객 관리 ---------- */
+.rp-cust { padding: 14px; margin-bottom: 10px; background: var(--rp-panel); border: 1px solid var(--rp-line); border-left: 4px solid #3a3f4b; border-radius: 12px; }
+.rp-cust.is-vip { border-left-color: #e8b23d; }
+.rp-cust-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rp-cust-name { color: #fff; font-size: 16px; font-weight: 800; }
+.rp-cust-tag { padding: 3px 9px; color: #1a1206; background: #f0c35a; border-radius: 999px; font-size: 11.5px; font-weight: 900; }
+.rp-cust-phone { margin-left: auto; color: #fff; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 800; letter-spacing: 0.3px; }
+.rp-cust-meta { margin: 7px 0 0; color: var(--muted-strong); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.rp-cust-meta b { color: #fff; }
+.rp-cust-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 9px; padding: 9px 11px; background: #0f1420; border: 1px solid rgba(120, 150, 255, 0.2); border-radius: 9px; color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-cust-stats b { color: #fff; }
+.rp-cust-stats .rp-cust-unpaid { color: #ffb3be; }
+.rp-cust-stats .rp-cust-unpaid b { color: #ffb3be; }
+.rp-cust-note { display: grid; gap: 4px; margin-top: 9px; padding: 9px 11px; background: #141018; border-left: 3px solid #8a6a2a; border-radius: 8px; color: var(--muted-strong); font-size: 12.5px; line-height: 1.65; }
+.rp-cust-note p { margin: 0; overflow-wrap: anywhere; }
+.rp-cust-note b { margin-right: 6px; color: #fff; }
+.rp-cust-note .is-caution { border-left: 0; }
+.rp-cust-note .is-caution b { color: #ffb3be; }
+.rp-cust-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rp-cust-history { display: grid; gap: 6px; margin-top: 10px; }
+.rp-cust-row { padding: 10px 11px; background: #0a0b0f; border: 1px solid var(--rp-line); border-radius: 9px; }
+.rp-cust-row-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.rp-cust-row-top b { color: #fff; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; letter-spacing: 0.3px; }
+.rp-cust-row p { margin: 5px 0 0; color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-cust-row p b { color: #fff; }
+.rp-cust-row .rp-muted { color: var(--muted); font-size: 12px; }
+@media (max-width: 560px) {
+  .rp-cust-phone { margin-left: 0; }
+}
+
+/* ---------- ④ 월별 정산 ---------- */
+.rp-month-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rp-month-row input[type="month"] { flex: 1 1 150px; min-height: 44px; }
+.repair-page input[type="month"] { width: 100%; min-height: 44px; padding: 10px 12px; color: #fff; background: #15171f; border: 1px solid var(--rp-line); border-radius: 9px; font: inherit; font-size: 15px; }
+.repair-page input[type="month"]:focus { outline: 2px solid #ff526a; outline-offset: 1px; }
+.rp-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.rp-kpi { display: grid; gap: 3px; padding: 12px 13px; background: var(--rp-panel); border: 1px solid var(--rp-line); border-radius: 11px; }
+.rp-kpi-k { color: var(--muted); font-size: 12px; font-weight: 800; }
+.rp-kpi-v { color: #fff; font-size: 19px; font-weight: 900; letter-spacing: -0.3px; }
+.rp-kpi-s { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.rp-kpi.is-warn { border-color: rgba(255, 82, 106, 0.5); background: #1a0f14; }
+.rp-kpi.is-warn .rp-kpi-v { color: #ff8a9c; }
+.rp-kpi.is-good .rp-kpi-v { color: #86efac; }
+.rp-settle-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px; margin: 18px 0 8px; }
+.rp-settle-head b { color: #fff; font-size: 14px; }
+.rp-set-card { padding: 12px 13px; margin-bottom: 8px; background: var(--rp-panel); border: 1px solid var(--rp-line); border-left: 4px solid #3a3f4b; border-radius: 11px; }
+.rp-set-card.is-unpaid { border-left-color: #e8213d; }
+.rp-set-card.is-paid { border-left-color: #34b06b; }
+.rp-set-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.rp-set-top b { color: #fff; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13.5px; letter-spacing: 0.3px; }
+.rp-set-meta { margin: 5px 0 0; color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-set-money { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 7px; color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-set-money b { color: #fff; }
+.rp-set-money .rp-pay-wait { color: #ffb3be; font-weight: 800; }
+.rp-set-money .rp-pay-done { color: #86efac; font-weight: 800; }
+.rp-set-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rp-unpaid-box { padding: 12px 13px; margin-bottom: 4px; background: #1a0f14; border: 1px solid rgba(255, 82, 106, 0.45); border-radius: 11px; }
+.rp-unpaid-box h3 { margin: 0 0 4px; color: #ffd9de; font-size: 13.5px; font-weight: 900; }
+.rp-unpaid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.09); color: var(--muted-strong); font-size: 12.5px; line-height: 1.6; }
+.rp-unpaid-row b { color: #fff; }
+.rp-unpaid-row .rp-act { margin-left: auto; }

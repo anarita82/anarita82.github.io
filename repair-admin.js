@@ -10,6 +10,7 @@
   var TICKETS = 'seoulmouse_repairs';
   var PARTS = 'seoulmouse_parts';
   var LOGS = 'seoulmouse_part_logs';
+  var CUSTOMERS = 'seoulmouse_customers';
   var ADMIN_EMAIL = 'repair-admin@anarita82.github.io';
   var PIN_SALT = 'seoulmouse-repair-admin-v1';
   var PIN_ITERATIONS = 120000;
@@ -47,8 +48,10 @@
 
   var state = {
     token: '', exp: 0,
-    tickets: [], parts: [], logs: [],
+    tickets: [], parts: [], logs: [], customers: [],
     filter: 'all', search: '',
+    customerSearch: '', openCustomer: '',
+    month: '',
     openForm: '', openMessage: '',
     tab: 'repair',
     partForm: '', partEdit: '',
@@ -62,6 +65,27 @@
   function todayYmd() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function nowIso() { return new Date().toISOString(); }
   function won(value) { return Number(value || 0).toLocaleString('ko-KR') + '원'; }
+
+  /* 월별 정산은 접수일(createdAt)의 YYYY-MM 으로 묶습니다. */
+  function thisMonth() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+  function shiftMonth(key, delta) {
+    var p = String(key || thisMonth()).split('-');
+    var d = new Date(Number(p[0]), Number(p[1]) - 1 + Number(delta || 0), 1);
+    if (isNaN(d.getTime())) return thisMonth();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1);
+  }
+  function monthLabel(key) {
+    var p = String(key || '').split('-');
+    if (p.length !== 2 || !p[0] || !p[1]) return '이번 달';
+    return Number(p[0]) + '년 ' + Number(p[1]) + '월';
+  }
+  function monthOf(text) {
+    var s = String(text || '');
+    return /^\d{4}-\d{2}/.test(s) ? s.slice(0, 7) : '';
+  }
+  /* 고객 문서 ID = 연락처 숫자만 (예: 01012345678) */
+  function customerKey(phone) { return onlyDigits(phone); }
+  function ticketFee(ticket) { return Number((ticket && (ticket.repairFee || ticket.quote)) || 0); }
 
   function ymdToDate(text) {
     var p = String(text || '').split('-');
@@ -240,6 +264,7 @@
     state.tickets = [];
     state.parts = [];
     state.logs = [];
+    state.customers = [];
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* 무시 */ }
   }
 
@@ -397,6 +422,18 @@
     });
   }
 
+  /* 고객 마스터. 실패해도 다른 탭은 쓸 수 있게 null 로 두고 화면에서 안내합니다. */
+  function loadCustomers() {
+    return runQuery(CUSTOMERS, null, 500).then(function (rows) {
+      rows.sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ko'); });
+      state.customers = rows;
+      return state.customers;
+    }).catch(function () {
+      state.customers = null;
+      return [];
+    });
+  }
+
   /* ---------------- 부품 ---------------- */
   function findPart(id) {
     for (var i = 0; i < state.parts.length; i++) if (state.parts[i]._id === id) return state.parts[i];
@@ -445,6 +482,93 @@
     }).join('');
   }
 
+  /* ---------------- 고객 (연락처 기준 자동 누적) ---------------- */
+  function findCustomer(id) {
+    var key = customerKey(id);
+    if (!key || !Array.isArray(state.customers)) return null;
+    for (var i = 0; i < state.customers.length; i++) {
+      var row = state.customers[i];
+      if (customerKey(row.phone || row._id) === key) return row;
+    }
+    return null;
+  }
+
+  /* 접수 이력은 항상 seoulmouse_repairs 에서 집계합니다(중복 누적 없음). */
+  function ticketsForCustomer(phone) {
+    var key = customerKey(phone);
+    if (!key) return [];
+    return state.tickets.filter(function (t) { return customerKey(t.phone) === key; })
+      .slice()
+      .sort(function (a, b) { return String(b.createdAt || '').localeCompare(String(a.createdAt || '')); });
+  }
+
+  function customerStats(phone) {
+    var list = ticketsForCustomer(phone);
+    var total = 0, paid = 0, unpaid = 0, lastVisit = '';
+    var models = [];
+    list.forEach(function (t) {
+      var fee = ticketFee(t);
+      total += fee;
+      if (t.paid) paid += fee;
+      else if (fee > 0) unpaid += fee;
+      if (t.model && models.indexOf(t.model) < 0) models.push(t.model);
+      var when = String(t.createdAt || '');
+      if (when > lastVisit) lastVisit = when;
+    });
+    var rec = findCustomer(phone);
+    if (rec && Array.isArray(rec.models)) {
+      rec.models.forEach(function (m) { if (m && models.indexOf(m) < 0) models.push(m); });
+    }
+    return { list: list, count: list.length, total: total, paid: paid, unpaid: unpaid, models: models, lastVisit: lastVisit };
+  }
+
+  /* 접수 저장 시 고객 카드를 자동 생성·갱신합니다(단골 메모·주의사항은 건드리지 않음). */
+  function customerWriteFor(ticket) {
+    var phone = customerKey(ticket.phone);
+    if (!phone || !Array.isArray(state.customers)) return null;
+    var rec = findCustomer(phone);
+    var models = rec && Array.isArray(rec.models) ? rec.models.slice() : [];
+    if (ticket.model && models.indexOf(ticket.model) < 0) models.push(ticket.model);
+    var fields = {
+      phone: phone,
+      name: String(ticket.name || (rec && rec.name) || '').slice(0, 30),
+      kakao: String(ticket.kakao || (rec && rec.kakao) || '').slice(0, 30),
+      address: String(ticket.address || (rec && rec.address) || '').slice(0, 120),
+      models: models.slice(0, 20),
+      updatedAt: nowIso()
+    };
+    if (rec) return writeUpdate(CUSTOMERS, rec._id, fields, Object.keys(fields));
+    fields.memo = '';
+    fields.caution = '';
+    fields.createdAt = nowIso();
+    return writeCreate(CUSTOMERS, phone, fields);
+  }
+
+  function syncCustomerLocal(ticket) {
+    var phone = customerKey(ticket.phone);
+    if (!phone || !Array.isArray(state.customers)) return;
+    var rec = findCustomer(phone);
+    var models = rec && Array.isArray(rec.models) ? rec.models.slice() : [];
+    if (ticket.model && models.indexOf(ticket.model) < 0) models.push(ticket.model);
+    if (rec) {
+      rec.phone = phone;
+      rec.name = String(ticket.name || rec.name || '').slice(0, 30);
+      rec.kakao = String(ticket.kakao || rec.kakao || '').slice(0, 30);
+      rec.address = String(ticket.address || rec.address || '').slice(0, 120);
+      rec.models = models.slice(0, 20);
+      rec.updatedAt = nowIso();
+      return;
+    }
+    state.customers.push({
+      _id: phone, phone: phone,
+      name: String(ticket.name || '').slice(0, 30),
+      kakao: String(ticket.kakao || '').slice(0, 30),
+      address: String(ticket.address || '').slice(0, 120),
+      models: models.slice(0, 20), memo: '', caution: '',
+      createdAt: nowIso(), updatedAt: nowIso()
+    });
+  }
+
   /* ---------------- 접수 저장(상태·정산·부품 차감) ---------------- */
   function saveTicket(ticket, fields, options) {
     options = options || {};
@@ -475,6 +599,20 @@
     }
 
     fields.updatedAt = nowIso();
+
+    /* 연락처·이름·주소·모델이 바뀌는 저장이면 고객 카드도 함께 갱신합니다(같은 commit). */
+    var merged = {};
+    Object.keys(ticket).forEach(function (key) { if (key !== '_id') merged[key] = ticket[key]; });
+    Object.keys(fields).forEach(function (key) { merged[key] = fields[key]; });
+    var custTouched = ['phone', 'name', 'kakao', 'address', 'model'].some(function (key) {
+      return fields[key] !== undefined;
+    });
+    var custWrite = custTouched ? customerWriteFor(merged) : null;
+    if (custWrite) {
+      fields.customerId = customerKey(merged.phone);
+      writes.push(custWrite);
+    }
+
     writes.push(writeUpdate(TICKETS, ticket._id, fields, Object.keys(fields)));
     stockChanges.forEach(function (change) {
       var part = change.part;
@@ -495,6 +633,7 @@
     commit(writes).then(function (res) {
       if (!res.ok) throw new Error('save_failed:' + apiCode(res));
       Object.keys(fields).forEach(function (key) { ticket[key] = fields[key]; });
+      if (custWrite) syncCustomerLocal(merged);
       stockChanges.forEach(function (change) { change.part.qty = partQty(change.part) - change.delta; });
       state.openForm = '';
       if (options.openMessage) state.openMessage = ticket._id + ':' + options.openMessage;
@@ -1032,6 +1171,359 @@
     }).join('') + '<p class="rp-fineprint">최근 40건 · 입출고는 저장 즉시 재고에 반영됩니다.</p>';
   }
 
+  /* ---------------- ③ 고객 관리 화면 ---------------- */
+  function allCustomers() {
+    var map = {};
+    var order = [];
+    (Array.isArray(state.customers) ? state.customers : []).forEach(function (rec) {
+      var id = customerKey(rec.phone || rec._id);
+      if (!id) return;
+      if (!map[id]) { map[id] = { _id: rec._id || id, phone: id, record: rec }; order.push(id); }
+    });
+    state.tickets.forEach(function (t) {
+      var id = customerKey(t.phone);
+      if (!id || map[id]) return;
+      map[id] = { _id: id, phone: id, record: null };
+      order.push(id);
+    });
+    var rows = order.map(function (id) {
+      var base = map[id];
+      var rec = base.record || {};
+      var stats = customerStats(id);
+      return {
+        _id: base._id,
+        phone: id,
+        hasDoc: !!base.record,
+        name: rec.name || (stats.list[0] && stats.list[0].name) || '',
+        kakao: rec.kakao || (stats.list[0] && stats.list[0].kakao) || '',
+        address: rec.address || (stats.list[0] && stats.list[0].address) || '',
+        memo: rec.memo || '',
+        caution: rec.caution || '',
+        stats: stats
+      };
+    }).filter(function (row) {
+      /* 접수도 메모도 없는 카드(지운 접수·옮긴 번호)는 목록에서 숨깁니다. */
+      return row.stats.count > 0 || row.memo || row.caution;
+    });
+    rows.sort(function (a, b) {
+      var la = a.stats.lastVisit || '', lb = b.stats.lastVisit || '';
+      if (la !== lb) return lb.localeCompare(la);
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+    });
+    return rows;
+  }
+
+  function matchCustomer(row) {
+    var q = state.customerSearch.trim().toLowerCase();
+    if (!q) return true;
+    var haystack = [row.name, row.phone, formatPhone(row.phone), row.kakao, row.address,
+      (row.stats.models || []).join(' ')].join(' ').toLowerCase();
+    if (haystack.indexOf(q) > -1) return true;
+    var digits = onlyDigits(q);
+    return digits ? row.phone.indexOf(digits) > -1 : false;
+  }
+
+  function renderCustomers() {
+    var box = $('customer-list');
+    var summary = $('customers-summary');
+    if (!box) return;
+    if (state.customers === null) {
+      if (summary) summary.textContent = '고객 목록을 불러오지 못했습니다.';
+      box.innerHTML = '<p class="rp-ticket rp-ticket-empty">고객 정보를 불러오지 못했습니다. 새로고침을 눌러 주세요.</p>';
+      return;
+    }
+    var rows = allCustomers();
+    var shown = rows.filter(matchCustomer);
+    var repeat = rows.filter(function (row) { return row.stats.count >= 2; }).length;
+    var unpaid = rows.reduce(function (sum, row) { return sum + row.stats.unpaid; }, 0);
+    if (summary) {
+      summary.textContent = '고객 ' + rows.length + '명 · 단골(2회 이상) ' + repeat + '명 · 미수금 ' + won(unpaid)
+        + (state.customerSearch.trim() ? ' · 검색 결과 ' + shown.length + '명' : '');
+    }
+    if (!rows.length) {
+      box.innerHTML = '<p class="rp-ticket rp-ticket-empty">아직 고객이 없습니다. 접수가 들어오면 연락처 기준으로 고객 카드가 자동으로 생깁니다.</p>';
+      return;
+    }
+    if (!shown.length) {
+      box.innerHTML = '<p class="rp-ticket rp-ticket-empty">조건에 맞는 고객이 없습니다.</p>';
+      return;
+    }
+    box.innerHTML = shown.map(customerCardHtml).join('');
+  }
+
+  function customerCardHtml(row) {
+    var st = row.stats;
+    var id = escapeHtml(row._id);
+    var models = st.models.length ? st.models.join(' · ') : '보유 모델 미기재';
+    var html = '<article class="rp-cust' + (st.count >= 2 ? ' is-vip' : '') + '" data-customer-id="' + id + '">';
+    html += '<div class="rp-cust-top"><span class="rp-cust-name">' + escapeHtml(row.name || '이름 미상') + '</span>';
+    if (st.count >= 2) html += '<span class="rp-cust-tag">단골 ' + st.count + '회</span>';
+    html += '<span class="rp-cust-phone">' + escapeHtml(formatPhone(row.phone)) + '</span></div>';
+    html += '<p class="rp-cust-meta">보유 <b>' + escapeHtml(models) + '</b>';
+    if (row.kakao) html += ' · 카톡 ' + escapeHtml(row.kakao);
+    html += '<br>최근 방문 ' + (st.lastVisit ? koreanDate(st.lastVisit.slice(0, 10)) : '접수 없음');
+    if (row.address) html += ' · ' + escapeHtml(row.address);
+    html += '</p>';
+    html += '<div class="rp-cust-stats">';
+    html += '<span>수리 <b>' + st.count + '</b>건</span>';
+    html += '<span>누적 수리비 <b>' + won(st.total) + '</b></span>';
+    html += '<span>입금 <b>' + won(st.paid) + '</b></span>';
+    if (st.unpaid) html += '<span class="rp-cust-unpaid">미수 <b>' + won(st.unpaid) + '</b></span>';
+    html += '</div>';
+    if (row.memo || row.caution) {
+      html += '<div class="rp-cust-note">';
+      if (row.memo) html += '<p><b>단골 메모</b>' + escapeHtml(row.memo) + '</p>';
+      if (row.caution) html += '<p class="is-caution"><b>주의</b>' + escapeHtml(row.caution) + '</p>';
+      html += '</div>';
+    }
+    html += '<div class="rp-cust-actions">';
+    html += '<button class="rp-act' + (state.openCustomer === 'memo:' + row._id ? ' rp-act-primary' : '') + '" type="button" data-cust-memo="' + id + '">📝 메모 편집</button>';
+    html += '<button class="rp-act" type="button" data-cust-history="' + id + '">🧾 수리 이력 ' + st.count + '건</button>';
+    if (row.hasDoc) html += '<button class="rp-act" type="button" data-cust-delete="' + id + '">삭제</button>';
+    html += '</div>';
+    if (state.openCustomer === 'memo:' + row._id) html += customerMemoFormHtml(row);
+    if (state.openCustomer === 'history:' + row._id) html += customerHistoryHtml(row);
+    html += '</article>';
+    return html;
+  }
+
+  function customerMemoFormHtml(row) {
+    var id = escapeHtml(row._id);
+    var html = '<div class="rp-inline-form" data-cust-form="' + id + '">';
+    html += '<div class="rp-field-row">';
+    html += '<div class="rp-field"><label>성함</label><input type="text" maxlength="30" data-cust-field="name" value="' + escapeHtml(row.name) + '"></div>';
+    html += '<div class="rp-field"><label>카톡 닉네임</label><input type="text" maxlength="30" data-cust-field="kakao" value="' + escapeHtml(row.kakao) + '"></div>';
+    html += '</div>';
+    html += '<div class="rp-field"><label>단골 메모</label><textarea rows="2" maxlength="200" data-cust-field="memo" placeholder="예: 휠 감도 민감, 옴론 스위치 선호">' + escapeHtml(row.memo) + '</textarea></div>';
+    html += '<div class="rp-field"><label>주의사항 <span class="rp-opt">선택</span></label><textarea rows="2" maxlength="200" data-cust-field="caution" placeholder="예: 입금 지연 이력, 반송 전 꼭 전화">' + escapeHtml(row.caution) + '</textarea></div>';
+    html += '<div class="rp-inline-form-actions"><button class="rp-act rp-act-primary" type="button" data-cust-save="' + id + '">저장</button><button class="rp-act" type="button" data-cust-cancel="1">취소</button></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function customerHistoryHtml(row) {
+    var list = row.stats.list;
+    if (!list.length) return '<div class="rp-cust-history"><p class="rp-fineprint">접수 이력이 없습니다.</p></div>';
+    var html = '<div class="rp-cust-history">';
+    html += list.map(function (t) {
+      var key = normalizeStatus(t.status);
+      var status = STATUS[key] || STATUS.received;
+      var fee = ticketFee(t);
+      var parts = (Array.isArray(t.usedParts) ? t.usedParts : []).map(function (p) {
+        return (p.name || '부품') + ' ' + (p.qty || 1) + '개';
+      }).join(' · ');
+      var pay = t.paid ? '<span class="rp-pay-done">입금 완료</span>'
+        : (fee ? '<span class="rp-pay-wait">입금 대기</span>' : '<span class="rp-muted">입금 전</span>');
+      var out = '<div class="rp-cust-row">';
+      out += '<div class="rp-cust-row-top"><b>' + escapeHtml(t.ticketNo || t._id) + '</b>';
+      out += '<span class="rp-status-chip rp-status-' + status.chip + '">' + status.label + '</span></div>';
+      out += '<p>' + koreanDate(t.createdAt) + ' · ' + escapeHtml(t.model || '모델 미기재') + ' ' + (t.qty || 1) + '개 · 수리비 <b>' + (fee ? won(fee) : '미정') + '</b> · ' + pay + '</p>';
+      if (parts) out += '<p class="rp-muted">부품 ' + escapeHtml(parts) + (t.partsCost ? ' · 원가 ' + won(t.partsCost) : '') + '</p>';
+      if (t.ownerMemo) out += '<p class="rp-muted">메모 ' + escapeHtml(t.ownerMemo) + '</p>';
+      out += '</div>';
+      return out;
+    }).join('');
+    html += '</div>';
+    return html;
+  }
+
+  function saveCustomer(rowId) {
+    if (state.busy) return;
+    var form = document.querySelector('[data-cust-form="' + rowId + '"]');
+    if (!form) return;
+    var values = {};
+    form.querySelectorAll('[data-cust-field]').forEach(function (el) { values[el.getAttribute('data-cust-field')] = el.value; });
+    var rec = findCustomer(rowId);
+    var phone = customerKey(rec ? (rec.phone || rec._id) : rowId);
+    if (!phone) { toast('연락처가 없는 고객은 저장할 수 없습니다.'); return; }
+    var fields = {
+      phone: phone,
+      name: String(values.name || '').trim().slice(0, 30),
+      kakao: String(values.kakao || '').trim().slice(0, 30),
+      memo: String(values.memo || '').trim().slice(0, 200),
+      caution: String(values.caution || '').trim().slice(0, 200),
+      updatedAt: nowIso()
+    };
+    var writes;
+    if (rec) {
+      writes = [writeUpdate(CUSTOMERS, rec._id, fields, Object.keys(fields))];
+    } else {
+      var list = ticketsForCustomer(phone);
+      var models = [];
+      list.forEach(function (t) { if (t.model && models.indexOf(t.model) < 0) models.push(t.model); });
+      fields.address = String((list[0] && list[0].address) || '').slice(0, 120);
+      fields.models = models.slice(0, 20);
+      fields.createdAt = nowIso();
+      writes = [writeCreate(CUSTOMERS, phone, fields)];
+    }
+    state.busy = true;
+    commit(writes).then(function (res) {
+      if (!res.ok) throw new Error('save_failed:' + apiCode(res));
+      state.busy = false;
+      state.openCustomer = '';
+      return loadCustomers().then(function () {
+        renderAll();
+        toast('고객 메모를 저장했습니다');
+      });
+    }).catch(function (err) {
+      state.busy = false;
+      if (err && err.message === 'session') { lock('PIN 세션이 만료되었습니다. 다시 열어 주세요.'); return; }
+      toast('저장하지 못했습니다. 다시 시도해 주세요.');
+    });
+  }
+
+  function deleteCustomer(rowId) {
+    var rec = findCustomer(rowId);
+    if (!rec) return;
+    if (!confirm('고객 카드 ' + (rec.name || formatPhone(rec.phone || rec._id)) + ' 을(를) 삭제할까요?\n접수 이력은 지워지지 않고, 다음 접수 때 다시 만들어집니다.')) return;
+    if (state.busy) return;
+    state.busy = true;
+    commit([{ delete: docName(CUSTOMERS, rec._id) }]).then(function (res) {
+      if (!res.ok) throw new Error('delete_failed');
+      state.busy = false;
+      state.openCustomer = '';
+      state.customers = state.customers.filter(function (row) { return row._id !== rec._id; });
+      renderAll();
+      toast('고객 카드를 삭제했습니다');
+    }).catch(function (err) {
+      state.busy = false;
+      if (err && err.message === 'session') { lock('PIN 세션이 만료되었습니다. 다시 열어 주세요.'); return; }
+      toast('삭제하지 못했습니다.');
+    });
+  }
+
+  /* ---------------- ④ 월별 정산 화면 ---------------- */
+  function monthTickets() {
+    var month = state.month || thisMonth();
+    return state.tickets.filter(function (t) { return monthOf(t.createdAt) === month; })
+      .slice()
+      .sort(function (a, b) { return String(b.createdAt || '').localeCompare(String(a.createdAt || '')); });
+  }
+
+  function settleTotals(list) {
+    var out = { count: list.length, done: 0, total: 0, paid: 0, unpaid: 0, cost: 0, noFee: 0 };
+    list.forEach(function (t) {
+      var key = normalizeStatus(t.status);
+      var fee = ticketFee(t);
+      var closed = key === 'repaired' || key === 'shipped';
+      out.total += fee;
+      out.cost += Number(t.partsCost || 0);
+      if (closed) out.done += 1;
+      if (t.paid) out.paid += fee;
+      else if (closed && fee > 0) out.unpaid += fee;
+      if (closed && !fee) out.noFee += 1;
+    });
+    out.profit = out.total - out.cost;
+    return out;
+  }
+
+  function allUnpaid() {
+    return state.tickets.filter(function (t) {
+      var key = normalizeStatus(t.status);
+      return ticketFee(t) > 0 && !t.paid && (key === 'repaired' || key === 'shipped');
+    }).sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
+  }
+
+  function kpiHtml(label, value, sub, tone) {
+    return '<div class="rp-kpi' + (tone ? ' is-' + tone : '') + '"><span class="rp-kpi-k">' + label + '</span>'
+      + '<b class="rp-kpi-v">' + value + '</b>'
+      + (sub ? '<span class="rp-kpi-s">' + sub + '</span>' : '') + '</div>';
+  }
+
+  function renderSettle() {
+    var cards = $('settle-cards');
+    if (!cards) return;
+    if (!state.month) state.month = thisMonth();
+    var pick = $('month-pick');
+    if (pick && pick.value !== state.month) pick.value = state.month;
+    var list = monthTickets();
+    var t = settleTotals(list);
+    var summary = $('settle-summary');
+    if (summary) {
+      summary.textContent = monthLabel(state.month) + ' 접수 ' + t.count + '건 · 완료 ' + t.done + '건'
+        + (t.noFee ? ' · 수리비 미정 ' + t.noFee + '건' : '') + ' (접수일 기준)';
+    }
+    cards.innerHTML = [
+      kpiHtml('총 접수', t.count + '건', '완료 ' + t.done + '건'),
+      kpiHtml('총 수리비(매출)', won(t.total), '완료·진행 건 합계'),
+      kpiHtml('입금 완료', won(t.paid), t.total ? Math.round((t.paid / t.total) * 100) + '% 입금' : '입금 전', t.paid ? 'good' : ''),
+      kpiHtml('미수금', won(t.unpaid), '입금 대기 ' + list.filter(function (x) { return ticketFee(x) > 0 && !x.paid && (normalizeStatus(x.status) === 'repaired' || normalizeStatus(x.status) === 'shipped'); }).length + '건', t.unpaid ? 'warn' : ''),
+      kpiHtml('부품 원가', won(t.cost), '사용 부품 매입가'),
+      kpiHtml('순수익', won(t.profit), '수리비 − 부품원가', t.profit > 0 ? 'good' : (t.profit < 0 ? 'warn' : ''))
+    ].join('');
+
+    var unpaidBox = $('settle-unpaid');
+    var unpaidCount = $('settle-unpaid-count');
+    if (unpaidBox) {
+      var pending = allUnpaid();
+      var pendingTotal = pending.reduce(function (sum, x) { return sum + ticketFee(x); }, 0);
+      if (unpaidCount) unpaidCount.textContent = '전체 ' + pending.length + '건 · ' + won(pendingTotal);
+      if (!pending.length) {
+        unpaidBox.innerHTML = '<p class="rp-ticket rp-ticket-empty">미수금이 없습니다. 모두 입금 완료되었습니다.</p>';
+      } else {
+        unpaidBox.innerHTML = '<div class="rp-unpaid-box"><h3>미수금 ' + won(pendingTotal) + ' · ' + pending.length + '건</h3>'
+          + pending.map(function (ticket) {
+            return '<div class="rp-unpaid-row"><span><b>' + escapeHtml(ticket.ticketNo) + '</b> · '
+              + escapeHtml(ticket.name || '') + ' · ' + escapeHtml(formatPhone(ticket.phone)) + '</span>'
+              + '<span>' + escapeHtml(ticket.model || '모델 미기재') + ' · <b>' + won(ticketFee(ticket)) + '</b>'
+              + ' · 접수 ' + koreanDate(ticket.createdAt) + '</span>'
+              + '<button class="rp-act rp-act-primary" type="button" data-paid-toggle="' + escapeHtml(ticket._id) + '">💰 입금 완료</button></div>';
+          }).join('') + '</div>';
+      }
+    }
+
+    var rowsBox = $('settle-rows');
+    var rowsCount = $('settle-rows-count');
+    if (rowsBox) {
+      if (rowsCount) rowsCount.textContent = list.length ? list.length + '건' : '';
+      if (!list.length) {
+        rowsBox.innerHTML = '<p class="rp-ticket rp-ticket-empty">' + monthLabel(state.month) + '에 접수된 건이 없습니다.</p>';
+      } else {
+        rowsBox.innerHTML = list.map(settleRowHtml).join('');
+      }
+    }
+
+    var lowBox = $('settle-low');
+    if (lowBox) {
+      var low = lowParts();
+      if (!low.length) {
+        lowBox.innerHTML = '<p class="rp-ticket rp-ticket-empty">안전재고 이하로 떨어진 부품이 없습니다.</p>';
+      } else {
+        lowBox.innerHTML = '<div class="rp-low-banner"><b>부족 부품 ' + low.length + '종</b><span>'
+          + low.map(function (part) {
+            return escapeHtml(part.name) + ' (' + partQty(part) + '/' + partMin(part) + ')';
+          }).join(' · ') + '</span>'
+          + '<span><button class="rp-act" type="button" data-open-tab="parts">② 부품·재고 관리 열기</button></span></div>';
+      }
+    }
+  }
+
+  function settleRowHtml(ticket) {
+    var key = normalizeStatus(ticket.status);
+    var status = STATUS[key] || STATUS.received;
+    var fee = ticketFee(ticket);
+    var cost = Number(ticket.partsCost || 0);
+    var closed = key === 'repaired' || key === 'shipped';
+    var tone = ticket.paid ? ' is-paid' : (closed ? ' is-unpaid' : '');
+    var html = '<article class="rp-set-card' + tone + '" data-set-id="' + escapeHtml(ticket._id) + '">';
+    html += '<div class="rp-set-top"><b>' + escapeHtml(ticket.ticketNo) + '</b>';
+    html += '<span class="rp-status-chip rp-status-' + status.chip + '">' + status.label + '</span></div>';
+    html += '<p class="rp-set-meta">' + escapeHtml(ticket.name || '') + ' · ' + escapeHtml(ticket.model || '모델 미기재') + ' ' + (ticket.qty || 1) + '개 · 접수 ' + koreanDate(ticket.createdAt) + '</p>';
+    html += '<div class="rp-set-money">';
+    html += '<span>수리비 <b>' + (fee ? won(fee) : '미정') + '</b></span>';
+    html += '<span>부품 원가 <b>' + won(cost) + '</b></span>';
+    html += '<span>순익 <b>' + won(fee - cost) + '</b></span>';
+    html += '<span>' + (ticket.paid ? '<span class="rp-pay-done">입금 완료' + (ticket.paidAt ? ' · ' + escapeHtml(ticket.paidAt) : '') + '</span>'
+      : (fee ? '<span class="rp-pay-wait">입금 대기</span>' : '<span class="rp-muted">입금 전</span>')) + '</span>';
+    html += '</div>';
+    if (closed) {
+      html += '<div class="rp-set-actions"><button class="rp-act' + (ticket.paid ? '' : ' rp-act-primary') + '" type="button" data-paid-toggle="' + escapeHtml(ticket._id) + '">'
+        + (ticket.paid ? '↩️ 입금 대기로' : '💰 입금 완료') + '</button></div>';
+    }
+    html += '</article>';
+    return html;
+  }
+
   /* ---------------- 이벤트 ---------------- */
   function findTicket(id) {
     return state.tickets.filter(function (t) { return t._id === id; })[0];
@@ -1453,19 +1945,88 @@
     });
   }
 
+  /* ---------------- ③ 고객 / ④ 월별 정산 이벤트 ---------------- */
+  function bindCustomers() {
+    var search = $('customer-search');
+    if (search) search.addEventListener('input', function () { state.customerSearch = this.value; renderCustomers(); });
+    var reload = $('customers-reload');
+    if (reload) reload.addEventListener('click', function () { refresh().then(function () { toast('새로고침했습니다'); }); });
+
+    var box = $('customer-list');
+    if (!box) return;
+    box.addEventListener('click', function (event) {
+      try {
+        var btn = event.target.closest('button');
+        if (!btn) return;
+        if (btn.hasAttribute('data-cust-cancel')) { state.openCustomer = ''; renderCustomers(); return; }
+        var id = btn.getAttribute('data-cust-memo') || btn.getAttribute('data-cust-history')
+          || btn.getAttribute('data-cust-save') || btn.getAttribute('data-cust-delete');
+        if (!id) return;
+        if (btn.hasAttribute('data-cust-memo')) {
+          state.openCustomer = state.openCustomer === 'memo:' + id ? '' : 'memo:' + id;
+          renderCustomers();
+          return;
+        }
+        if (btn.hasAttribute('data-cust-history')) {
+          state.openCustomer = state.openCustomer === 'history:' + id ? '' : 'history:' + id;
+          renderCustomers();
+          return;
+        }
+        if (btn.hasAttribute('data-cust-save')) { saveCustomer(id); return; }
+        if (btn.hasAttribute('data-cust-delete')) { deleteCustomer(id); return; }
+      } catch (err) {
+        toast('처리 중 오류가 생겼습니다. 새로고침 후 다시 시도해 주세요.');
+      }
+    });
+  }
+
+  function bindSettle() {
+    var pick = $('month-pick');
+    if (pick) pick.addEventListener('change', function () {
+      state.month = this.value || thisMonth();
+      renderSettle();
+    });
+    if ($('month-prev')) $('month-prev').addEventListener('click', function () { state.month = shiftMonth(state.month, -1); renderSettle(); });
+    if ($('month-next')) $('month-next').addEventListener('click', function () { state.month = shiftMonth(state.month, 1); renderSettle(); });
+    if ($('month-now')) $('month-now').addEventListener('click', function () { state.month = thisMonth(); renderSettle(); });
+
+    var pane = $('pane-settle');
+    if (!pane) return;
+    pane.addEventListener('click', function (event) {
+      try {
+        var btn = event.target.closest('button');
+        if (!btn) return;
+        if (btn.hasAttribute('data-open-tab')) { selectTab(btn.getAttribute('data-open-tab')); return; }
+        if (btn.hasAttribute('data-paid-toggle')) {
+          var ticket = findTicket(btn.getAttribute('data-paid-toggle'));
+          if (ticket) togglePaid(ticket);
+        }
+      } catch (err) {
+        toast('처리 중 오류가 생겼습니다. 새로고침 후 다시 시도해 주세요.');
+      }
+    });
+  }
+
   /* ---------------- 탭 ---------------- */
   function selectTab(name) {
-    state.tab = name === 'parts' ? 'parts' : 'repair';
+    var allowed = ['repair', 'parts', 'customers', 'settle'];
+    state.tab = allowed.indexOf(name) >= 0 ? name : 'repair';
     document.querySelectorAll('.rp-apptab').forEach(function (tab) {
       tab.setAttribute('aria-selected', tab.getAttribute('data-tab') === state.tab ? 'true' : 'false');
     });
     $('pane-repair').hidden = state.tab !== 'repair';
     $('pane-parts').hidden = state.tab !== 'parts';
+    if ($('pane-customers')) $('pane-customers').hidden = state.tab !== 'customers';
+    if ($('pane-settle')) $('pane-settle').hidden = state.tab !== 'settle';
+    if (state.tab === 'customers') renderCustomers();
+    if (state.tab === 'settle') renderSettle();
   }
 
   function renderAll() {
     renderTickets();
     renderParts();
+    renderCustomers();
+    renderSettle();
   }
 
   /* ---------------- 잠금·새로고침 ---------------- */
@@ -1487,6 +2048,7 @@
     $('gate').hidden = true;
     $('dashboard').hidden = false;
     showError($('gate-error'), '');
+    if (!state.month) state.month = thisMonth();
     selectTab(state.tab);
     refresh();
     var mark = '';
@@ -1497,7 +2059,7 @@
   }
 
   function refresh() {
-    return Promise.all([loadTickets(), loadParts(), loadLogs()]).then(function () {
+    return Promise.all([loadTickets(), loadParts(), loadLogs(), loadCustomers()]).then(function () {
       renderAll();
       showError($('gate-error'), '');
     }).catch(function (err) {
@@ -1576,6 +2138,8 @@
 
     bindList();
     bindParts();
+    bindCustomers();
+    bindSettle();
 
     if (restore()) openDashboard();
   }
