@@ -17,6 +17,9 @@
   var mapWrap = null;
   var layerGroup = null;
   var markers = [];
+  var lines = [];
+  var currentStops = [];
+  var zoomHandler = null;
   var tileLayer = null;
   var tileErrors = 0;
   var tileOk = 0;
@@ -280,21 +283,66 @@
     layerGroup = L.layerGroup().addTo(map);
   }
 
+  /* 같은 건물·같은 역에 붙은 지점들이 겹치지 않도록 화면 픽셀에서 서로 밀어낸다. */
+  function layoutPoints(stops) {
+    if (!map || !stops.length) return [];
+    var z = map.getZoom();
+    var origin = stops.map(function (s) { return map.project([s.lat, s.lng], z); });
+    var pts = origin.map(function (p) { return L.point(p.x, p.y); });
+    var MIN = 33;
+    for (var it = 0; it < 90; it++) {
+      var moved = false;
+      for (var i = 0; i < pts.length; i++) {
+        for (var j = i + 1; j < pts.length; j++) {
+          var dx = pts[j].x - pts[i].x;
+          var dy = pts[j].y - pts[i].y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          if (d >= MIN) continue;
+          if (d < 0.01) { dx = (j - i) * 0.7 + 0.3; dy = 0.5; d = Math.sqrt(dx * dx + dy * dy); }
+          var push = (MIN - d) / 2 / d;
+          pts[i].x -= dx * push; pts[i].y -= dy * push;
+          pts[j].x += dx * push; pts[j].y += dy * push;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    // 실제 위치에서 너무 멀어지지 않게(최대 52px)
+    for (var k = 0; k < pts.length; k++) {
+      var ox = pts[k].x - origin[k].x, oy = pts[k].y - origin[k].y;
+      var len = Math.sqrt(ox * ox + oy * oy);
+      if (len > 52) {
+        pts[k].x = origin[k].x + ox * 52 / len;
+        pts[k].y = origin[k].y + oy * 52 / len;
+      }
+    }
+    return pts.map(function (p) { return map.unproject(p, z); });
+  }
+
   function drawRoute(stops, accent) {
     initMap();
     if (!map) return;
     layerGroup.clearLayers();
     markers = [];
+    lines = [];
+    currentStops = stops;
+
+    var bounds = L.latLngBounds(stops.map(function (s) { return [s.lat, s.lng]; }));
+    map.fitBounds(bounds, { padding: [34, 34], maxZoom: 15 });
+
+    var pts = layoutPoints(stops);
 
     for (var i = 1; i < stops.length; i++) {
-      var a = stops[i - 1], b = stops[i];
+      var b = stops[i];
       var mode = (b.leg && b.leg.mode) || "walk";
       var style = mode === "train"
         ? { color: accent, weight: 4, opacity: 0.85 }
         : mode === "taxi" || mode === "tour"
           ? { color: "#8b5cf6", weight: 3.5, opacity: 0.8, dashArray: "2 8", lineCap: "round" }
           : { color: "#94a3b8", weight: 3, opacity: 0.9, dashArray: "6 8", lineCap: "round" };
-      L.polyline([[a.lat, a.lng], [b.lat, b.lng]], style).addTo(layerGroup);
+      var ln = L.polyline([[pts[i - 1].lat, pts[i - 1].lng], [pts[i].lat, pts[i].lng]], style);
+      ln.addTo(layerGroup);
+      lines.push(ln);
     }
 
     stops.forEach(function (s, i) {
@@ -305,7 +353,7 @@
         iconAnchor: [14, 14],
         popupAnchor: [0, -14]
       });
-      var m = L.marker([s.lat, s.lng], { icon: icon, title: s.name, riseOnHover: true });
+      var m = L.marker([pts[i].lat, pts[i].lng], { icon: icon, title: s.name, riseOnHover: true });
       m.bindPopup(
         '<div class="pop"><b>' + esc(s.name) + "</b><span>" + esc(s.time) + " · " + esc(s.jp || "") +
           '</span><a target="_blank" rel="noopener" href="' + gmapsUrl(null, s, "walk") + '">구글지도로 열기 →</a></div>',
@@ -316,11 +364,25 @@
       markers.push(m);
     });
 
-    var bounds = L.latLngBounds(stops.map(function (s) { return [s.lat, s.lng]; }));
-    map.fitBounds(bounds, { padding: [34, 34], maxZoom: 15 });
-    setTimeout(function () { if (map) map.invalidateSize(); }, 60);
-    // 웹뷰 안에서 목록이 지도와 겹치지 않게
-    window.__tripFocus = focusStop;
+    setTimeout(function () {
+      if (!map) return;
+      map.invalidateSize();
+      reflow();
+    }, 60);
+
+    if (zoomHandler) map.off("zoomend", zoomHandler);
+    zoomHandler = function () { reflow(); };
+    map.on("zoomend", zoomHandler);
+  }
+
+  /* 지도를 확대·축소하면 화면 기준으로 다시 배치한다. */
+  function reflow() {
+    if (!map || !markers.length) return;
+    var pts = layoutPoints(currentStops);
+    markers.forEach(function (m, i) { if (pts[i]) m.setLatLng(pts[i]); });
+    lines.forEach(function (ln, i) {
+      if (pts[i] && pts[i + 1]) ln.setLatLngs([[pts[i].lat, pts[i].lng], [pts[i + 1].lat, pts[i + 1].lng]]);
+    });
   }
 
   function highlight(i, scroll) {
@@ -340,8 +402,10 @@
   function focusStop(i, s) {
     highlight(i, false);
     if (map && s) {
-      map.setView([s.lat, s.lng], Math.max(map.getZoom(), 15), { animate: true });
-      if (markers[i]) markers[i].openPopup();
+      map.setView([s.lat, s.lng], Math.max(map.getZoom(), 16), { animate: true });
+      if (markers[i]) {
+        setTimeout(function () { if (markers[i]) markers[i].openPopup(); }, 280);
+      }
     }
   }
 

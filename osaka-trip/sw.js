@@ -1,5 +1,5 @@
 /* 오사카 여행 동선 앱 — 현지에서 인터넷이 느려도 바로 열리도록 앱 본체를 캐시한다 */
-var V = "osaka-trip-v3";
+var V = "osaka-trip-v4";
 var SHELL = [
   "./",
   "./index.html",
