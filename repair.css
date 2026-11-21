@@ -154,6 +154,32 @@ body.rp-addr-open { overflow: hidden; }
   .rp-postcode-frame iframe { max-width: none; }
 }
 
+/* ---------- 매장 실무 편의 (모델 칩·주소 복사·송장 입력) ---------- */
+.rp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 2px; }
+.rp-chip { min-height: 40px; padding: 0 14px; color: var(--muted-strong); background: #15171f; border: 1px solid var(--rp-line); border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+.rp-chip:hover { background: #1d2029; color: #fff; }
+.rp-chip[aria-pressed="true"] { color: #fff; background: linear-gradient(135deg, #e8213d, #9f1428); border-color: transparent; }
+.rp-chip:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.rp-hint-slim { margin: 0 0 10px; padding: 9px 12px; font-size: 12.5px; }
+.rp-hint.rp-profile { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 16px; border-left-color: #e8213d; }
+.rp-hint.rp-profile .rp-textlink { font-size: 12.5px; font-weight: 700; }
+.rp-profile + .rp-card-title { margin-top: 0; padding-top: 0; border-top: 0; }
+.rp-addr-copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.rp-addr-copy { min-height: 44px; padding: 0 16px; color: #fff; background: #232733; border: 1px solid var(--rp-line); border-radius: 9px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.rp-addr-copy:hover { background: #2d3241; }
+.rp-addr-copy.is-done { background: #123a24; border-color: rgba(74, 222, 128, 0.55); color: #c8f7d8; }
+.rp-addr-copy:focus-visible { outline: 2px solid #ff526a; outline-offset: 2px; }
+.rp-copy-ok { display: inline-block; padding: 4px 10px; color: #0b1a10; background: #4ade80; border-radius: 999px; font-size: 12px; font-weight: 900; }
+.rp-copy-ok[hidden] { display: none; }
+.rp-shipform { margin-top: 14px; padding: 14px; background: #0a0b0f; border: 1px dashed var(--rp-line); border-radius: 10px; }
+.rp-shipform-title { margin: 0 0 4px; color: #fff; font-size: 13.5px; font-weight: 900; }
+.rp-shipform-note { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; line-height: 1.65; }
+.rp-shipform-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto; gap: 8px; align-items: stretch; }
+.rp-shipform-row select, .rp-shipform-row input { min-height: 48px; padding: 10px 12px; font-size: 15px; }
+.rp-shipform-row .rp-act { min-height: 48px; padding: 0 18px; white-space: nowrap; }
+.rp-shipform-error { margin: 10px 0 0; }
+.rp-shipform .rp-copy-ok { margin-top: 10px; }
+
 /* 안내 3칸 */
 .rp-info { display: grid; gap: 12px; margin-top: 22px; }
 .rp-info article { padding: 18px; background: #0b0c10; border: 1px solid var(--line); border-radius: 12px; }
@@ -295,6 +321,10 @@ body.rp-addr-open { overflow: hidden; }
   .rp-kv { grid-template-columns: 88px minmax(0, 1fr); }
   .rp-ticket-no { letter-spacing: 0.6px; }
   .rp-field-row { grid-template-columns: 1fr; }
+  .rp-shipform { padding: 12px; }
+  .rp-shipform-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rp-shipform-row .rp-act { grid-column: 1 / -1; }
+  .rp-addr-copy { width: 100%; }
   .rp-steps li { font-size: 11px; }
   .rp-parts-head { flex-wrap: wrap; }
   .rp-part-row { grid-template-columns: 1fr 78px 38px; }

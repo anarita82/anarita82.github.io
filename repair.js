@@ -7,6 +7,7 @@
   var PROJECT = 'family-calendar-woo';
   var DOCS = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents';
   var AUTH_KEY = 'seoulmouse.repair.auth.v1';
+  var PROFILE_KEY = 'seoulmouse.repair.profile.v1';
   var COLLECTION = 'seoulmouse_repairs';
   var SITE = 'https://anarita82.github.io/';
   var OPEN_CHAT = 'https://open.kakao.com/o/sFZ6mCSi';
@@ -34,6 +35,9 @@
     var key = String(value || '');
     return LEGACY_STATUS[key] || key;
   }
+
+  /* 매장에서 다시 접수할 때 채워 넣을 정보(같은 브라우저에만 저장). */
+  var SEND_ADDRESS_TEXT = '서울특별시 송파구 풍납동 78-83 지층 제노PC방\n서울마우스 / 유상균\n010-3100-4361';
 
   var state = { auth: null, submitting: false, lastTicket: '' };
 
@@ -110,6 +114,70 @@
 
   function saveAuth(data) {
     try { localStorage.setItem(AUTH_KEY, JSON.stringify(data)); } catch (e) { /* 저장 불가 시 세션만 사용 */ }
+  }
+
+  /* ---------------- 단골 정보 기억 (매장명·연락처·카톡·주소) ---------------- */
+  function readProfile() {
+    try {
+      var raw = localStorage.getItem(PROFILE_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      return data && typeof data === 'object' ? data : null;
+    } catch (e) { return null; }
+  }
+
+  function saveProfile(data) {
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({
+        name: data.name || '',
+        phone: data.phone || '',
+        kakao: data.kakao || '',
+        addrBase: $('f-addr-base') ? $('f-addr-base').value : '',
+        addrDetail: $('f-addr-detail') ? $('f-addr-detail').value : '',
+        at: new Date().toISOString()
+      }));
+    } catch (e) { /* 저장 불가(사생활 보호 모드)면 기억하지 않습니다 */ }
+  }
+
+  function clearProfile() {
+    try { localStorage.removeItem(PROFILE_KEY); } catch (e) { /* 무시 */ }
+  }
+
+  function formatPhone(digits) {
+    var d = onlyDigits(digits).slice(0, 11);
+    if (d.length > 7) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length > 3) return d.slice(0, 3) + '-' + d.slice(3);
+    return d;
+  }
+
+  /* 비어 있는 칸만 채웁니다(force면 지금 값을 덮어씀). 채운 칸이 있으면 안내 줄을 보여 줍니다. */
+  function applyProfile(force) {
+    var data = readProfile();
+    var hint = $('profile-hint');
+    if (!data) { if (hint) hint.hidden = true; return false; }
+    var filled = 0;
+    var name = $('f-name');
+    var phone = $('f-phone');
+    var kakao = $('f-kakao');
+    var base = $('f-addr-base');
+    var detail = $('f-addr-detail');
+    if (data.name && name && (force || !name.value)) { name.value = data.name; filled += 1; }
+    if (data.phone && phone && (force || !phone.value)) { phone.value = formatPhone(data.phone); filled += 1; }
+    if (data.kakao && kakao && (force || !kakao.value)) { kakao.value = data.kakao; filled += 1; }
+    if (data.addrBase && base && (force || !base.value)) {
+      base.value = data.addrBase;
+      if (data.addrDetail && detail && (force || !detail.value)) detail.value = data.addrDetail;
+      filled += 1;
+    }
+    if (hint) hint.hidden = filled === 0;
+    return filled > 0;
+  }
+
+  /* 자주 쓰는 모델 칩 — 누르면 입력창에 모델명이 들어가고 수량 칸으로 커서가 갑니다. */
+  function syncModelChips() {
+    var value = $('f-model') ? $('f-model').value.trim() : '';
+    document.querySelectorAll('#model-chips .rp-chip').forEach(function (chip) {
+      chip.setAttribute('aria-pressed', chip.getAttribute('data-model') === value ? 'true' : 'false');
+    });
   }
 
   function signInAnonymously() {
@@ -449,15 +517,15 @@
   }
 
   function validateIntake(data) {
-    if (!data.name) return '성함을 입력해 주세요.';
-    if (data.name.length > 30) return '성함은 30자 이내로 입력해 주세요.';
+    if (!data.name) return '매장명(또는 성함)을 입력해 주세요. (예: OO PC방 / 홍길동)';
+    if (data.name.length > 30) return '매장명·성함은 30자 이내로 입력해 주세요.';
     if (!/^0[0-9]{8,10}$/.test(data.phone)) return '연락처를 정확히 입력해 주세요. (예: 010-1234-5678)';
     if (!data.address) return '회송 받으실 주소를 입력해 주세요. 「🔍 주소 검색」을 누르면 우편번호·주소가 자동으로 들어갑니다.';
     if (data.address.length > 120) return '주소는 120자 이내로 입력해 주세요. 상세주소가 길면 줄여 주세요.';
     if (!data.model) return '마우스 모델을 입력해 주세요.';
     if (data.model.length > 40) return '모델명은 40자 이내로 입력해 주세요.';
-    if (!(data.qty >= 1 && data.qty <= 20)) return '수량은 1~20 사이로 입력해 주세요.';
-    if (!data.symptoms.length) return '고장 증상을 하나 이상 선택해 주세요.';
+    if (!(data.qty >= 1 && data.qty <= 999)) return '수량은 1~999 사이로 입력해 주세요.';
+    /* 고장 증상은 선택입니다 — 모델과 수량만 있으면 접수됩니다. */
     if (data.symptomNote.length > 300) return '증상 메모는 300자 이내로 입력해 주세요.';
     if (!data.agree) return '개인정보 수집·이용에 동의해 주세요.';
     return '';
@@ -503,6 +571,7 @@
 
     createTicket(data, 0).then(function (ticketNo) {
       state.lastTicket = ticketNo;
+      saveProfile(data);
       showIntakeDone(ticketNo, data);
       toast('접수번호 ' + ticketNo + ' 발급 완료');
     }).catch(function (err) {
@@ -547,6 +616,8 @@
     $('f-qty').value = '1';
     resetAddress();
     toggleCarrierEtc(false);
+    syncModelChips();
+    applyProfile(false);
     $('intake-form').hidden = false;
     $('intake-done').hidden = true;
     showError($('intake-error'), '');
@@ -585,8 +656,9 @@
     });
   }
 
-  function renderTicket(ticket) {
+  function renderTicket(ticket, options) {
     var box = $('lookup-result');
+    var order = options || {};
     var key = normalizeStatus(ticket.status);
     var status = STATUS[key] || STATUS.received;
     var step = status.step;
@@ -636,6 +708,8 @@
       if (ticket.asNote) html += '<dt>AS 안내</dt><dd>' + escapeHtml(ticket.asNote) + '</dd>';
     }
     html += '</dl>';
+    /* 보낸 택배 정보 — 고객이 직접 넣고 고칠 수 있습니다(매장 도착 전 상태에서만). */
+    html += trackingFormHtml(ticket, key === 'received');
     if (ticket.ownerMemo) {
       html += '<div class="rp-owner-note"><b>사장님 안내</b>' + escapeHtml(ticket.ownerMemo).replace(/\n/g, '<br>') + '</div>';
     }
@@ -655,7 +729,95 @@
     box.hidden = false;
     $('lookup-empty').hidden = true;
     $('lookup-form').classList.add('is-compact');
-    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    bindTrackingForm(box, ticket);
+    if (order.scroll !== false) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------------- 보내신 택배 직접 등록 ---------------- */
+  var TRACK_CARRIER_ORDER = ['cj', 'post', 'lotte', 'hanjin', 'logen', 'kyungdong', 'daesin', 'gs', 'cu'];
+
+  function carrierSelectOptions(selected) {
+    var html = '<option value="">택배사 선택</option>';
+    TRACK_CARRIER_ORDER.forEach(function (code) {
+      html += '<option value="' + code + '"' + (code === selected ? ' selected' : '') + '>' + CARRIERS[code] + '</option>';
+    });
+    if (selected && TRACK_CARRIER_ORDER.indexOf(selected) === -1) {
+      html += '<option value="' + escapeHtml(selected) + '" selected>' + escapeHtml(CARRIERS[selected] || selected) + '</option>';
+    }
+    return html;
+  }
+
+  function trackingFormHtml(ticket, editable) {
+    var html = '<div class="rp-shipform">';
+    html += '<p class="rp-shipform-title">보내신 택배 정보</p>';
+    if (!editable) {
+      html += '<p class="rp-shipform-note">매장에 도착한 접수는 송장번호를 직접 바꿀 수 없습니다. 수정이 필요하면 오픈카톡으로 접수번호와 함께 알려 주세요.</p>';
+      html += '</div>';
+      return html;
+    }
+    html += '<p class="rp-shipform-note">택배사와 송장번호를 직접 넣고 저장하시면 담당자가 바로 확인합니다.</p>';
+    html += '<div class="rp-shipform-row">';
+    html += '<label class="rp-visually-hidden" for="lt-carrier">택배사</label>';
+    html += '<select id="lt-carrier" data-ship-carrier>' + carrierSelectOptions(ticket.carrier || '') + '</select>';
+    html += '<label class="rp-visually-hidden" for="lt-tracking">송장번호</label>';
+    html += '<input id="lt-tracking" data-ship-tracking type="text" inputmode="numeric" maxlength="20" placeholder="송장번호" value="' + escapeHtml(ticket.trackingNo || '') + '">';
+    html += '<button type="button" class="rp-act rp-act-primary" data-ship-save>저장</button>';
+    html += '</div>';
+    html += '<p class="rp-error rp-shipform-error" data-ship-error role="alert" hidden></p>';
+    html += '<p class="rp-copy-ok" data-ship-ok role="status" hidden>저장됨</p>';
+    html += '</div>';
+    return html;
+  }
+
+  function bindTrackingForm(box, ticket) {
+    var save = box.querySelector('[data-ship-save]');
+    if (!save) return;
+    var carrierEl = box.querySelector('[data-ship-carrier]');
+    var trackingEl = box.querySelector('[data-ship-tracking]');
+    var errorEl = box.querySelector('[data-ship-error]');
+    if (trackingEl) {
+      trackingEl.addEventListener('input', function () { this.value = onlyDigits(this.value).slice(0, 20); });
+    }
+    save.addEventListener('click', function () {
+      showError(errorEl, '');
+      var carrier = carrierEl ? carrierEl.value : '';
+      var trackingNo = onlyDigits(trackingEl ? trackingEl.value : '');
+      if (!carrier) { showError(errorEl, '택배사를 골라 주세요.'); if (carrierEl) carrierEl.focus(); return; }
+      if (trackingNo.length < 8) { showError(errorEl, '송장번호를 정확히 입력해 주세요. (숫자 8자리 이상)'); if (trackingEl) trackingEl.focus(); return; }
+      saveTracking(ticket, carrier, trackingNo, save, errorEl);
+    });
+  }
+
+  function saveTracking(ticket, carrier, trackingNo, button, errorEl) {
+    var original = button.textContent;
+    button.disabled = true;
+    button.textContent = '저장 중…';
+    var path = '/' + COLLECTION + '/' + encodeURIComponent(ticket.ticketNo)
+      + '?updateMask.fieldPaths=carrier&updateMask.fieldPaths=trackingNo&updateMask.fieldPaths=updatedAt';
+    var fields = toFields({ carrier: carrier, trackingNo: trackingNo, updatedAt: new Date().toISOString() });
+    firestore('PATCH', path, { fields: fields }).then(function (res) {
+      if (!res.ok) {
+        var reason = res.data && res.data.error ? res.data.error.status : '';
+        if (res.status === 403 || reason === 'PERMISSION_DENIED') throw new Error('permission');
+        throw new Error('save_failed');
+      }
+      ticket.carrier = carrier;
+      ticket.trackingNo = trackingNo;
+      renderTicket(ticket, { scroll: false });
+      var okEl = $('lookup-result').querySelector('[data-ship-ok]');
+      if (okEl) {
+        okEl.hidden = false;
+        setTimeout(function () { okEl.hidden = true; }, 3000);
+      }
+      toast('보내신 택배 정보를 저장했습니다');
+    }).catch(function (err) {
+      var message = err && err.message === 'permission'
+        ? '저장할 수 없습니다. 매장 도착 처리된 접수는 송장번호를 바꿀 수 없으니 오픈카톡으로 알려 주세요.'
+        : '저장에 실패했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
+      showError(errorEl, message);
+      button.disabled = false;
+      button.textContent = original;
+    });
   }
 
   /* 단계별 날짜 — statusHistory(관리자가 상태를 바꾼 시각)를 우선 쓰고, 없으면 저장된 날짜를 씁니다. */
@@ -697,6 +859,26 @@
     return String(text === null || text === undefined ? '' : text)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ---------------- 보내실 주소 원터치 복사 ---------------- */
+  function bindSendAddressCopy() {
+    var button = $('copy-send-address');
+    if (!button) return;
+    button.addEventListener('click', function () {
+      copyText(SEND_ADDRESS_TEXT).then(function (ok) {
+        if (!ok) { toast('복사가 안 되면 주소를 길게 눌러 복사해 주세요'); return; }
+        var okEl = $('copy-send-address-ok');
+        button.classList.add('is-done');
+        if (okEl) okEl.hidden = false;
+        clearTimeout(button._t);
+        button._t = setTimeout(function () {
+          button.classList.remove('is-done');
+          if (okEl) okEl.hidden = true;
+        }, 2800);
+        toast('주소·받는분·연락처를 복사했습니다');
+      });
+    });
   }
 
   /* ---------------- 탭 ---------------- */
@@ -749,6 +931,20 @@
     });
     $('f-tracking').addEventListener('input', function () { this.value = onlyDigits(this.value).slice(0, 20); });
     $('f-carrier').addEventListener('change', function () { toggleCarrierEtc(this.value === 'etc'); });
+    $('f-model').addEventListener('input', syncModelChips);
+    document.querySelectorAll('#model-chips .rp-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        $('f-model').value = chip.getAttribute('data-model') || '';
+        syncModelChips();
+        $('f-qty').focus({ preventScroll: true });
+      });
+    });
+    $('profile-clear').addEventListener('click', function () {
+      clearProfile();
+      $('profile-hint').hidden = true;
+      toast('저장해 둔 매장 정보를 지웠습니다');
+    });
+    bindSendAddressCopy();
     $('l-phone4').addEventListener('input', function () { this.value = onlyDigits(this.value).slice(0, 4); });
     $('l-ticket').addEventListener('input', function () {
       var pos = this.selectionStart;
@@ -782,6 +978,8 @@
     $('done-kakao').setAttribute('href', OPEN_CHAT);
 
     var params = new URLSearchParams(window.location.search);
+    applyProfile(false);
+    syncModelChips();
     var code = normalizeTicket(params.get('code') || '');
     var saved = '';
     try { saved = localStorage.getItem('seoulmouse.repair.lastTicket') || ''; } catch (e) { saved = ''; }

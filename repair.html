@@ -18,8 +18,8 @@
   <link rel="stylesheet" href="app.css?v=20261020-compact">
   <link rel="stylesheet" href="brand-sites.css?v=20261109-brands">
   <link rel="stylesheet" href="service-layout.css?v=20261119-online">
-  <link rel="stylesheet" href="repair.css?v=20261121-erp3">
-  <script src="repair.js?v=20261121-erp3" defer></script>
+  <link rel="stylesheet" href="repair.css?v=20261121-shop4">
+  <script src="repair.js?v=20261121-shop4" defer></script>
 </head>
 <body class="app-page repair-page">
   <a class="skip-link" href="#main">본문 바로가기</a>
@@ -44,9 +44,9 @@
     <section class="rp-hero" aria-labelledby="rp-title">
       <p class="eyebrow">PARCEL RECEPTION</p>
       <h1 id="rp-title">택배 접수 · 진행 조회</h1>
-      <p class="mouse-home-lead">접수 신청을 하면 접수번호가 발급됩니다.<br>마우스를 보내실 때 접수번호를 메모해 함께 넣어 주세요.</p>
+      <p class="mouse-home-lead">접수 신청을 하면 접수번호가 발급됩니다. <br>마우스를 보내실 때 접수번호를 메모해 함께 넣어 주세요.</p>
       <ul class="rp-hero-points">
-        <li>전국 택배 접수 · 왕복 택배비 매장 부담</li>
+        <li>전국 택배 접수 · 왕복 택배비 의뢰 매장 부담 (선불 발송)</li>
         <li>도착 · 수리 · 반송까지 진행 상황 확인</li>
       </ul>
     </section>
@@ -62,11 +62,15 @@
         <noscript><p class="rp-note">접수 신청은 자바스크립트가 켜진 환경에서 이용할 수 있습니다. 전화(010-3100-4361) 또는 오픈카톡으로 접수해 주세요.</p></noscript>
 
         <form class="rp-card" id="intake-form" novalidate>
+          <p class="rp-hint rp-profile" id="profile-hint" hidden>
+            <span id="profile-hint-text">이전에 입력한 매장 정보를 불러왔습니다. 다르면 고쳐서 접수하세요.</span>
+            <button type="button" class="rp-textlink" id="profile-clear">기억 지우기</button>
+          </p>
           <h2 class="rp-card-title">보내시는 분 정보</h2>
           <div class="rp-grid2">
             <div class="rp-field">
-              <label for="f-name">성함 <span class="rp-req">필수</span></label>
-              <input id="f-name" name="name" type="text" autocomplete="name" maxlength="30" placeholder="홍길동" required>
+              <label for="f-name">매장명 (또는 성함) <span class="rp-req">필수</span></label>
+              <input id="f-name" name="name" type="text" autocomplete="organization" maxlength="30" placeholder="예: OO PC방 / 홍길동" required>
             </div>
             <div class="rp-field">
               <label for="f-phone">연락처 <span class="rp-req">필수</span></label>
@@ -100,16 +104,23 @@
           <div class="rp-grid2">
             <div class="rp-field">
               <label for="f-model">마우스 모델 <span class="rp-req">필수</span></label>
-              <input id="f-model" name="model" type="text" maxlength="40" placeholder="예: 로지텍 G102" required>
+              <div class="rp-chips" id="model-chips" role="group" aria-label="자주 쓰는 모델 빠른 선택">
+                <button type="button" class="rp-chip" data-model="로지텍 G102" aria-pressed="false">G102</button>
+                <button type="button" class="rp-chip" data-model="로지텍 G304" aria-pressed="false">G304</button>
+                <button type="button" class="rp-chip" data-model="로지텍 G502" aria-pressed="false">G502</button>
+                <button type="button" class="rp-chip" data-model="로지텍 G Pro X Superlight" aria-pressed="false">G Pro X</button>
+              </div>
+              <input id="f-model" name="model" type="text" maxlength="40" placeholder="예: 로지텍 G102 (위 버튼을 누르면 바로 들어갑니다)" required>
             </div>
             <div class="rp-field">
               <label for="f-qty">수량 <span class="rp-req">필수</span></label>
-              <input id="f-qty" name="qty" type="number" inputmode="numeric" min="1" max="20" step="1" value="1" required>
+              <input id="f-qty" name="qty" type="number" inputmode="numeric" min="1" max="999" step="1" value="1" required>
             </div>
           </div>
 
           <fieldset class="rp-fieldset">
-            <legend>고장 증상 <span class="rp-req">필수</span></legend>
+            <legend>고장 증상 선택 <span class="rp-opt">선택</span></legend>
+            <p class="rp-hint rp-hint-slim">증상을 잘 모르시면 비워 두셔도 접수됩니다. 모델과 수량만 있으면 됩니다.</p>
             <div class="rp-checks">
               <label class="rp-check"><input type="checkbox" name="symptom" value="double"><span>더블클릭</span></label>
               <label class="rp-check"><input type="checkbox" name="symptom" value="wheel"><span>휠 불량</span></label>
@@ -220,7 +231,11 @@
         <article>
           <h3>택배 보내실 곳</h3>
           <address>서울특별시 송파구 풍납동 78-83 지층 제노PC방<br><strong>서울마우스 / 유상균</strong><br>010-3100-4361</address>
-          <p>왕복 택배비는 매장에서 부담합니다.</p>
+          <p>왕복 택배비 의뢰 매장 부담 (선불 발송)</p>
+          <div class="rp-addr-copy-row">
+            <button class="rp-addr-copy" id="copy-send-address" type="button">📋 보내실 주소 복사</button>
+            <span class="rp-copy-ok" id="copy-send-address-ok" role="status" hidden>복사됨</span>
+          </div>
         </article>
         <article>
           <h3>수리 기간과 비용</h3>
