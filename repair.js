@@ -863,20 +863,21 @@
   }
 
   /* ---------------- 보내실 주소 원터치 복사 ---------------- */
+  var ADDRESS_COPY_LABEL = '📋 보내실 주소 복사';
+
   function bindSendAddressCopy() {
     var button = $('copy-send-address');
     if (!button) return;
     button.addEventListener('click', function () {
       copyText(SEND_ADDRESS_TEXT).then(function (ok) {
         if (!ok) { toast('복사가 안 되면 주소를 길게 눌러 복사해 주세요'); return; }
-        var okEl = $('copy-send-address-ok');
         button.classList.add('is-done');
-        if (okEl) okEl.hidden = false;
+        button.textContent = '✅ 복사됨';
         clearTimeout(button._t);
         button._t = setTimeout(function () {
           button.classList.remove('is-done');
-          if (okEl) okEl.hidden = true;
-        }, 2800);
+          button.textContent = ADDRESS_COPY_LABEL;
+        }, 4000);
         toast('주소·받는분·연락처를 복사했습니다');
       });
     });
