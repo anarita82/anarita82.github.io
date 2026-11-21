@@ -292,7 +292,7 @@
     var maxShift = Math.min(52, 400 / mpp);   // 실제 위치에서 400m 넘게 밀지 않는다
     var origin = stops.map(function (s) { return map.project([s.lat, s.lng], z); });
     var pts = origin.map(function (p) { return L.point(p.x, p.y); });
-    var MIN = 33;
+    var MIN = 29;
     for (var it = 0; it < 90; it++) {
       var moved = false;
       for (var i = 0; i < pts.length; i++) {
@@ -362,9 +362,9 @@
       var icon = L.divIcon({
         className: "pin-wrap",
         html: '<div class="pin" style="--c:' + accent + '">' + (i + 1) + "</div>",
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14]
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -12]
       });
       var m = L.marker([pts[i].lat, pts[i].lng], { icon: icon, title: s.name, riseOnHover: true });
       m.bindPopup(
