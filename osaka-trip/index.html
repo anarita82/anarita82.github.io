@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>오사카 가족여행 동선지도</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-main">
+    <h1>오사카 가족여행 <span>🗺️</span></h1>
+    <p id="topMeta"></p>
+  </div>
+  <button id="locBtn" class="loc" type="button" aria-label="내 위치로 이동">📍</button>
+</header>
+
+<nav class="tabs" id="tabs" aria-label="일차 선택"></nav>
+
+<main id="main"></main>
+
+<footer class="foot">
+  <p>좌표 Google Maps · 요금·소요시간 Yahoo!乗換案内(2026-11-21 조회) · 지도 © OpenStreetMap</p>
+  <p>여권번호·예약 비밀번호 등 민감정보는 이 앱에 넣지 않았습니다.</p>
+</footer>
+
+<div class="sheet" id="sheet" hidden>
+  <button class="sheet-close" id="sheetClose" type="button" aria-label="닫기">✕</button>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<script src="leaflet.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
