@@ -241,6 +241,7 @@
   function addExclude() {
     var kw = String((el.exclInput && el.exclInput.value) || '').trim();
     if (!kw) { toast('제외할 키워드를 넣어 주세요'); return; }
+    if (isWorldClass(kw)) { toast('월드클래스 입금은 이미 항상 제외되어 있어요'); return; }
     var mode = (el.exclMode && el.exclMode.value === 'all') ? 'all' : 'income';
     var dup = (S.excludes || []).some(function (x) { return normKw(x.kw) === normKw(kw); });
     if (dup) { toast('이미 있는 키워드예요'); return; }
