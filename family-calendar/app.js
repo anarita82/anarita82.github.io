@@ -609,6 +609,7 @@
 
     bind();
     bindRoles();
+    setupNotices();
     renderAll();
     initAccount();
     startCloud();
@@ -1267,6 +1268,7 @@
     renderDDay();
     renderRoleUI();
     renderDaySheet();
+    if (window.NoticeBoard) NoticeBoard.paint('family');
   }
 
   function renderFilters() {
@@ -3506,6 +3508,72 @@
 
   function isAdmin() { return myRole() === 'admin'; }
 
+  /* ---------------- 📢 공지 (가족 방) ----------------
+     배너·공지함 화면은 notice.js 가 그리고, 서버 쓰기는 FamilyCloud(방 문서 notices 배열)가 맡습니다.
+     글쓰기는 관리자·부매니저, 수정·삭제는 관리자 또는 그 공지를 쓴 사람만. */
+  function noticeMe() {
+    var m = myMember();
+    /* 아직 방에 붙기 전(오프라인·연결 중)에도 이 폰에 저장된 내 프로필로 이름을 쓴다. */
+    if (!m) {
+      var saved = savedProfile();
+      if (saved) m = memberById(saved);
+    }
+    var uid = '';
+    try { uid = (window.FamilyCloud && typeof FamilyCloud.currentUid === 'function') ? (FamilyCloud.currentUid() || '') : ''; } catch (e) { uid = ''; }
+    return { uid: uid, id: m ? m.id : '', name: m ? m.name : '가족' };
+  }
+
+  /* 공지 쓰기 권한 — 연결 전에도 이 폰에 저장된 프로필의 역할을 따릅니다. */
+  function noticeCanWrite() {
+    var m = myMember();
+    if (!m) {
+      var saved = savedProfile();
+      if (saved) m = memberById(saved);
+    }
+    var role = m ? (m.role || 'member') : 'member';
+    return role === 'admin' || role === 'manager';
+  }
+
+  function noticeCanEdit(n) {
+    if (!n) return false;
+    if (isAdmin()) return true;
+    var me = noticeMe();
+    /* 쓴 사람(구성원)이 먼저입니다 — 같은 폰에서 다른 구성원으로 바꿔도 남의 공지는 못 고칩니다. */
+    if (n.authorId && me.id) return n.authorId === me.id;
+    if (n.authorUid && me.uid) return n.authorUid === me.uid;
+    return false;
+  }
+
+  function setupNotices() {
+    if (!window.NoticeBoard) return;
+    window.NoticeBoard.setup('family', {
+      banner: function () { return document.getElementById('familyNoticeBanner'); },
+      code: function () {
+        try { return (window.FamilyCloud && typeof FamilyCloud.currentCode === 'function') ? (FamilyCloud.currentCode() || '') : ''; } catch (e) { return ''; }
+      },
+      ready: function () { return cloudReady; },
+      me: noticeMe,
+      canWrite: noticeCanWrite,
+      canEdit: noticeCanEdit,
+      save: function (rec) {
+        if (!window.FamilyCloud || typeof FamilyCloud.saveNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return FamilyCloud.saveNotice(rec);
+      },
+      remove: function (id) {
+        if (!window.FamilyCloud || typeof FamilyCloud.deleteNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return FamilyCloud.deleteNotice(id);
+      },
+      check: function (id, on) {
+        if (!window.FamilyCloud || typeof FamilyCloud.checkNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return FamilyCloud.checkNotice(id, on, noticeMe());
+      },
+      toast: toast,
+      title: function () { return '📢 가족 공지'; },
+      writeHint: function () { return '가족 모두에게 알리기'; },
+      hint: function () { return '가족 모두가 함께 보는 공지예요'; }
+    });
+  }
+
   function savedProfile() {
     try { return localStorage.getItem(PROFILE_KEY) || ''; } catch (e) { return ''; }
   }
@@ -3566,6 +3634,8 @@
     state.removedMembers = info && info.removedMembers && typeof info.removedMembers === 'object' ? info.removedMembers : {};
     requests = info && Array.isArray(info.requests) ? info.requests : [];
     profileRequests = info && Array.isArray(info.profileRequests) ? info.profileRequests : [];
+    /* 📢 공지 — 방 문서에서 온 목록을 그대로 배너·공지함에 반영합니다(실시간). */
+    if (window.NoticeBoard) NoticeBoard.setData('family', info && Array.isArray(info.notices) ? info.notices : []);
     if (state.member !== 'all' && !memberById(state.member)) state.member = 'all';
     if (state.profile && !memberById(state.profile)) {
       state.profile = '';

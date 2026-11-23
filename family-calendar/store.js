@@ -139,6 +139,52 @@
 
   function isOwner() { return S.role === 'owner'; }
 
+  /* ---------------- 📢 매장 공지 (사장님이 알바생에게) ----------------
+     배너·공지함 화면은 notice.js, 서버 쓰기는 StoreCloud(방 문서 notices 배열)가 맡습니다.
+     글쓰기는 사장님, 수정·삭제는 사장님 또는 그 공지를 쓴 사람만. */
+  function noticeMe() {
+    if (isOwner()) return { uid: myUid(), id: 'owner', name: '사장님' };
+    var st = me();
+    return { uid: myUid(), id: st ? st.id : '', name: st ? st.name : '알바' };
+  }
+
+  function noticeCanEdit(n) {
+    if (!n) return false;
+    if (isOwner()) return true;
+    var my = noticeMe();
+    if (n.authorId && my.id) return n.authorId === my.id;
+    if (n.authorUid && my.uid) return n.authorUid === my.uid;
+    return false;
+  }
+
+  function setupNotices() {
+    if (!window.NoticeBoard) return;
+    window.NoticeBoard.setup('store', {
+      banner: function () { return $('storeNoticeBanner'); },
+      code: function () { return S.code || ''; },
+      ready: function () { return !!S.connected; },
+      me: noticeMe,
+      canWrite: function () { return isOwner(); },
+      canEdit: noticeCanEdit,
+      save: function (rec) {
+        if (!window.StoreCloud || typeof StoreCloud.saveNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return StoreCloud.saveNotice(rec);
+      },
+      remove: function (id) {
+        if (!window.StoreCloud || typeof StoreCloud.deleteNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return StoreCloud.deleteNotice(id);
+      },
+      check: function (id, on) {
+        if (!window.StoreCloud || typeof StoreCloud.checkNotice !== 'function') return Promise.reject(new Error('공지 기능을 불러오지 못했어요'));
+        return StoreCloud.checkNotice(id, on, noticeMe());
+      },
+      toast: toast,
+      title: function () { return '📢 매장 공지'; },
+      writeHint: function () { return '알바생 모두에게 알리기'; },
+      hint: function () { return '사장님과 알바생이 함께 보는 공지예요'; }
+    });
+  }
+
   /* 이 기기의 계정(uid) — 퇴사 차단에 씁니다. */
   function myUid() {
     if (window.StoreCloud && typeof StoreCloud.currentUid === 'function') {
@@ -525,6 +571,7 @@
 
     bind();
     renderModeChrome();
+    setupNotices();
 
     var mode = ls(MODE_KEY) || 'family';
     if (isLocked() || inviteViaLink) {
@@ -1046,6 +1093,8 @@
     S.settings = normalizePayrollSettings(info.payrollSettings || S.settings);
     S.payWeekly = weeklyOn();
     S.storeName = info.storeName || '';
+    /* 📢 매장 공지 — 방 문서에서 온 목록을 배너·공지함에 반영합니다(실시간). */
+    if (window.NoticeBoard) NoticeBoard.setData('store', Array.isArray(info.notices) ? info.notices : []);
     var blocked = blockReason();
     if (blocked) {
       S.blocked = blocked;
@@ -1466,6 +1515,7 @@
     renderStaffList();
     renderGuide();
     renderDaySheet();
+    if (window.NoticeBoard) NoticeBoard.paint('store');
     var apModal = $('storeApproveModal');
     if (apModal && !apModal.hidden) renderApprovalCards();
     /* 🗑️ 근무 일괄 삭제 창이 열려 있으면 목록·건수도 새 근무에 맞춰 바로 갱신 */

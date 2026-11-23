@@ -443,7 +443,9 @@
         payrollSettings: settings,
         storeName: String(d.storeName || ''),
         revokedUids: Array.isArray(d.revokedUids) ? d.revokedUids.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : [],
-        revokedDevices: Array.isArray(d.revokedDevices) ? d.revokedDevices.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : []
+        revokedDevices: Array.isArray(d.revokedDevices) ? d.revokedDevices.filter(function (x) { return typeof x === 'string' && x; }).slice(0, 200) : [],
+        /* 📢 매장 공지 — 방 문서의 notices 배열 */
+        notices: (window.NoticeCloud && typeof NoticeCloud.parse === 'function') ? NoticeCloud.parse(d.notices) : []
       });
     }, function (err) {
       emit('onRoomError', err);
@@ -542,6 +544,27 @@
   function updateRoom(fields) {
     if (!state.roomRef) return Promise.reject(new Error('not-connected'));
     return state.roomRef.update(fields || {});
+  }
+
+  /* ---------------- 📢 매장 공지 ----------------
+     가족과 같은 방식 — 방 문서(rooms/{roomId})의 notices 배열에 담아
+     firestore.rules 를 바꾸지 않고 기존 구성원 쓰기 권한 그대로 씁니다. */
+  function saveNotice(input) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    return NoticeCloud.save(state.roomRef, state.db, input);
+  }
+  function deleteNotice(id) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    return NoticeCloud.remove(state.roomRef, state.db, id);
+  }
+  function checkNotice(id, on, me) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    var who = {
+      uid: myUid() || String((me && me.uid) || ''),
+      id: String((me && me.id) || ''),
+      name: String((me && me.name) || '')
+    };
+    return NoticeCloud.check(state.roomRef, state.db, id, on, who);
   }
 
   /* 입장 요청 한 건 — 아직 구성원이 아닌 기기는 자기 요청만 만들고 볼 수 있습니다.
@@ -972,6 +995,9 @@
     deleteShifts: deleteShifts,
     saveRoom: saveRoom,
     updateRoom: updateRoom,
+    saveNotice: saveNotice,
+    deleteNotice: deleteNotice,
+    checkNotice: checkNotice,
     submitJoinRequest: submitJoinRequest,
     decideJoinRequest: decideJoinRequest,
     myJoinRequest: readMyJoinRequest,

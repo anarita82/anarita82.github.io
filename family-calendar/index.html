@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="ledger.css?v=20261118e5" />
 <link rel="stylesheet" href="extra.css?v=20261118e5" />
 <link rel="stylesheet" href="polish.css?v=20261120a1" />
+<link rel="stylesheet" href="notice.css?v=20261124n1" />
 </head>
 <body>
 <div class="app">
@@ -54,6 +55,9 @@
     <nav class="member-filter" id="memberFilter" aria-label="가족 구성원 필터"></nav>
 
     <main class="content">
+      <!-- 📢 공지 배너 — 공지가 있으면 제목·요약 1~2줄, 없으면 쓸 수 있는 사람에게만 '+ 공지 쓰기' -->
+      <section class="notice-banner" id="familyNoticeBanner" aria-label="공지" hidden></section>
+
       <section class="card calendar" aria-label="월간 달력">
         <div class="cal-head">
           <div class="cal-head__side">
@@ -181,6 +185,9 @@
     </section>
 
     <div id="storeMain" hidden>
+      <!-- 📢 매장 공지 배너 — 사장님이 올린 공지를 알바생 폰에서 바로 봅니다 -->
+      <section class="notice-banner" id="storeNoticeBanner" aria-label="매장 공지" hidden></section>
+
       <section class="card store-dash">
         <!-- 💰 고른 알바생의 당월 급여 — 급여명세서와 같은 계산(computePayroll)으로 채웁니다. -->
         <section class="store-wage" id="storeWageCard" hidden aria-live="polite">
@@ -2098,6 +2105,64 @@
   </div>
 </div>
 
+<!-- 📢 공지함 (가족·매장 공용 시트) -->
+<div class="modal" id="noticeModal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__sheet notice-sheet" role="dialog" aria-labelledby="noticeSheetTitle">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <h2 id="noticeSheetTitle">📢 공지</h2>
+      <button class="sheet-close" id="noticeClose" type="button" aria-label="닫기">✕</button>
+    </div>
+
+    <div id="noticeListView">
+      <div class="notice-toolbar">
+        <span class="notice-toolbar__hint" id="noticeListHint">가족 모두가 함께 봐요</span>
+        <button class="btn-primary btn-small" id="noticeWriteBtn" type="button" hidden>＋ 공지 쓰기</button>
+      </div>
+      <ul class="notice-list" id="noticeList"></ul>
+      <p class="empty" id="noticeEmpty" hidden>아직 공지가 없어요.</p>
+    </div>
+
+    <div id="noticeDetailView" hidden>
+      <button class="notice-back" id="noticeBackBtn" type="button">‹ 공지 목록</button>
+      <h3 class="notice-detail__title" id="noticeDetailTitle">공지</h3>
+      <p class="notice-detail__meta" id="noticeDetailMeta"></p>
+      <div class="notice-detail__body" id="noticeDetailBody"></div>
+      <p class="notice-pending" id="noticePendingNote" hidden>이 기기에만 저장된 공지예요 · 연결되면 자동으로 올라가요</p>
+      <div class="notice-check">
+        <button class="notice-check__btn" id="noticeCheckBtn" type="button" aria-pressed="false">확인했어요</button>
+        <p class="notice-check__who" id="noticeCheckWho"></p>
+      </div>
+      <div class="notice-actions">
+        <button class="btn-ghost btn-small" id="noticeEditBtn" type="button" hidden>✏️ 수정</button>
+        <button class="btn-ghost btn-small btn-danger" id="noticeDeleteBtn" type="button" hidden>삭제</button>
+      </div>
+    </div>
+
+    <div id="noticeFormView" hidden>
+      <div class="field">
+        <label for="noticeFormTitle">제목 (선택)</label>
+        <input id="noticeFormTitle" type="text" maxlength="60" autocomplete="off" placeholder="예) 이번 주 근무표 바뀌었어요" />
+      </div>
+      <div class="field">
+        <label for="noticeFormBody">내용 <span class="req">*</span></label>
+        <textarea id="noticeFormBody" rows="5" maxlength="1000" placeholder="알릴 내용을 적어 주세요"></textarea>
+      </div>
+      <label class="notice-pin" for="noticeFormPin">
+        <input type="checkbox" id="noticeFormPin" />
+        <span>📌 맨 위에 고정</span>
+      </label>
+      <p class="form-error" id="noticeFormError" hidden></p>
+      <div class="sheet-actions">
+        <button class="btn-primary" id="noticeSaveBtn" type="button">공지 올리기</button>
+        <button class="btn-ghost btn-small" id="noticeCancelBtn" type="button">취소</button>
+      </div>
+      <p class="field-hint" id="noticeFormHint">저장하면 모두의 폰에 바로 떠요.</p>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 <div class="remind-banner" id="remindBanner" hidden></div>
 <div id="printArea" aria-hidden="true"></div>
@@ -2107,13 +2172,15 @@
 <script src="firebase-firestore-compat.js?v=20261118e5"></script>
 <script src="lunar.js?v=20261118e5"></script>
 <script src="vaccines.js?v=20261118e5"></script>
-<script src="cloud.js?v=20261120a1"></script>
-<script src="app.js?v=20261120a1"></script>
+<script src="notice-cloud.js?v=20261124n1"></script>
+<script src="cloud.js?v=20261124n1"></script>
+<script src="app.js?v=20261124n1"></script>
+<script src="notice.js?v=20261124n1"></script>
 <script src="voice.js?v=20261118e5"></script>
 <script src="paste.js?v=20261118e5"></script>
 <script src="media.js?v=20261118e5"></script>
-<script src="store-cloud.js?v=20261118e5"></script>
-<script src="store.js?v=20261119a6"></script>
+<script src="store-cloud.js?v=20261124n1"></script>
+<script src="store.js?v=20261124n1"></script>
 <script src="ledger-cloud.js?v=20261118e5"></script>
 <script src="ledger.js?v=20261124z1"></script>
 <script src="extra-cloud.js?v=20261118e5"></script>

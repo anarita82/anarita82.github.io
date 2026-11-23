@@ -938,7 +938,9 @@
         requests: list,
         profileRequests: profileList,
         revokedUids: revoked,
-        removedMembers: removed
+        removedMembers: removed,
+        /* 📢 공지 — 방 문서의 notices 배열(가족 방·매장 방 따로). 규칙 변경 없이 구성원이 함께 씁니다. */
+        notices: (window.NoticeCloud && typeof NoticeCloud.parse === 'function') ? NoticeCloud.parse(d.notices) : []
       });
     }, function (err) {
       emit('onRoomError', err);
@@ -1189,6 +1191,27 @@
     return saveRoomMeta({ members: (members || []).map(cleanMember) });
   }
 
+  /* ---------------- 📢 공지 ----------------
+     방 문서(rooms/{roomId})의 notices 배열에 담습니다 — 새 하위 컬렉션을 만들지 않아
+     firestore.rules 의 기존 구성원 쓰기 권한 그대로 동작합니다(가족 방·매장 방 분리). */
+  function saveNotice(input) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    return NoticeCloud.save(state.roomRef, state.db, input);
+  }
+  function deleteNotice(id) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    return NoticeCloud.remove(state.roomRef, state.db, id);
+  }
+  function checkNotice(id, on, me) {
+    if (!window.NoticeCloud) return Promise.reject(new Error('notice-module-missing'));
+    var who = {
+      uid: myUid() || String((me && me.uid) || ''),
+      id: String((me && me.id) || ''),
+      name: String((me && me.name) || '')
+    };
+    return NoticeCloud.check(state.roomRef, state.db, id, on, who);
+  }
+
   /* PIN은 평문을 저장하지 않습니다. 방 ID를 섞은 SHA-256 해시만 남습니다. */
   function pinHash(id, pin) {
     return sha256Hex('family-calendar-pin:' + state.roomId + ':' + String(id) + ':' + String(pin));
@@ -1370,6 +1393,9 @@
     deletePhoto: deletePhoto,
     deleteSamples: deleteSamples,
     saveMembers: saveMembers,
+    saveNotice: saveNotice,
+    deleteNotice: deleteNotice,
+    checkNotice: checkNotice,
     normalizeTel: normalizeTel,
     telDigits: telDigits,
     telLooksValid: telLooksValid,
