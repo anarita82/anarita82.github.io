@@ -10,9 +10,11 @@
   var LS_AUTO = 'family-calendar.ledger.auto.v1';
   var LS_FINANCE = 'family-calendar.ledger.finance.v1';
   var LS_EXCL = 'family-calendar.ledger.exclude.v1';
-  /* 기본 제외 키워드 — 월드클래스(PC방) 매출 정산 입금은 출납부에 넣지 않습니다.
+  /* 기본 제외 키워드 — 사용자가 직접 넣는 목록입니다(기본은 비어 있음).
+     '월드클래스(PC방) 매출 정산 입금'은 아래 WC_* 내장 규칙으로 **항상** 제외되므로
+     이 목록에 넣지 않습니다. 목록에서 지우거나 꺼도 내장 규칙은 계속 동작합니다.
      mode 'income' = 입금만 제외(지출·결제는 그대로), 'all' = 입금·지출 모두 제외 */
-  var DEFAULT_EXCLUDES = [{ kw: '월드클래스', mode: 'income', on: true }];
+  var DEFAULT_EXCLUDES = [];
   var PIN_MAX_TRY = 5;
   var PIN_WAIT_MS = 60000;
   var PIN_GUARD_KEY = 'family-calendar.ledger.pin.guard.v1';
@@ -114,9 +116,40 @@
   /* 띄어쓰기·(주)·주식회사를 지우고 비교 — '월드 클래스', '(주)월드클래스' 모두 같은 단어로 봅니다. */
   function normKw(s) {
     return String(s == null ? '' : s)
-      .replace(/\(주\)|\(유\)|주식회사|유한회사/g, '')
+      .replace(/\(주\)|\(유\)|㈜|㈔|주식회사|유한회사/gi, '')
       .replace(/\s+/g, '')
       .toLowerCase();
+  }
+
+  /* 🔒 월드클래스 입금 — 설정과 관계없이 항상 제외하는 고정 규칙.
+     은행 적요·알림에는 '월드클래스', '(주)월드클래스', '㈜월드클래스', '주식회사 월드클래스',
+     '월드 클래스', '월클', 'WORLDCLASS', 'World Class' 처럼 여러 모양으로 들어옵니다.
+     글자 사이의 띄어쓰기·특수문자·전각문자를 모두 지운 뒤 한글·영문·숫자만 남겨 비교합니다. */
+  function wcNorm(s) {
+    var t = String(s == null ? '' : s);
+    try { if (t.normalize) t = t.normalize('NFKC'); } catch (e) { /* 구형 웹뷰는 그대로 */ }
+    t = t.replace(/\(주\)|\(유\)|㈜|㈔|주식회사|유한회사/gi, '');
+    return t.toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  }
+  /* '월드클래스'를 은행이 잘라 적은 '월드클래', '월드클라스', 줄임말 '월클', 영문 'worldclass'까지 */
+  var WC_RE = /(월드클래스|월드클라스|월드클래|월드클라|월클|worldclass)/;
+  function isWorldClass(text) {
+    var t = wcNorm(text);
+    if (!t) return false;
+    return WC_RE.test(t);
+  }
+
+  /* 입금으로 볼 수 있는 내역인지 — 월드클래스는 '입금'만 빼고, 지출·결제는 그대로 둡니다.
+     알림에 '입금'이라는 글자가 없어도 정산·매출·충전이면 입금으로 봅니다. */
+  var DEPOSIT_RE = /(입금|정산|매출|충전|받았|받음|입금액|deposit|received)/i;
+  function itemText(item) {
+    if (!item) return '';
+    return [item.full, item.raw, item.memo, item.issuer, item.app, item.title].join(' ');
+  }
+  function isDepositLike(item) {
+    if (!item) return false;
+    if (item.type === 'income') return true;
+    return DEPOSIT_RE.test(itemText(item));
   }
 
   function defaultExcludes() {
@@ -129,7 +162,8 @@
     try {
       var arr = JSON.parse(raw);
       if (!Array.isArray(arr)) return defaultExcludes();
-      return arr.filter(function (x) { return x && typeof x.kw === 'string' && x.kw.trim(); })
+      /* 예전 버전이 저장해 둔 '월드클래스' 줄은 고정 규칙과 겹치므로 목록에서 뺍니다. */
+      return arr.filter(function (x) { return x && typeof x.kw === 'string' && x.kw.trim() && !isWorldClass(x.kw); })
         .map(function (x) {
           return {
             kw: String(x.kw).trim().slice(0, 20),
@@ -145,12 +179,17 @@
     renderExcludes();
   }
 
-  /* 이 내역이 제외 키워드에 걸리는지 (기본은 입금만) */
+  /* 이 내역이 제외 규칙에 걸리는지 — ① 월드클래스 입금(고정) ② 내가 넣은 키워드 */
   function excludeHit(item) {
     if (!item) return null;
+    var text = itemText(item);
+    if (!text.trim()) return null;
+    if (isDepositLike(item) && isWorldClass(text)) {
+      return { kw: '월드클래스', mode: 'income', on: true, builtin: true };
+    }
     var list = S.excludes || [];
     if (!list.length) return null;
-    var hay = normKw([item.full, item.raw, item.memo, item.issuer, item.app].join(' '));
+    var hay = normKw(text);
     if (!hay) return null;
     for (var i = 0; i < list.length; i++) {
       var x = list[i];
@@ -253,10 +292,43 @@
     return e.memo || catLabel(e.category);
   }
 
+  /* ---------------- 이미 들어가 있는 월드클래스 입금 가리기 ---------------- */
+  /* v96 이전에 이미 장부에 들어간 월드클래스 입금도 화면·합계·요약·CSV 어디에도 나오지 않게 합니다.
+     (지우지는 않고 가리기만 합니다. 지우는 것은 설정의 [정리] 버튼을 누를 때만.) */
+  function isHiddenEntry(e) {
+    if (!e) return false;
+    if (e.type !== 'income') return false;
+    return isWorldClass(e.memo || '');
+  }
+  function hiddenEntries() {
+    return (S.entries || []).filter(isHiddenEntry);
+  }
+  function visibleEntries() {
+    return (S.entries || []).filter(function (e) { return !isHiddenEntry(e); });
+  }
+  function purgeHidden() {
+    var list = hiddenEntries();
+    if (!list.length) { toast('정리할 월드클래스 입금이 없어요'); return; }
+    var sum = list.reduce(function (a, e) { return a + (Number(e.amount) || 0); }, 0);
+    if (!window.confirm('기존에 들어간 월드클래스 입금 ' + list.length + '건(' + won(sum) + '원)을 장부에서 지울까요?\n\n지운 내역은 되돌릴 수 없고, 다른 내역은 그대로 둡니다.')) return;
+    var chain = Promise.resolve();
+    var done = 0;
+    list.forEach(function (e) {
+      chain = chain.then(function () {
+        return window.LedgerCloud.deleteEntry(e.id).then(function () { done++; }).catch(function () { /* 한 건 실패는 넘어감 */ });
+      });
+    });
+    chain.then(function () {
+      renderMain();
+      renderSettings();
+      toast(done + '건을 지웠어요 · 월드클래스 입금은 계속 빠집니다');
+    });
+  }
+
   /* ---------------- 반복(매월) 계산 ---------------- */
   function monthOccurrences(y, m) {
     var out = [];
-    S.entries.forEach(function (e) {
+    visibleEntries().forEach(function (e) {
       var d = parseISO(e.date);
       if (!d) return;
       if (!e.repeatMonthly) {
@@ -628,6 +700,11 @@
     d.date = date;
     d.memo = String((el.memoInput && el.memoInput.value) || '').trim().slice(0, 120);
     d.repeatMonthly = !!(el.repeatCheck && el.repeatCheck.checked);
+    /* 직접 적어 넣을 때도 월드클래스 입금은 장부에 남기지 않습니다(고정 규칙). */
+    if (d.type === 'income' && isWorldClass(d.memo)) {
+      showEntryError('월드클래스 입금은 출납부에 넣지 않도록 고정돼 있어요.');
+      return;
+    }
     if (el.entrySave) el.entrySave.disabled = true;
     var p = S.editing
       ? window.LedgerCloud.updateEntry(S.editing, d)
@@ -935,7 +1012,7 @@
   }
 
   function registerParsed() {
-    var list = S.parsed.filter(function (p) { return p.include; });
+    var list = S.parsed.filter(function (p) { return p.include && !excludeHit(p); });
     if (!list.length) return;
     if (el.pasteSave) el.pasteSave.disabled = true;
     var chain = Promise.resolve();
@@ -1053,7 +1130,7 @@
 
   function applyPending(silent) {
     prunePending();
-    var list = (S.pending || []).filter(function (p) { return p.include; });
+    var list = (S.pending || []).filter(function (p) { return p.include && !excludeHit(p); });
     if (!list.length) { toast('반영할 내역이 없어요'); return; }
     if (!silent && !window.confirm(list.length + '건을 출납부에 넣을까요?\n넣은 뒤에도 날짜별로 고칠 수 있어요.')) return;
     S.applying = true;
@@ -1126,7 +1203,7 @@
 
   function csvText() {
     var rows = [['날짜', '구분', '영역', '분류', '금액', '결제수단', '내용', '매월반복']];
-    S.entries.slice().sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); }).forEach(function (e) {
+    visibleEntries().slice().sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); }).forEach(function (e) {
       rows.push([
         e.date,
         e.type === 'income' ? '수입' : '지출',
@@ -1147,7 +1224,7 @@
   }
 
   function exportCsv() {
-    if (!S.entries.length) { toast('내보낼 내역이 없어요'); return; }
+    if (!visibleEntries().length) { toast('내보낼 내역이 없어요'); return; }
     var name = '금전출납부-' + S.y + pad2(S.m + 1) + '.csv';
     var text = csvText();
     if (window.AndroidApp && typeof window.AndroidApp.saveTextFile === 'function') {
@@ -1274,12 +1351,18 @@
   /* ---------------- 설정 · 권한 ---------------- */
   function renderExcludes() {
     if (!el.exclList) return;
+    /* 고정 규칙 — 끄거나 지울 수 없습니다. */
+    var locked = '<li class="lg-excl__row lg-excl__row--lock">' +
+      '<span class="lg-excl__kw">🔒 월드클래스 입금</span>' +
+      '<span class="lg-excl__lock">항상 제외</span>' +
+      '<span class="lg-excl__lock">월클 · WORLDCLASS 포함</span>' +
+      '</li>';
     var list = S.excludes || [];
     if (!list.length) {
-      el.exclList.innerHTML = '<li class="lg-excl__empty">제외 키워드가 없어요 · 모든 알림을 출납부에 넣습니다</li>';
+      el.exclList.innerHTML = locked + '<li class="lg-excl__empty">직접 넣은 키워드는 없어요 · 월드클래스 입금은 위처럼 항상 빠집니다</li>';
       return;
     }
-    el.exclList.innerHTML = list.map(function (x, i) {
+    el.exclList.innerHTML = locked + list.map(function (x, i) {
       return '<li class="lg-excl__row" data-idx="' + i + '">' +
         '<span class="lg-excl__kw">' + escapeHtml(x.kw) + '</span>' +
         '<label class="lg-excl__on"><input type="checkbox" data-act="on"' + (x.on !== false ? ' checked' : '') + ' /> 사용</label>' +
@@ -1306,7 +1389,23 @@
       }
     }
     if (el.notifyOpen) el.notifyOpen.hidden = !hasBridge();
-    if (el.setTotal) el.setTotal.textContent = '저장된 내역 ' + S.entries.length + '건 · 비공개 출납부 방(가족·매장과 분리)';
+    if (el.setTotal) {
+      var hid = hiddenEntries().length;
+      el.setTotal.textContent = '저장된 내역 ' + visibleEntries().length + '건'
+        + (hid ? ' (월드클래스 입금 ' + hid + '건은 가려 둠)' : '')
+        + ' · 비공개 출납부 방(가족·매장과 분리)';
+    }
+    if (el.wcClean) {
+      var hid2 = hiddenEntries().length;
+      el.wcClean.hidden = !hid2;
+      el.wcClean.textContent = '기존 월드클래스 입금 ' + hid2 + '건 정리하기';
+    }
+    if (el.wcNote) {
+      var hid3 = hiddenEntries().length;
+      el.wcNote.textContent = hid3
+        ? '이미 장부에 들어간 월드클래스 입금 ' + hid3 + '건은 화면·합계·CSV에서 가려져 있어요. 완전히 지우려면 위 정리 버튼을 눌러 주세요.'
+        : '지금 장부에 남아 있는 월드클래스 입금은 없어요.';
+    }
     if (el.codeNow) el.codeNow.textContent = window.LedgerCloud && window.LedgerCloud.currentCode
       ? '복구 코드: ' + window.LedgerCloud.currentCode()
       : '';
@@ -1650,7 +1749,7 @@
       S.excludes = defaultExcludes();
       saveExcludes();
       refreshAfterExcludeChange();
-      toast('기본값으로 되돌렸어요 · 월드클래스 입금은 빠집니다');
+      toast('제외 키워드를 비웠어요 · 월드클래스 입금은 계속 빠집니다');
     });
     el.notifyState = $('lgNotifyState');
     el.notifyOpen = $('lgNotifyOpen');
@@ -1672,6 +1771,9 @@
       window.LedgerCloud.stop();
       location.reload();
     });
+    el.wcClean = $('lgWcClean');
+    el.wcNote = $('lgWcCleanNote');
+    if (el.wcClean) el.wcClean.addEventListener('click', purgeHidden);
     el.pinCur = $('lgPinCur');
     el.pinNew = $('lgPinNew');
     el.pinNew2 = $('lgPinNew2');
@@ -1807,6 +1909,9 @@
     isOwnerDevice: function () { return S.owner; },
     isUnlocked: function () { return S.unlocked; },
     entries: function () { return S.entries.slice(); },
+    visibleEntries: function () { return visibleEntries(); },
+    hiddenCount: function () { return hiddenEntries().length; },
+    isWorldClass: isWorldClass,
     parse: parseMessages,
     summary: buildKakao,
     csv: csvText,

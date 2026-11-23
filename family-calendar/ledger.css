@@ -382,5 +382,10 @@ body.ledger-mode #appBarNote { display: none !important; }
   background: #fff; color: var(--ink-soft); font-family: inherit;
 }
 .lg-excl__del { border: 0; background: transparent; color: #b91c1c; font-size: 13px; padding: 2px 4px; cursor: pointer; }
+.lg-excl__row--lock { background: #f6f1e7; border-color: #e6d9c2; }
+.lg-excl__lock {
+  font-size: 11px; font-weight: 800; color: #8a6b32; background: #fff;
+  border: 1px solid #e6d9c2; border-radius: 999px; padding: 2px 7px; white-space: nowrap;
+}
 .lg-excl__empty { font-size: 11.5px; color: var(--ink-faint); padding: 2px 0; }
 

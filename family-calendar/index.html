@@ -1685,8 +1685,12 @@
 
     <section class="lg-set-block">
       <h3>🚫 넣지 않을 키워드</h3>
-      <p class="lg-set-note">알림·문자에 이 단어가 있으면 출납부에 넣지 않아요. 기본은 <b>월드클래스 입금</b> 제외입니다(월드클래스 지출은 그대로 들어갑니다).</p>
+      <p class="lg-set-note">알림·문자·직접 입력 어디서든 <b>월드클래스 입금</b>은 <b>항상</b> 빠집니다(고정 · 끌 수 없음). 월드클래스 지출·카드결제는 그대로 들어갑니다. 아래 목록은 내가 직접 넣은 키워드예요.</p>
       <ul class="lg-excl" id="lgExclList"></ul>
+      <p class="lg-set-note" id="lgWcCleanNote"></p>
+      <div class="lg-set-row" style="margin-top:6px">
+        <button type="button" class="btn-ghost btn-small" id="lgWcClean" hidden>기존 월드클래스 입금 정리하기</button>
+      </div>
       <div class="field" style="margin-top:10px">
         <label for="lgExclInput">키워드 추가</label>
         <input id="lgExclInput" type="text" maxlength="20" autocomplete="off" placeholder="예: 홍길동" />
@@ -2111,7 +2115,7 @@
 <script src="store-cloud.js?v=20261118e5"></script>
 <script src="store.js?v=20261119a6"></script>
 <script src="ledger-cloud.js?v=20261118e5"></script>
-<script src="ledger.js?v=20261119a4"></script>
+<script src="ledger.js?v=20261124z1"></script>
 <script src="extra-cloud.js?v=20261118e5"></script>
 <script src="extra.js?v=20261119a4"></script>
 </body>
