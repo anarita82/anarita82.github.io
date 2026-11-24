@@ -2064,16 +2064,55 @@
   }
 
   /* ---------------- 📅 홈 화면 위젯 (안드로이드 앱) ----------------
-     앱이 열려 일정을 불러올 때마다 오늘 일정과 앞으로 14일 안의 다가오는 일정을 가볍게 만들어
-     AndroidApp.updateWidget(json) 으로 넘깁니다. 홈 화면 위젯은 그 내용을 저장해 두고 보여 줍니다.
+     앱이 열려 일정을 불러올 때마다 위젯에 넘길 내용을 만들어 AndroidApp.updateWidget(json) 으로 보냅니다.
+     · days   : 이번 달 앞 2달 ~ 뒤 3달의 날짜별 일정 — 위젯 달력 격자가 ◀ ▶ 로 달을 넘겨도 바로 보입니다.
+     · today / upcoming : 예전 위젯(v1.6 목록형)도 그대로 동작하도록 함께 보냅니다.
      일반 브라우저에는 브리지가 없어 조용히 지나갑니다. */
   function widgetNameOf(ev) {
     return String((ev && ev.title) || '').replace(/^\[샘플\]\s*/, '');
   }
 
-  function buildWidgetPayload() {
+  var WIDGET_MONTHS_BACK = 2;
+  var WIDGET_MONTHS_FORWARD = 3;
+  var WIDGET_MAX_DAYS = 400;
+  var WIDGET_MAX_PER_DAY = 4;
+
+  /* 날짜별 일정 — 격자 위젯이 달을 넘겨 볼 수 있게 앞뒤 몇 달치를 한 번에 담습니다.
+     list 를 넘기면 그 목록으로 계산합니다(점검용). */
+  function buildWidgetDays(today, list) {
+    var src = list || events;
+    var days = {};
+    var count = 0;
+    var base = parseISO(today);
+    var from = isoOfDate(new Date(base.getFullYear(), base.getMonth() - WIDGET_MONTHS_BACK, 1));
+    var to = isoOfDate(new Date(base.getFullYear(), base.getMonth() + WIDGET_MONTHS_FORWARD + 1, 0));
+    for (var d = from; d <= to && count < WIDGET_MAX_DAYS; d = addDaysISO(d, 1)) {
+      var list2 = [];
+      for (var i = 0; i < src.length; i++) {
+        var ev = src[i];
+        if (!isEventLike(ev)) continue;
+        var occ = null;
+        try { occ = occurrenceCovering(ev, d); } catch (e) { occ = null; }
+        if (!occ) continue;
+        list2.push({ t: ev.time || '', n: widgetNameOf(ev).slice(0, 20), e: eventEmoji(ev) });
+      }
+      if (!list2.length) continue;
+      list2.sort(function (a, b) {
+        var ta = a.t || '00:00', tb = b.t || '00:00';
+        if (ta !== tb) return ta < tb ? -1 : 1;
+        return a.n.localeCompare(b.n, 'ko');
+      });
+      if (list2.length > WIDGET_MAX_PER_DAY) list2 = list2.slice(0, WIDGET_MAX_PER_DAY);
+      days[d] = list2;
+      count += list2.length;
+    }
+    return days;
+  }
+
+  function buildWidgetPayload(list) {
+    var src = list || events;
     var today = todayISO();
-    var todayList = events.filter(function (ev) {
+    var todayList = src.filter(function (ev) {
       return isEventLike(ev) && !!occurrenceCovering(ev, today);
     }).sort(compareEvents).slice(0, 6).map(function (ev) {
       return { t: ev.time || '', n: eventEmoji(ev) + ' ' + widgetNameOf(ev), e: eventEmoji(ev), w: memberNamesOf(ev.members) };
@@ -2082,7 +2121,7 @@
     var from = addDaysISO(today, 1);
     var to = addDaysISO(today, 14);
     var upcoming = [];
-    events.forEach(function (ev) {
+    src.forEach(function (ev) {
       if (!isEventLike(ev)) return;
       try {
         occurrenceStarts(ev, from, to).forEach(function (occ) {
@@ -2103,7 +2142,7 @@
       return a.n.localeCompare(b.n, 'ko');
     });
 
-    return { date: today, today: todayList, upcoming: upcoming.slice(0, 6), ts: Date.now() };
+    return { date: today, today: todayList, upcoming: upcoming.slice(0, 6), days: buildWidgetDays(today, src), ts: Date.now() };
   }
 
   function syncAndroidWidget() {
@@ -4882,6 +4921,7 @@
     notifyPrefs: function () { return myNotifyPrefs(); },
     notifyCovers: function (ev) { return notifyCovers(ev); },
     alarmPlan: function (days) { return buildAlarmPlan(days || 45); },
+    widgetPayload: function (list) { return buildWidgetPayload(list); },
     syncAlarms: syncAndroidAlarms,
     checkReminders: checkReminders,
     isReady: function () { return cloudReady; },

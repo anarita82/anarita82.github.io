@@ -8,7 +8,7 @@
 | --- | --- |
 | 앱 이름 | 우리 가족 달력 |
 | 패키지 | `com.anarita82.familycalendar` |
-| 버전 | 1.6 (versionCode 7) |
+| 버전 | 1.7 (versionCode 8) |
 | minSdk / targetSdk | 24 (Android 7.0) / 36 (Android 16) |
 | 권한 | `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, 사진 읽기 · (선택) 알림 접근 권한 |
 | 진입 화면 | `MainActivity` → `https://anarita82.github.io/family-calendar/` |
@@ -78,22 +78,40 @@ jarsigner -keystore <upload.keystore> -sigalg SHA256withRSA -digestalg SHA-256 a
 
 - 2026-08-31부터 신규 앱은 **targetSdk 36(Android 16) 이상**이어야 구글 플레이에 제출됩니다. 그래서 1.5(versionCode 6) 부터 targetSdk를 36으로 올렸고(AGP 8.13.2·Gradle 8.13), Android 15+ 에서 강제되는 **엣지 투 엣지** 화면에서 웹뷰가 상태바·키보드에 가리지 않도록 `MainActivity.applySystemBarInsets()` 로 시스템 바·입력기 높이만큼 여백을 줍니다.
 
-## 📅 홈 화면 위젯 (1.6에서 추가)
+## 📅 홈 화면 위젯 (1.7에서 월간 격자로 개편)
 
-- 위젯 이름 **📅 우리 가족 달력** — 기본 **4×2** 칸, 가로·세로로 늘이고 줄일 수 있습니다(`resizeMode="horizontal|vertical"`).
-- 구성: 위쪽에 제목·오늘 날짜(`11월 19일 (목)`)와 **[새로고침]**, 본문에 **오늘 일정**(최대 3줄, 시간·제목·담당)과 **다가오는 일정**(14일 안, 최대 3줄, 날짜·제목).
-- 위젯이 차지한 높이에 맞춰 줄 수가 줄어들므로 작게 줄여도 잘리지 않습니다.
-- 일정이 없으면 `오늘 등록된 일정이 없어요`, 아직 앱에서 한 번도 동기화하지 않았으면 `앱을 열면 오늘 일정이 바로 보여요`를 보여 줍니다.
-- 본문을 누르면 앱(가족 달력)이 열립니다. **[새로고침]** 은 앱을 열지 않고 저장된 내용으로 다시 그립니다.
-- 갱신: 웹앱이 일정을 불러올 때마다 `AndroidApp.updateWidget(json)` → `SharedPreferences("family_widget")` 저장 + `AppWidgetManager` 로 모든 위젯 즉시 갱신. 이때 오늘 일정과 **앞으로 14일 안의 일정**(반복 일정 포함, 최대 6건)을 넘깁니다. 시스템 주기 갱신은 30분(`updatePeriodMillis=1800000`)이라 날짜가 넘어가도 날짜 표시가 맞습니다.
-- 네트워크를 위젯이 직접 쓰지 않습니다 — 앱을 열어 동기화한 내용만 보여 줍니다(새 일정은 앱을 열면 즉시 반영).
-- **추가 권한은 없습니다**(기존 권한 그대로, 덮어쓰기 설치 가능).
+- 위젯 이름 **📅 우리 가족 달력** — 기본 **4×4** 칸, 4×3 ~ 5×5로 늘이고 줄일 수 있습니다(`resizeMode="horizontal|vertical"`).
+- 구성: 머리글(`2026년 11월` · **◀ 오늘 ▶** · **↻**) + 요일줄 + **6주 × 7일 격자**.
+  - 날짜 칸: 숫자(일요일 빨강 / 토요일 파랑 / 다른 달은 흐리게), **오늘은 인디고 원형 배지**.
+  - 일정 칸: **이모지 + 짧은 제목**(칸 폭에 맞춰 글자 수 자동), 시간이 있으면 둘째 줄에 `16:30`,
+    그날 3건 이상이면 `+2`처럼 남은 건수. 4×3처럼 작게 줄이면 제목 한 줄만 나옵니다.
+- **◀ ▶** 는 그 위젯이 보고 있는 달만 바꿉니다(앱을 열지 않음, `AppWidgetManager` 갱신). **오늘**은 이번 달로 돌아갑니다.
+  보고 있는 달은 위젯별로 `SharedPreferences`(`family_widget/month_<id>`)에 기억됩니다.
+- 위젯 본부를 누르면 앱이 열립니다. **↻** 는 저장된 내용으로 다시 그립니다.
+- 갱신: 웹앱이 일정을 불러올 때마다 `AndroidApp.updateWidget(json)` → `SharedPreferences` 저장 + 모든 위젯 즉시 갱신.
+  이때 **이번 달 앞 2달 ~ 뒤 3달**의 날짜별 일정(`days`)을 넘기므로 달을 넘겨도 앱을 열 필요가 없습니다
+  (구버전 위젯용 `today`/`upcoming`도 함께 보내 v1.6 앱에서도 그대로 동작).
+- 네트워크를 위젯이 직접 쓰지 않습니다 — 앱을 열어 동기화한 내용만 보여 줍니다. 시스템 주기 갱신 30분(`updatePeriodMillis=1800000`).
+- **추가 권한은 없습니다**(기존 8개 그대로, 덮어쓰기 설치 가능).
+
+### 위젯 레이아웃 고치기
+
+칸 구조(6행×7열)·칸 ID는 `tools/gen_widget_layout.py`가 만듭니다. `widget_calendar.xml`·`WidgetIds.java`는 생성 파일이니 직접 고치지 말고 스크립트를 고쳐 다시 돌리세요.
+
+```bash
+python3 tools/gen_widget_layout.py                 # 레이아웃 + 칸 ID 배열
+python3 tools/render_widget_preview.py             # 미리보기 PNG(앱과 같은 계산, downloads/fc-widget-v17-preview.png)
+python3 tools/render_widget_asset.py               # 위젯 선택 화면용 그림(res/drawable-nodpi/widget_preview.png)
+```
+
+칸 안에 무엇을 쓸지는 `WidgetMonth.java`(안드로이드 의존 없는 순수 계산)가 정합니다.
+`tools/WidgetPreview.java`는 같은 계산을 PC에서 돌려 미리보기를 만드는 하네스입니다.
 
 ### 위젯 추가하는 방법
 
 1. 홈 화면 빈 곳을 길게 누릅니다.
 2. **위젯** → 목록에서 **📅 우리 가족 달력**을 찾습니다.
-3. 끌어다 홈 화면에 놓습니다(4×2).
+3. 끌어다 홈 화면에 놓습니다(4×4).
 
 ## 설치 시 안내
 
