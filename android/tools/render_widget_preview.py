@@ -43,7 +43,7 @@ body { background: #eef0f5; padding: 24px; display: flex; flex-direction: column
 .wrow { flex: 1; display: flex; min-height: 0; }
 .cell { flex: 1; display: flex; flex-direction: column; align-items: center; padding-top: 1px; overflow: hidden; }
 .day { height: 18px; line-height: 18px; min-width: 18px; border-radius: 50%; text-align: center;
-       font-weight: 700; padding: 0 2px; }
+       font-weight: 700; padding: 0 1px; }
 .day.badge { background: #4f46e5; color: #fff; }
 .ev1 { height: 12px; line-height: 12px; margin-top: 1px; white-space: nowrap; overflow: hidden; color: #3b4152; }
 .ev2 { height: 11px; line-height: 11px; white-space: nowrap; overflow: hidden; color: #8b93a7; }
