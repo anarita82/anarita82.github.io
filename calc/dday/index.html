@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>디데이 계산기 — D-Day·100일·200일·1주년 자동 계산</title>
+<meta name="description" content="두 날짜의 일수 차이와 D-Day를 바로 계산합니다. 당일 포함(1일째) 전환, 100일·200일·365일·1주년·1000일째 날짜를 자동으로 보여주는 무료 디데이 계산기.">
+<link rel="canonical" href="https://anarita82.github.io/calc/dday/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="디데이 계산기 — D-Day·100일·200일·1주년 자동 계산">
+<meta property="og:description" content="두 날짜의 일수 차이와 D-Day를 바로 계산합니다. 당일 포함(1일째) 전환, 100일·200일·365일·1주년·1000일째 날짜를 자동으로 보여주는 무료 디데이 계산기.">
+<meta property="og:url" content="https://anarita82.github.io/calc/dday/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="디데이 계산기 — D-Day·100일·200일·1주년 자동 계산">
+<meta name="twitter:description" content="두 날짜의 일수 차이와 D-Day를 바로 계산합니다. 당일 포함(1일째) 전환, 100일·200일·365일·1주년·1000일째 날짜를 자동으로 보여주는 무료 디데이 계산기.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "디데이 계산기", "url": "https://anarita82.github.io/calc/dday/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "두 날짜의 일수 차이와 D-Day를 바로 계산합니다. 당일 포함(1일째) 전환, 100일·200일·365일·1주년·1000일째 날짜를 자동으로 보여주는 무료 디데이 계산기.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "D-day에서 당일은 D-0인가요, D-DAY인가요?", "acceptedAnswer": {"@type": "Answer", "text": "둘 다 같은 뜻입니다. 이 계산기는 당일을 D-DAY로 표시하고 남은 날을 0일로 계산합니다. D-1은 목표일 전날, D+1은 목표일 다음 날입니다."}}, {"@type": "Question", "name": "100일은 왜 시작일에서 99일을 더하나요?", "acceptedAnswer": {"@type": "Answer", "text": "시작한 날을 1일째로 세면 100일째는 99일 뒤가 됩니다. 시작일을 0일로 보는 방식이라면 100일 뒤가 100일째가 되어 하루 차이가 납니다."}}, {"@type": "Question", "name": "여행 D-day는 출발일 기준인가요?", "acceptedAnswer": {"@type": "Answer", "text": "보통 출발일을 D-DAY로 두고 전날을 D-1로 셉니다. 다른 날을 기준으로 삼으려면 기준일과 목표일을 바꿔 넣으면 됩니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "디데이 계산기", "item": "https://anarita82.github.io/calc/dday/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>디데이 계산기</span></nav>
+<h1>디데이 계산기</h1>
+<p class="lede">두 날짜의 차이를 D-Day로 보여주고, 100일·200일·1주년 날짜까지 한 번에 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="grid2">
+    <div class="field">
+      <label for="baseDate">기준일 (오늘)</label>
+      <div class="input-shell"><input type="date" id="baseDate"></div>
+    </div>
+    <div class="field">
+      <label for="targetDate">목표일</label>
+      <div class="input-shell"><input type="date" id="targetDate"></div>
+    </div>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="today">기준일 = 오늘</button>
+    <button type="button" class="chip" data-chip="+100">100일 후</button>
+    <button type="button" class="chip" data-chip="+365">1년 후</button>
+  </div>
+  <label class="switch"><input type="checkbox" id="includeStart"><span class="sw"></span><span>시작일을 1일째로 계산 (당일 포함)</span></label>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">디데이</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">기준일로부터 기념일</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <caption>100일째는 기준일을 1일째로 세어 기준일 + 99일입니다.</caption>
+    <thead><tr><th>기념일</th><th>날짜</th><th>요일</th><th>오늘 기준</th></tr></thead>
+    <tbody id="annivRows"></tbody>
+  </table></div>
+</section>
+
+<section class="guide">
+<h2>디데이, 이렇게 계산합니다</h2>
+<p>디데이(D-Day)는 기준이 되는 날과 목표하는 날의 <strong>날짜 차이</strong>입니다. 오늘이 11월 24일이고 목표일이 12월 24일이라면 30일 뒤이므로 <strong>D-30</strong>, 목표일이 이미 지났다면 <strong>D+5</strong>처럼 표시합니다. 목표일 당일은 <strong>D-DAY</strong>이며 남은 날은 0일입니다. 시각과 시간대는 계산에 넣지 않고 달력상의 날짜만 비교하므로, 밤 11시에 계산해도 다음 날 0시가 되기 전까지는 같은 D-day가 나옵니다.</p>
+<div class="formula">날짜 차이 = 목표일 − 기준일<br>D-30 = 목표일까지 30일 남음 &nbsp;·&nbsp; D+5 = 목표일로부터 5일 지남<br>당일 포함 1일째 = 날짜 차이 + 1</div>
+<h3>100일·200일·1주년 계산</h3>
+<p>기념일을 셀 때는 <strong>시작한 날을 1일째</strong>로 보는 경우가 많습니다. 이때 100일째는 시작일에서 99일을 더한 날, 200일째는 199일을 더한 날입니다. 예를 들어 2026년 11월 24일에 시작했다면 100일째는 2027년 3월 3일, 200일째는 6월 11일입니다. 위쪽의 <strong>시작일을 1일째로 계산</strong>을 켜면 같은 기준으로 D-day와 남은 날을 1일째부터 세어 보여줍니다. 여행·계약·운동처럼 첫날을 세는 일정에 쓰면 편합니다.</p>
+<h3>1주년과 윤년</h3>
+<p>1주년은 같은 월·일이 돌아오는 날로 계산합니다. 2월 29일에 태어났거나 시작했다면 다음 해에 2월 29일이 없으므로 2월 28일을 기념일로 잡습니다. 365일째와 1주년은 윤년이 끼면 하루 차이가 날 수 있으니, 정확히 1년 뒤를 원할 때는 1주년 날짜를, 총일수를 원할 때는 365일째를 확인하세요.</p>
+<h3>이럴 때 씁니다</h3>
+<ul>
+<li>여행 출발일까지 남은 날짜와 준비 기한 확인</li>
+<li>커플·가족 기념일(100일, 200일, 1주년) 날짜 미리 잡기</li>
+<li>시험·계약 만료·정기 점검까지 남은 일수 계산</li>
+<li>입사일 기준 수습 기간, 1년 계약 만료일 확인</li>
+</ul>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>D-day에서 당일은 D-0인가요, D-DAY인가요?</summary><div class="a">둘 다 같은 뜻입니다. 이 계산기는 당일을 <strong>D-DAY</strong>로 표시하고 남은 날을 0일로 계산합니다. D-1은 목표일 전날, D+1은 목표일 다음 날입니다.</div></details>
+<details><summary>100일은 왜 시작일에서 99일을 더하나요?</summary><div class="a">시작한 날을 1일째로 세면 1일째가 시작일, 2일째가 다음 날이므로 100일째는 99일 뒤가 됩니다. 시작일을 0일로 보는 방식이라면 100일 뒤가 100일째가 되므로, 두 방식의 날짜가 하루 차이 납니다.</div></details>
+<details><summary>여행 D-day는 출발일 기준인가요?</summary><div class="a">보통 출발일을 D-DAY로 두고 전날을 D-1로 셉니다. 항공권 발권일이나 숙소 체크인 날을 기준으로 하고 싶다면 기준일과 목표일을 바꿔 넣으면 됩니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 달력상의 날짜만 계산하며 시각·시간대는 반영하지 않습니다. 100일째·200일째는 시작일을 1일째로 세어 각각 시작일 + 99일, + 199일로 계산합니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/age/"><span class="i">🎂</span>만나이 계산기</a>
+  <a class="rel" href="/calc/salary/"><span class="i">💰</span>연봉 실수령액 계산기</a>
+  <a class="rel" href="/calc/severance/"><span class="i">📄</span>퇴직금 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var base=document.getElementById('baseDate'), target=document.getElementById('targetDate');
+  var inc=document.getElementById('includeStart');
+  var res=document.getElementById('result');
+  var val=document.getElementById('rValue'), sub=document.getElementById('rSub'), rows=document.getElementById('rRows');
+
+  function render(){
+    if(!C.parseDate(base.value)||!C.parseDate(target.value)) return;
+    var d=C.dday(base.value,target.value);
+    var abs=Math.abs(d.diff);
+    val.innerHTML=(d.diff===0?'D-DAY':(d.diff>0?'D-'+abs:'D+'+abs));
+    var t=C.parseDate(target.value);
+    sub.textContent=C.fmtDateKo(t)+' ('+C.weekdayKo(target.value)+') · '+(inc.checked?d.dayNumber+'일째':d.label);
+    var data=[
+      ['두 날짜 사이', abs+'일 차이'],
+      ['당일 포함 1일째', (abs+1)+'일'],
+      ['주 단위', Math.floor(abs/7)+'주 '+(abs%7)+'일']
+    ];
+    rows.innerHTML=data.map(function(r){return '<div class="r-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';}).join('');
+
+    var a=C.anniversaries(base.value), today=U.todayISO();
+    var items=[['100일째',a.d100],['200일째',a.d200],['365일째',a.d365],['1주년',a.y1],['1000일째',a.d1000]];
+    document.getElementById('annivRows').innerHTML=items.map(function(it){
+      var iso=C.fmtDate(it[1]), dd=C.dday(today,iso);
+      return '<tr><td>'+it[0]+'</td><td>'+iso+'</td><td class="muted">'+C.weekdayKo(it[1])+'</td><td>'+dd.dday+'</td></tr>';
+    }).join('');
+    U.save('dday',{b:base.value,t:target.value,i:inc.checked});
+  }
+  function build(){
+    var d=C.dday(base.value,target.value), a=C.anniversaries(base.value);
+    if(!d) return '';
+    return ['[디데이 계산기]',
+      '기준일 '+base.value+' → 목표일 '+target.value,
+      (d.diff===0?'D-DAY':(d.diff>0?'D-'+Math.abs(d.diff):'D+'+Math.abs(d.diff)))+' · '+(inc.checked?d.dayNumber+'일째':d.label),
+      '100일째 '+C.fmtDate(a.d100)+' ('+C.weekdayKo(a.d100)+')',
+      '200일째 '+C.fmtDate(a.d200)+' ('+C.weekdayKo(a.d200)+')',
+      '1주년 '+C.fmtDate(a.y1)+' ('+C.weekdayKo(a.y1)+')',
+      location.href].join('\n');
+  }
+  U.setupChips(document.getElementById('form'),function(k){
+    if(k==='today'){ base.value=U.todayISO(); target.value=C.fmtDate(C.addDays(base.value,100)); }
+    else if(k==='+100'){ target.value=C.fmtDate(C.addDays(base.value,100)); }
+    else if(k==='+365'){ target.value=C.fmtDate(C.addYears(base.value,1)); }
+    render(); U.flash(res);
+  });
+  [base,target,inc].forEach(function(el){el.addEventListener('change',render);el.addEventListener('input',render);});
+  U.bindNumeric();
+  var saved=U.load('dday');
+  if(saved){ if(saved.b) base.value=saved.b; if(saved.t) target.value=saved.t; inc.checked=!!saved.i; }
+  if(!C.parseDate(base.value)) base.value=U.todayISO();
+  if(!C.parseDate(target.value)) target.value=C.fmtDate(C.addDays(base.value,100));
+  U.bindActions({build:build,title:'디데이 계산기'});
+  render();
+});
+</script>
+</body>
+</html>

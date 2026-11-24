@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>부가세 계산기 — 공급가액·합계금액 10% 양방향 계산</title>
+<meta name="description" content="공급가액에 10% 부가세를 더한 합계금액과, 합계금액에서 공급가액·부가세를 역산하는 계산을 한 화면에서 제공합니다. 세금계산서·견적서 작성용 무료 계산기.">
+<link rel="canonical" href="https://anarita82.github.io/calc/vat/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="부가세 계산기 — 공급가액·합계금액 10% 양방향 계산">
+<meta property="og:description" content="공급가액에 10% 부가세를 더한 합계금액과, 합계금액에서 공급가액·부가세를 역산하는 계산을 한 화면에서 제공합니다. 세금계산서·견적서 작성용 무료 계산기.">
+<meta property="og:url" content="https://anarita82.github.io/calc/vat/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="부가세 계산기 — 공급가액·합계금액 10% 양방향 계산">
+<meta name="twitter:description" content="공급가액에 10% 부가세를 더한 합계금액과, 합계금액에서 공급가액·부가세를 역산하는 계산을 한 화면에서 제공합니다. 세금계산서·견적서 작성용 무료 계산기.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "부가세 계산기", "url": "https://anarita82.github.io/calc/vat/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "공급가액에 10% 부가세를 더한 합계금액과, 합계금액에서 공급가액·부가세를 역산하는 계산을 한 화면에서 제공합니다. 세금계산서·견적서 작성용 무료 계산기.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "합계금액에서 10%를 빼면 안 되나요?", "acceptedAnswer": {"@type": "Answer", "text": "안 됩니다. 합계금액의 10%는 공급가액의 9.09%에 해당합니다. 공급가액은 합계금액을 1.1로 나눠 구합니다."}}, {"@type": "Question", "name": "부가세는 누가 내나요?", "acceptedAnswer": {"@type": "Answer", "text": "최종 소비자가 부담하고 사업자가 받아 국가에 신고·납부합니다. 사업자는 매출세액에서 매입세액을 뺀 금액을 냅니다."}}, {"@type": "Question", "name": "반올림은 어떻게 하나요?", "acceptedAnswer": {"@type": "Answer", "text": "세금계산서는 보통 원 단위로 처리하며 공급가액과 부가세를 각각 반올림합니다. 이 계산기는 원 단위 반올림을 사용합니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "부가세 계산기", "item": "https://anarita82.github.io/calc/vat/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>부가세 계산기</span></nav>
+<h1>부가세 계산기</h1>
+<p class="lede">공급가액에서 합계금액을, 합계금액에서 공급가액과 부가세를 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="tabs" role="tablist" id="modeTabs" aria-label="계산 방향">
+    <button role="tab" data-value="supply" aria-selected="true" type="button">공급가액 → 합계</button>
+    <button role="tab" data-value="total" aria-selected="false" type="button">합계 → 공급가액</button>
+  </div>
+  <div class="field">
+    <label for="amount" id="amountLabel">공급가액</label>
+    <div class="input-shell"><input id="amount" data-num data-int type="text" inputmode="numeric" placeholder="1,000,000"><span class="unit">원</span></div>
+    <span class="hint">부가세율 10% 기준입니다.</span>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="100000">10만</button>
+    <button type="button" class="chip" data-chip="1000000">100만</button>
+    <button type="button" class="chip" data-chip="5000000">500만</button>
+    <button type="button" class="chip" data-chip="10000000">1,000만</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">합계금액</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">자주 쓰는 금액 예시</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>공급가액</th><th>부가세(10%)</th><th>합계금액</th></tr></thead>
+    <tbody id="sampleRows"></tbody>
+  </table></div>
+</section>
+
+<section class="guide">
+<h2>부가세 10%, 방향만 바꾸면 됩니다</h2>
+<p>부가가치세(부가세)는 일반과세자의 경우 공급가액의 <strong>10%</strong>입니다. 견적서나 세금계산서를 쓸 때 ① 공급가액에 10%를 더해 합계금액을 구하거나, ② 결제 금액(합계)만 알고 있을 때 공급가액과 부가세를 역산해야 합니다. 이 계산기는 두 방향을 모두 지원합니다.</p>
+<div class="formula">
+공급가액 → 합계 = 공급가액 × 1.1<br>
+부가세 = 공급가액 × 0.1<br>
+합계 → 공급가액 = 합계금액 ÷ 1.1<br>
+부가세 = 합계금액 − 공급가액
+</div>
+<h3>예시</h3>
+<p>공급가액 1,000,000원이면 부가세 100,000원, 합계금액 1,100,000원입니다. 반대로 카드 결제 금액이 1,100,000원이라면 공급가액은 1,100,000 ÷ 1.1 = 1,000,000원, 부가세는 100,000원입니다. 합계금액에 0.1을 곱해 110,000원으로 계산하면 안 됩니다. 그렇게 하면 부가세가 10%가 아니라 9.09%가 됩니다.</p>
+<h3>세금계산서와 견적서 작성</h3>
+<p>세금계산서에는 공급가액과 세액을 각각 적습니다. 합계금액만 적으면 상대방이 매입세액공제를 받을 때 불편할 수 있습니다. 공급가액과 부가세를 합쳐 합계를 적고, 품목·수량·단가가 있으면 단가를 기준으로 공급가액을 먼저 정한 뒤 부가세를 계산하는 것이 일반적입니다. 원 단위 반올림 때문에 합계가 1원 정도 어긋날 수 있으므로, 계산 후 공급가액 + 부가세 = 합계를 한 번 더 확인하세요.</p>
+<h3>부가세가 없는 경우</h3>
+<ul>
+<li><strong>면세</strong>: 의료·교육·기초 생활 필수품 등은 부가세가 없습니다.</li>
+<li><strong>영세율</strong>: 수출 등은 0%가 적용됩니다.</li>
+<li><strong>간이과세자</strong>: 업종별 부가가치율을 적용해 다르게 계산합니다.</li>
+<li>주택 임대처럼 부가세가 면제되는 거래도 있습니다.</li>
+</ul>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>합계금액에서 10%를 빼면 안 되나요?</summary><div class="a">안 됩니다. 합계금액의 10%는 부가세가 아니라 공급가액의 9.09%에 해당합니다. 정확한 공급가액은 합계금액을 1.1로 나눠 구합니다.</div></details>
+<details><summary>부가세는 누가 내나요?</summary><div class="a">최종 소비자가 부담하고, 사업자가 소비자에게 받아 국가에 신고·납부합니다. 사업자는 매출세액에서 매입세액을 빼고 납부합니다.</div></details>
+<details><summary>반올림은 어떻게 하나요?</summary><div class="a">세금계산서는 보통 원 단위로 처리하며, 공급가액과 부가세를 각각 반올림해 합계를 맞춥니다. 이 계산기는 원 단위 반올림을 사용하므로 실제 발행 금액과 1원 차이가 날 수 있습니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 일반과세자 10% 기준의 산술 계산입니다. 면세·영세율·간이과세, 세금계산서 발행 단위의 반올림 규칙에 따라 금액이 달라질 수 있으니 실제 신고·발행 전에 확인하세요.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/percent/"><span class="i">％</span>퍼센트 계산기</a>
+  <a class="rel" href="/calc/salary/"><span class="i">💰</span>연봉 실수령액 계산기</a>
+  <a class="rel" href="/calc/area/"><span class="i">📐</span>평수 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var mode='supply';
+  var res=document.getElementById('result');
+  var label=document.querySelector('.result .r-label');
+  function render(){
+    var amt=U.readNum('amount');
+    var val=document.getElementById('rValue'), sub=document.getElementById('rSub'), rows=document.getElementById('rRows');
+    var d;
+    if(mode==='supply'){
+      d=C.vatFromSupply(amt);
+      label.textContent='합계금액 (부가세 포함)';
+      val.innerHTML=C.comma(d.total)+'<small>원</small>';
+      sub.textContent='공급가액 '+C.won(d.supply)+' + 부가세 '+C.won(d.vat);
+      rows.innerHTML=[['공급가액',C.won(d.supply)],['부가세 (10%)',C.won(d.vat)],['합계금액',C.won(d.total)]]
+        .map(function(x){return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    }else{
+      d=C.vatFromTotal(amt);
+      label.textContent='공급가액 (부가세 제외)';
+      val.innerHTML=C.comma(d.supply)+'<small>원</small>';
+      sub.textContent='합계금액 '+C.won(d.total)+'에서 부가세 '+C.won(d.vat)+' 제외';
+      rows.innerHTML=[['합계금액',C.won(d.total)],['부가세 (10%)',C.won(d.vat)],['공급가액',C.won(d.supply)]]
+        .map(function(x){return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    }
+    var samples=[100000,500000,1000000,5000000,10000000].map(function(s){
+      var v=C.vatFromSupply(s);
+      return '<tr><td>'+C.comma(s)+'원</td><td>'+C.comma(v.vat)+'원</td><td>'+C.comma(v.total)+'원</td></tr>';
+    }).join('');
+    document.getElementById('sampleRows').innerHTML=samples;
+    document.getElementById('alertBox').innerHTML= amt>0 && C.vatFromTotal(C.vatFromSupply(amt).total).supply!==amt
+      ? '<div class="hl">합계금액에서 역산하면 반올림 때문에 공급가액이 1원 정도 달라질 수 있습니다. 세금계산서에는 공급가액과 부가세를 각각 기재하세요.</div>' : '';
+    U.save('vat',{m:mode,a:document.getElementById('amount').value});
+  }
+  function build(){
+    var amt=U.readNum('amount');
+    if(!amt) return '';
+    if(mode==='supply'){
+      var d=C.vatFromSupply(amt);
+      return ['[부가세 계산기]','공급가액 '+C.won(d.supply)+' + 부가세 '+C.won(d.vat)+' = 합계 '+C.won(d.total),location.href].join('\n');
+    }
+    var t=C.vatFromTotal(amt);
+    return ['[부가세 계산기]','합계 '+C.won(t.total)+' → 공급가액 '+C.won(t.supply)+' + 부가세 '+C.won(t.vat),location.href].join('\n');
+  }
+  U.setupTabs(document.getElementById('modeTabs'),function(v){
+    mode=v;
+    document.getElementById('amountLabel').textContent = v==='supply'?'공급가액':'합계금액 (부가세 포함)';
+    render();
+  });
+  U.setupChips(document.getElementById('form'),function(v){ U.setValue('amount',v); render(); U.flash(res); });
+  document.getElementById('amount').addEventListener('input',render);
+  U.bindNumeric();
+  var saved=U.load('vat');
+  if(saved){ if(saved.a) U.setValue('amount',saved.a,true); if(saved.m) U.setupTabs(document.getElementById('modeTabs'),function(v){mode=v;document.getElementById('amountLabel').textContent=v==='supply'?'공급가액':'합계금액 (부가세 포함)';render();}).selectByValue(saved.m); }
+  if(!document.getElementById('amount').value) U.setValue('amount','1000000',true);
+  U.bindActions({build:build,title:'부가세 계산기'});
+  render();
+});
+</script>
+</body>
+</html>

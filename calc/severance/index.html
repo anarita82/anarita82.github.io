@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>퇴직금 계산기 — 입사일·퇴사일로 예상 퇴직금 계산</title>
+<meta name="description" content="입사일과 퇴사일, 최근 3개월 월급을 넣으면 근속일수와 1일 평균임금을 계산해 세전 예상 퇴직금을 보여줍니다. 1년 미만 근무 여부도 함께 확인하세요.">
+<link rel="canonical" href="https://anarita82.github.io/calc/severance/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="퇴직금 계산기 — 입사일·퇴사일로 예상 퇴직금 계산">
+<meta property="og:description" content="입사일과 퇴사일, 최근 3개월 월급을 넣으면 근속일수와 1일 평균임금을 계산해 세전 예상 퇴직금을 보여줍니다. 1년 미만 근무 여부도 함께 확인하세요.">
+<meta property="og:url" content="https://anarita82.github.io/calc/severance/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="퇴직금 계산기 — 입사일·퇴사일로 예상 퇴직금 계산">
+<meta name="twitter:description" content="입사일과 퇴사일, 최근 3개월 월급을 넣으면 근속일수와 1일 평균임금을 계산해 세전 예상 퇴직금을 보여줍니다. 1년 미만 근무 여부도 함께 확인하세요.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "퇴직금 계산기", "url": "https://anarita82.github.io/calc/severance/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "입사일과 퇴사일, 최근 3개월 월급을 넣으면 근속일수와 1일 평균임금을 계산해 세전 예상 퇴직금을 보여줍니다. 1년 미만 근무 여부도 함께 확인하세요.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "퇴직금은 언제까지 받아야 하나요?", "acceptedAnswer": {"@type": "Answer", "text": "퇴직일부터 14일 이내에 지급하는 것이 원칙입니다. 합의하면 기간을 늘릴 수 있지만, 넘기면 지연이자가 붙을 수 있습니다."}}, {"@type": "Question", "name": "퇴직소득세는 얼마나 떼나요?", "acceptedAnswer": {"@type": "Answer", "text": "근속연수와 퇴직금 규모에 따라 다르며, 근속연수 공제와 환산급여 공제를 적용합니다. 이 계산기는 세전 금액만 보여줍니다."}}, {"@type": "Question", "name": "상여금이 3개월 안에 없으면 어떻게 하나요?", "acceptedAnswer": {"@type": "Answer", "text": "그 기간에 지급된 상여금만 반영하므로 0으로 두면 됩니다. 지급 시점이 3개월 밖이면 회사에 산정 방식을 확인하세요."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "퇴직금 계산기", "item": "https://anarita82.github.io/calc/severance/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>퇴직금 계산기</span></nav>
+<h1>퇴직금 계산기</h1>
+<p class="lede">입사일·퇴사일과 최근 3개월 월급으로 예상 퇴직금(세전)을 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="grid2">
+    <div class="field">
+      <label for="startDate">입사일</label>
+      <div class="input-shell"><input type="date" id="startDate"></div>
+    </div>
+    <div class="field">
+      <label for="endDate">퇴사일</label>
+      <div class="input-shell"><input type="date" id="endDate"></div>
+      <span class="hint">마지막 근무일 또는 퇴직일을 넣으세요.</span>
+    </div>
+  </div>
+  <div class="field">
+    <label for="monthly">최근 3개월 월급 (세전)</label>
+    <div class="input-shell"><input id="monthly" data-num data-int type="text" inputmode="numeric" placeholder="3,000,000"><span class="unit">원</span></div>
+    <span class="hint">최근 3개월 동안 받은 월급의 평균 금액입니다. 고정 수당을 포함한 세전 금액.</span>
+  </div>
+  <div class="field">
+    <label for="bonus">최근 3개월 상여·연차수당 합계 (선택)</label>
+    <div class="input-shell"><input id="bonus" data-num data-int type="text" inputmode="numeric" placeholder="0"><span class="unit">원</span></div>
+    <span class="hint">3개월 안에 지급된 상여금·연차수당이 있으면 합계를 넣으세요.</span>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="today">퇴사일 = 오늘</button>
+    <button type="button" class="chip" data-chip="3y">3년 근무 예시</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">예상 퇴직금 (세전)</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">퇴직금 계산 내역</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>단계</th><th>금액·기간</th></tr></thead>
+    <tbody id="detailRows"></tbody>
+  </table></div>
+  <p class="hint" style="font-size:12.5px;color:var(--muted);line-height:1.75;margin:10px 0 0">
+    퇴직금은 세전 금액입니다. 실제 수령액은 퇴직소득세와 지방소득세를 뺀 금액이며, 퇴직연금(DB·DC)에 가입되어 있다면 적립금 운용 결과에 따라 달라집니다.
+  </p>
+</section>
+
+<section class="guide">
+<h2>퇴직금, 이 공식 하나면 됩니다</h2>
+<p>법정 퇴직금은 <strong>1년 이상 계속 근무한 근로자</strong>가 퇴직할 때 받는 돈으로, 아래 공식으로 계산합니다. 핵심은 '최근 3개월'의 임금으로 구한 <strong>1일 평균임금</strong>에 30일을 곱하고, 근속기간 비율만큼 반영하는 것입니다.</p>
+<div class="formula">
+퇴직금 = 1일 평균임금 × 30일 × (재직일수 ÷ 365)<br>
+1일 평균임금 = 최근 3개월 임금총액 ÷ 최근 3개월 총일수<br>
+최근 3개월 임금총액 = 3개월 월급 + 그 기간에 지급된 상여금·연차수당
+</div>
+<h3>예시로 보기</h3>
+<p>월급 300만원으로 3년(1,097일) 근무하고 최근 3개월 상여금이 없다면, 3개월 임금총액은 900만원, 3개월 총일수가 92일일 때 1일 평균임금은 97,826원입니다. 여기에 30일을 곱한 2,934,783원이 1년치에 해당하고, 재직일수 1,097/365를 곱하면 <strong>약 882만원</strong>이 됩니다. 근무기간이 길수록, 최근 3개월 임금이 높을수록 퇴직금이 커집니다.</p>
+<h3>평균임금에 들어가는 것과 빠지는 것</h3>
+<p>평균임금은 최근 3개월 동안 지급된 <strong>임금 총액</strong>을 그 기간의 총일수로 나눈 값입니다. 기본급·고정수당·연장근로수당은 포함되지만, 실비 성격의 출장비·식대 일부, 경영성과금 중 일정 요건을 넘는 금액은 제외될 수 있습니다. 상여금은 3개월 안에 지급된 금액을 넣고, 연차수당도 같은 기간에 지급되었다면 포함합니다. 회사 규정과 판례에 따라 달라질 수 있으므로 급여명세서와 취업규칙을 함께 확인하세요.</p>
+<h3>1년 미만이면 받을 수 없나요</h3>
+<p>법정 퇴직금은 계속 근로기간 1년 이상, 4주 평균 1주 소정근로시간 15시간 이상인 경우에 발생합니다. 1년 미만이라도 회사가 취업규칙이나 근로계약으로 별도 퇴직금을 정했다면 받을 수 있고, 퇴직연금에 가입되어 있다면 적립금이 있습니다. 수습기간도 원칙적으로 근속기간에 포함됩니다.</p>
+<h3>퇴직연금에 가입되어 있다면</h3>
+<p>DB형(확정급여형)은 위 공식으로 산정한 퇴직금을 보장하므로 이 계산기 결과와 비슷합니다. DC형(확정기여형)은 매년 회사가 부담금을 넣고 근로자가 운용한 결과가 퇴직금이 되므로, 운용 성과에 따라 계산 결과보다 많거나 적을 수 있습니다. IRP 계좌로 받는 경우에는 퇴직소득세가 과세이연됩니다.</p>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>퇴직금은 언제까지 받아야 하나요?</summary><div class="a">근로자퇴직급여 보장법에 따라 퇴직일부터 14일 이내에 지급하는 것이 원칙입니다. 합의하면 기간을 늘릴 수 있지만, 14일을 넘기면 지연이자가 붙을 수 있습니다.</div></details>
+<details><summary>퇴직소득세는 얼마나 떼나요?</summary><div class="a">근속연수와 퇴직금 규모에 따라 다르며, 근속연수 공제와 환산급여 공제를 적용해 계산합니다. 이 계산기는 세전 금액만 보여주므로, 실수령액은 회사나 세무 자료로 확인하세요.</div></details>
+<details><summary>상여금이 3개월 안에 없으면 어떻게 하나요?</summary><div class="a">그 기간에 지급된 상여금만 반영하므로 0으로 두면 됩니다. 다만 연간 상여금을 분기별로 나눠 지급하는 경우처럼 실제 지급 시점이 3개월 밖이면, 평균임금 산정 방식에 따라 달라질 수 있어 회사에 확인하는 것이 좋습니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 1일 평균임금은 최근 3개월 임금총액을 그 기간의 총일수로 나눈 값이며, 세전 퇴직금만 계산합니다. 퇴직소득세·지방소득세, 퇴직연금(DB·DC) 운용 결과, 상여금 산정 방식에 따라 실제 수령액은 달라질 수 있습니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/salary/"><span class="i">💰</span>연봉 실수령액 계산기</a>
+  <a class="rel" href="/calc/hourly/"><span class="i">⏱️</span>시급·주휴수당 계산기</a>
+  <a class="rel" href="/calc/loan/"><span class="i">🏦</span>대출 이자 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var res=document.getElementById('result');
+  function periodText(a,b){
+    var p=C.parseDate(a), q=C.parseDate(b);
+    if(!p||!q) return '';
+    var y=q.y-p.y, m=q.m-p.m, d=q.d-p.d;
+    if(d<0){ m--; d += new Date(Date.UTC(q.y,q.m-1,0)).getUTCDate(); }
+    if(m<0){ y--; m+=12; }
+    return y+'년 '+(m>0?m+'개월':'');
+  }
+  function render(){
+    var s=C.severance({start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,
+      monthlyWage:U.readNum('monthly'),bonus3m:U.readNum('bonus')});
+    var alertBox=document.getElementById('alertBox');
+    if(!s){
+      document.getElementById('rValue').innerHTML='-';
+      document.getElementById('rSub').textContent='입사일과 퇴사일을 확인해 주세요.';
+      document.getElementById('rRows').innerHTML='';
+      document.getElementById('detailRows').innerHTML='';
+      alertBox.innerHTML='';
+      return;
+    }
+    document.getElementById('rValue').innerHTML=C.comma(Math.round(s.amount))+'<small>원</small>';
+    document.getElementById('rSub').textContent='재직 '+s.days+'일 ('+periodText(document.getElementById('startDate').value,document.getElementById('endDate').value)+') · 1일 평균임금 '+C.won(s.dailyAvg);
+    var data=[
+      ['재직일수', s.days+'일 ('+(s.years).toFixed(2)+'년)'],
+      ['1일 평균임금', C.won(s.dailyAvg)],
+      ['3개월 임금총액', C.won(s.wage3m)],
+      ['3개월 총일수', s.days3m+'일'],
+      ['퇴직금 산식', '평균임금 × 30 × '+s.days+'/365']
+    ];
+    document.getElementById('rRows').innerHTML=data.map(function(x){
+      return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    var rows=[
+      ['① 최근 3개월 임금총액','월급 × 3 + 상여·수당 '+C.won(s.wage3m)],
+      ['② 3개월 총일수', s.start3m.y+'.'+s.start3m.m+'.'+s.start3m.d+' ~ '+C.fmtDate(C.parseDate(document.getElementById('endDate').value))+' · '+s.days3m+'일'],
+      ['③ 1일 평균임금','① ÷ ② = '+C.won(s.dailyAvg)],
+      ['④ 예상 퇴직금','③ × 30 × ('+s.days+' ÷ 365) = '+C.won(s.amount)]
+    ];
+    document.getElementById('detailRows').innerHTML=rows.map(function(x){
+      return '<tr><td>'+x[0]+'</td><td>'+x[1]+'</td></tr>';}).join('');
+    var warn='';
+    if(!s.eligible) warn='<div class="hl warn"><b>1년 미만 근무</b> 계속 근로기간이 1년 이상이어야 법정 퇴직금이 발생합니다. 현재 '+s.days+'일로, 사업장 규정에 따라 별도 지급될 수는 있습니다.</div>';
+    else warn='<div class="hl ok"><b>1년 이상 근무</b> 법정 퇴직금 지급 대상입니다. 퇴직 후 14일 이내에 지급하는 것이 원칙입니다.</div>';
+    alertBox.innerHTML=warn;
+    U.save('severance',{s:document.getElementById('startDate').value,e:document.getElementById('endDate').value,
+      m:document.getElementById('monthly').value,b:document.getElementById('bonus').value});
+  }
+  function build(){
+    var s=C.severance({start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,
+      monthlyWage:U.readNum('monthly'),bonus3m:U.readNum('bonus')});
+    if(!s) return '';
+    return ['[퇴직금 계산기]',
+      document.getElementById('startDate').value+' ~ '+document.getElementById('endDate').value+' ('+s.days+'일)',
+      '1일 평균임금 '+C.won(s.dailyAvg),
+      '예상 퇴직금(세전) '+C.won(s.amount),
+      location.href].join('\n');
+  }
+  U.setupChips(document.getElementById('form'),function(v){
+    if(v==='today'){ document.getElementById('endDate').value=U.todayISO(); }
+    if(v==='3y'){
+      document.getElementById('endDate').value=U.todayISO();
+      document.getElementById('startDate').value=C.fmtDate(C.addYears(U.todayISO(),-3));
+    }
+    render(); U.flash(res);
+  });
+  ['startDate','endDate','monthly','bonus'].forEach(function(id){
+    var el=document.getElementById(id); el.addEventListener('input',render); el.addEventListener('change',render);
+  });
+  U.bindNumeric();
+  var saved=U.load('severance');
+  if(saved){ if(saved.s) document.getElementById('startDate').value=saved.s; if(saved.e) document.getElementById('endDate').value=saved.e;
+    if(saved.m) U.setValue('monthly',saved.m,true); if(saved.b) U.setValue('bonus',saved.b,true); }
+  if(!document.getElementById('endDate').value) document.getElementById('endDate').value=U.todayISO();
+  if(!document.getElementById('startDate').value) document.getElementById('startDate').value=C.fmtDate(C.addYears(U.todayISO(),-3));
+  if(!document.getElementById('monthly').value) U.setValue('monthly','3000000',true);
+  U.bindActions({build:build,title:'퇴직금 계산기'});
+  render();
+});
+</script>
+</body>
+</html>

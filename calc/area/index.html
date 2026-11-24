@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>평수 계산기 — ㎡ ↔ 평 즉시 변환과 아파트 평형표</title>
+<meta name="description" content="제곱미터(㎡)와 평을 양방향으로 즉시 변환합니다. 59㎡·84㎡ 같은 아파트 전용면적을 평으로 바꾸고, 자주 찾는 평형표도 함께 확인하세요.">
+<link rel="canonical" href="https://anarita82.github.io/calc/area/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="평수 계산기 — ㎡ ↔ 평 즉시 변환과 아파트 평형표">
+<meta property="og:description" content="제곱미터(㎡)와 평을 양방향으로 즉시 변환합니다. 59㎡·84㎡ 같은 아파트 전용면적을 평으로 바꾸고, 자주 찾는 평형표도 함께 확인하세요.">
+<meta property="og:url" content="https://anarita82.github.io/calc/area/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="평수 계산기 — ㎡ ↔ 평 즉시 변환과 아파트 평형표">
+<meta name="twitter:description" content="제곱미터(㎡)와 평을 양방향으로 즉시 변환합니다. 59㎡·84㎡ 같은 아파트 전용면적을 평으로 바꾸고, 자주 찾는 평형표도 함께 확인하세요.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "평수 계산기", "url": "https://anarita82.github.io/calc/area/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "제곱미터(㎡)와 평을 양방향으로 즉시 변환합니다. 59㎡·84㎡ 같은 아파트 전용면적을 평으로 바꾸고, 자주 찾는 평형표도 함께 확인하세요.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "84㎡는 몇 평인가요?", "acceptedAnswer": {"@type": "Answer", "text": "84 ÷ 3.305785 = 약 25.41평입니다. 전용면적 84㎡는 보통 30평대 아파트로 불리며 공급면적과 구분해야 합니다."}}, {"@type": "Question", "name": "㎡를 평으로 빨리 바꾸는 방법이 있나요?", "acceptedAnswer": {"@type": "Answer", "text": "㎡를 3.3으로 나누면 대략값이 나옵니다. 84 ÷ 3.3 ≈ 25.45평처럼 0.1평 정도 오차가 생깁니다."}}, {"@type": "Question", "name": "1평은 몇 ㎡인가요?", "acceptedAnswer": {"@type": "Answer", "text": "정확히 3.305785㎡입니다. 6척 × 6척을 미터로 환산한 값(400/121)에서 나온 숫자입니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "평수 계산기", "item": "https://anarita82.github.io/calc/area/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>평수 계산기</span></nav>
+<h1>평수 계산기</h1>
+<p class="lede">㎡와 평을 동시에 보여주고, 자주 찾는 아파트 평형을 표로 정리했습니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="grid2">
+    <div class="field">
+      <label for="sqm">제곱미터 (㎡)</label>
+      <div class="input-shell"><input id="sqm" data-num type="text" inputmode="decimal" placeholder="84"><span class="unit">㎡</span></div>
+    </div>
+    <div class="field">
+      <label for="pyeong">평</label>
+      <div class="input-shell"><input id="pyeong" data-num type="text" inputmode="decimal" placeholder="25.41"><span class="unit">평</span></div>
+    </div>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="59">59㎡</button>
+    <button type="button" class="chip" data-chip="84">84㎡</button>
+    <button type="button" class="chip" data-chip="101">101㎡</button>
+    <button type="button" class="chip" data-chip="p10">10평</button>
+    <button type="button" class="chip" data-chip="p30">30평</button>
+  </div>
+  <span class="hint">한쪽에 입력하면 반대쪽이 바로 바뀝니다. 1평 = 3.305785㎡</span>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">면적</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">자주 찾는 평형표</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>전용면적</th><th>평</th><th>흔히 부르는 이름</th></tr></thead>
+    <tbody id="areaRows"></tbody>
+  </table></div>
+  <p class="hint" style="font-size:12.5px;color:var(--muted);line-height:1.75;margin:10px 0 0">
+    아파트 평형은 보통 전용면적을 기준으로 부릅니다. 같은 84㎡라도 공급면적과 계약면적은 더 크며, 단지마다 차이가 있습니다.
+  </p>
+</section>
+
+<section class="guide">
+<h2>평수와 제곱미터, 왜 헷갈릴까요</h2>
+<p>우리나라는 2007년부터 공식적으로 <strong>제곱미터(㎡)</strong>를 쓰도록 바뀌었지만, 부동산 현장에서는 여전히 '평'을 많이 씁니다. 1평은 정확히 <strong>3.305785㎡</strong>(400/121)이며, ㎡를 3.3으로 나누면 대략적인 평이 나옵니다. 정확한 계산은 3.305785로 나누는 것이 좋습니다.</p>
+<div class="formula">
+평 = ㎡ ÷ 3.305785 &nbsp;·&nbsp; ㎡ = 평 × 3.305785<br>
+84㎡ ÷ 3.305785 ≈ 25.41평 &nbsp;·&nbsp; 30평 × 3.305785 ≈ 99.17㎡
+</div>
+<h3>아파트 평형, 전용면적과 공급면적</h3>
+<p>흔히 '국민평형'이라 부르는 84㎡는 전용면적 기준 <strong>약 25.4평</strong>입니다. 그런데 분양 광고에서는 '34평형'처럼 공급면적(전용면적 + 주거공용면적)을 기준으로 부르는 경우가 많아, 같은 집을 25평이라고도 34평이라고도 합니다. 계약면적은 여기에 기타공용면적까지 더한 값이라 더 큽니다. 집을 고를 때는 <strong>전용면적</strong>으로 실제 생활 공간을, <strong>공급면적</strong>으로 분양가 기준을 확인하세요.</p>
+<h3>자주 쓰는 평형</h3>
+<div class="tbl-wrap"><table class="tbl">
+<thead><tr><th>전용면적</th><th>평</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>18㎡</td><td>5.4평</td><td>원룸·오피스텔</td></tr>
+<tr><td>24㎡</td><td>7.3평</td><td>소형 오피스텔</td></tr>
+<tr><td>33㎡</td><td>10.0평</td><td>투룸·구축 소형</td></tr>
+<tr><td>44㎡</td><td>13.3평</td><td>소형 아파트</td></tr>
+<tr><td>59㎡</td><td>17.8평</td><td>국민주택 (20평대)</td></tr>
+<tr><td>74㎡</td><td>22.4평</td><td>중형 아파트</td></tr>
+<tr><td>84㎡</td><td>25.4평</td><td>국민평형 (30평대)</td></tr>
+<tr><td>101㎡</td><td>30.6평</td><td>대형 아파트</td></tr>
+<tr><td>132㎡</td><td>39.9평</td><td>대형·고급</td></tr>
+</tbody></table></div>
+<h3>계약할 때 확인할 것</h3>
+<ul>
+<li>등기부·계약서의 면적이 <strong>전용</strong>인지 <strong>공급</strong>인지 확인</li>
+<li>관리비는 전용면적이 아니라 공급면적 기준으로 부과되는 경우가 많음</li>
+<li>같은 평수라도 베란다 확장·구조에 따라 체감 면적이 다름</li>
+<li>상가·사무실은 전용률이 주거보다 낮아 공급면적이 훨씬 큼</li>
+</ul>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>84㎡는 몇 평인가요?</summary><div class="a">84 ÷ 3.305785 = 약 25.41평입니다. 전용면적 84㎡는 보통 '30평대 아파트'로 불리며, 공급면적(약 34평)과 구분해야 합니다.</div></details>
+<details><summary>㎡를 평으로 빨리 바꾸는 방법이 있나요?</summary><div class="a">㎡를 3.3으로 나누면 대략값이 나옵니다. 84 ÷ 3.3 ≈ 25.45평처럼 0.1평 정도 오차가 생기므로 정확한 값이 필요하면 3.305785로 나누세요.</div></details>
+<details><summary>1평은 몇 ㎡인가요?</summary><div class="a">정확히 3.305785㎡입니다. 6척 × 6척을 미터로 환산한 값(400/121)에서 나온 숫자입니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 1평 = 3.305785㎡(400/121) 기준으로 계산하며 소수 둘째 자리에서 반올림합니다. 아파트 평형은 전용면적 기준이며, 공급면적·계약면적은 단지와 상품에 따라 다릅니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/percent/"><span class="i">％</span>퍼센트 계산기</a>
+  <a class="rel" href="/calc/vat/"><span class="i">🧾</span>부가세 계산기</a>
+  <a class="rel" href="/calc/loan/"><span class="i">🏦</span>대출 이자 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var sqm=document.getElementById('sqm'), py=document.getElementById('pyeong');
+  var res=document.getElementById('result');
+  var lock=false;
+  function trim(n){ var r=C.round(n,2); return C.comma(r, Math.round(r)===r?0:2); }
+  function paint(from){
+    var s=C.num(sqm.value), p=C.num(py.value);
+    if(from==='sqm'){ if(sqm.value!=='') py.value=trim(C.sqmToPyeong(s)); }
+    else { if(py.value!=='') sqm.value=trim(C.pyeongToSqm(p)); }
+    var sv=C.num(sqm.value), pv=C.num(py.value);
+    document.getElementById('rValue').innerHTML=trim(pv)+'<small>평</small>';
+    document.getElementById('rSub').textContent=trim(sv)+'㎡ = '+trim(pv)+'평 (1평 = 3.305785㎡)';
+    document.getElementById('rRows').innerHTML=[
+      ['제곱미터', trim(sv)+' ㎡'],
+      ['평', trim(pv)+' 평'],
+      ['평 → ㎡ 공식', trim(pv)+' × 3.305785'],
+      ['㎡ → 평 공식', trim(sv)+' ÷ 3.305785']
+    ].map(function(x){return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    U.save('area',{s:sqm.value,p:py.value});
+  }
+  function build(){
+    return ['[평수 계산기]',
+      trim(C.num(sqm.value))+'㎡ = '+trim(C.num(py.value))+'평',
+      location.href].join('\n');
+  }
+  sqm.addEventListener('input',function(){ paint('sqm'); });
+  py.addEventListener('input',function(){ paint('py'); });
+  U.setupChips(document.getElementById('form'),function(v){
+    if(v.charAt(0)==='p'){ sqm.value=''; py.value=String(v.slice(1)); paint('py'); }
+    else { py.value=''; sqm.value=v; paint('sqm'); }
+    U.flash(res);
+  });
+  U.bindNumeric();
+  var saved=U.load('area');
+  if(saved && (saved.s||saved.p)){ sqm.value=saved.s||''; py.value=saved.p||''; }
+  if(!sqm.value && !py.value){ sqm.value='84'; py.value=''; paint('sqm'); }
+  var names={'18':'원룸·오피스텔','24':'소형 오피스텔','33':'투룸·구축 소형','44':'소형 아파트','59':'국민주택(20평대)','74':'중형 아파트','84':'국민평형(30평대)','101':'대형 아파트','132':'대형·고급','165':'초대형'};
+  document.getElementById('areaRows').innerHTML=Object.keys(names).map(function(k){
+    return '<tr><td>'+k+'㎡</td><td>'+trim(C.sqmToPyeong(k))+'평</td><td class="muted">'+names[k]+'</td></tr>';
+  }).join('');
+  U.bindActions({build:build,title:'평수 계산기'});
+  if(!py.value) paint('sqm');
+});
+</script>
+</body>
+</html>

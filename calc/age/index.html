@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>만나이 계산기 — 만나이·연나이·세는나이·띠·다음 생일 D-Day</title>
+<meta name="description" content="생년월일만 넣으면 2026년 기준 만나이, 연나이, 세는나이, 띠와 다음 생일까지 남은 날짜를 한 번에 계산합니다. 만나이 통일법 기준 무료 계산기.">
+<link rel="canonical" href="https://anarita82.github.io/calc/age/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="만나이 계산기 — 만나이·연나이·세는나이·띠·다음 생일 D-Day">
+<meta property="og:description" content="생년월일만 넣으면 2026년 기준 만나이, 연나이, 세는나이, 띠와 다음 생일까지 남은 날짜를 한 번에 계산합니다. 만나이 통일법 기준 무료 계산기.">
+<meta property="og:url" content="https://anarita82.github.io/calc/age/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="만나이 계산기 — 만나이·연나이·세는나이·띠·다음 생일 D-Day">
+<meta name="twitter:description" content="생년월일만 넣으면 2026년 기준 만나이, 연나이, 세는나이, 띠와 다음 생일까지 남은 날짜를 한 번에 계산합니다. 만나이 통일법 기준 무료 계산기.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "만나이 계산기", "url": "https://anarita82.github.io/calc/age/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "생년월일만 넣으면 2026년 기준 만나이, 연나이, 세는나이, 띠와 다음 생일까지 남은 날짜를 한 번에 계산합니다. 만나이 통일법 기준 무료 계산기.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "2026년에 태어난 아기는 만 0세인가요?", "acceptedAnswer": {"@type": "Answer", "text": "네. 태어난 날부터 첫 생일 전까지는 만 0세이고, 첫 생일이 지나면 만 1세가 됩니다. 세는나이로는 태어나자마자 1세입니다."}}, {"@type": "Question", "name": "생일이 2월 29일이면 평년에는 언제 생일인가요?", "acceptedAnswer": {"@type": "Answer", "text": "이 계산기는 평년의 2월 28일을 생일로 계산합니다. 기간을 셀 때도 말일이 없는 경우 그 달의 마지막 날로 보는 것이 일반적입니다."}}, {"@type": "Question", "name": "연나이는 언제 쓰나요?", "acceptedAnswer": {"@type": "Answer", "text": "병역법, 청소년 보호법, 일부 급여·세제 규정처럼 연도 차이로 나이를 판단하는 경우에 씁니다. 일상에서는 만나이를 쓰면 됩니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "만나이 계산기", "item": "https://anarita82.github.io/calc/age/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>만나이 계산기</span></nav>
+<h1>만나이 계산기</h1>
+<p class="lede">생년월일만 넣으면 만나이·연나이·세는나이·띠와 다음 생일까지 바로 나옵니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="grid2">
+    <div class="field">
+      <label for="birth">생년월일</label>
+      <div class="input-shell"><input type="date" id="birth"></div>
+    </div>
+    <div class="field">
+      <label for="refDate">기준일</label>
+      <div class="input-shell"><input type="date" id="refDate"></div>
+      <span class="hint">다른 날짜 기준 나이를 볼 때 바꿔 주세요.</span>
+    </div>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="today">기준일 = 오늘</button>
+    <button type="button" class="chip" data-chip="child">2017년생 예시</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">만나이</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+
+
+<section class="guide">
+<h2>만나이, 이제 하나로 통일됐습니다</h2>
+<p>2023년 6월 28일부터 <strong>만나이 통일법</strong>(행정기본법·민법 개정)이 시행되면서 법령·행정·계약에서 나이는 원칙적으로 <strong>만나이</strong>로 표시합니다. 만나이는 태어난 날을 0세로 보고, 생일이 지날 때마다 한 살씩 늘어나는 국제 표준 방식입니다. 이 계산기는 기준일(기본값 오늘)까지 생일이 지났는지까지 반영해 정확한 만나이를 보여줍니다.</p>
+<div class="formula">
+만나이 = 기준일 연도 − 출생 연도 &nbsp;(단, 기준일이 생일 전이면 −1)<br>
+연나이 = 기준일 연도 − 출생 연도<br>
+세는나이 = 기준일 연도 − 출생 연도 + 1<br>
+띠 = (출생 연도 − 4) ÷ 12의 나머지 → 쥐·소·호랑이·토끼·용·뱀·말·양·원숭이·닭·개·돼지
+</div>
+<h3>세 가지 나이의 차이</h3>
+<p>예를 들어 1990년 3월 1일에 태어난 사람이 2026년 11월 24일을 기준으로 하면, 생일이 지났으므로 만나이 36세, 연나이 36세, 세는나이 37세입니다. 같은 사람을 2026년 1월 1일 기준으로 보면 생일 전이므로 만나이 35세, 연나이 36세, 세는나이 37세가 됩니다. <strong>만나이는 생일에 따라 바뀌고, 연나이는 해가 바뀌면 바로 바뀌며, 세는나이는 태어날 때 1살로 시작</strong>한다는 차이가 있습니다.</p>
+<h3>연나이와 세는나이는 어디에 쓰나요</h3>
+<p>연나이는 병역법, 청소년 보호법(술·담배 판매), 아동·청소년 관련 법령처럼 '연도'만으로 판단하는 규정에 남아 있습니다. 세는나이는 일상 대화와 세배·생일 인사에서 여전히 쓰입니다. 학교 입학(초등학교 취학)은 만 6세가 되는 해의 다음 해 3월에 입학하는 방식이라 만나이와 연나이를 함께 봐야 합니다.</p>
+<h3>다음 생일과 띠</h3>
+<p>다음 생일까지 남은 날짜는 D-Day로 표시합니다. 오늘이 생일이면 축하 문구가 함께 나옵니다. 2월 29일에 태어난 경우 평년에는 2월 28일을 생일로 계산합니다. 띠는 태어난 해의 지지(地支)로 정해지며, 12년마다 돌아옵니다. 음력 생일을 쓰는 경우에는 양력으로 변환한 날짜를 넣어 주세요.</p>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>2026년에 태어난 아기는 만 0세인가요?</summary><div class="a">네. 태어난 날부터 첫 생일 전까지는 만 0세이고, 첫 생일이 지나면 만 1세가 됩니다. 세는나이로는 태어나자마자 1세, 다음 해 1월 1일에 2세가 됩니다.</div></details>
+<details><summary>생일이 2월 29일이면 평년에는 언제 생일인가요?</summary><div class="a">이 계산기는 평년의 2월 28일을 생일로 계산합니다. 법령·계약에서 기간을 셀 때도 말일이 없는 경우 그 달의 마지막 날로 보는 것이 일반적입니다.</div></details>
+<details><summary>연나이는 언제 쓰나요?</summary><div class="a">병역법, 청소년 보호법, 일부 급여·세제 규정처럼 '해당 연도 − 출생 연도'로 나이를 판단하는 경우에 씁니다. 일상에서는 만나이를 쓰면 됩니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 만나이는 기준일까지 생일이 지났는지로 계산합니다. 음력 생일은 양력으로 변환한 날짜를 넣어 주세요. 띠는 양력 출생 연도 기준이며, 입춘 기준 사주와는 다를 수 있습니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/dday/"><span class="i">📅</span>디데이 계산기</a>
+  <a class="rel" href="/calc/salary/"><span class="i">💰</span>연봉 실수령액 계산기</a>
+  <a class="rel" href="/calc/hourly/"><span class="i">⏱️</span>시급·주휴수당 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var birth=document.getElementById('birth'), ref=document.getElementById('refDate');
+  var res=document.getElementById('result');
+  function render(){
+    var a=C.age(birth.value,ref.value);
+    if(!a){
+      document.getElementById('rValue').innerHTML='-';
+      document.getElementById('rSub').textContent='생년월일을 넣어 주세요.';
+      document.getElementById('rRows').innerHTML='';
+      return;
+    }
+    document.getElementById('rValue').innerHTML='만 '+a.man+'<small>세</small>';
+    document.getElementById('rSub').textContent=C.fmtDateKo(C.parseDate(birth.value))+' 출생 · '+a.zodiac+
+      (a.birthdayToday?' · 오늘이 생일입니다 🎉':'');
+    var next=C.fmtDate(a.nextBirthday);
+    var data=[
+      ['연나이', a.year+'세'],
+      ['세는나이(한국식)', a.counting+'세'],
+      ['띠', a.zodiac],
+      ['태어난 요일', C.weekdayKo(birth.value)+'요일'],
+      ['다음 생일', next+' ('+C.weekdayKo(next)+')'],
+      ['생일까지', a.birthdayToday?'오늘':'D-'+a.daysToBirthday]
+    ];
+    document.getElementById('rRows').innerHTML=data.map(function(r){
+      return '<div class="r-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';}).join('');
+    U.save('age',{b:birth.value,r:ref.value});
+  }
+  function build(){
+    var a=C.age(birth.value,ref.value);
+    if(!a) return '';
+    return ['[만나이 계산기]',
+      C.fmtDateKo(C.parseDate(birth.value))+' 출생 · 기준일 '+ref.value,
+      '만 '+a.man+'세 (연나이 '+a.year+'세, 세는나이 '+a.counting+'세)',
+      '띠 '+a.zodiac,
+      '다음 생일 '+C.fmtDate(a.nextBirthday)+' (D-'+a.daysToBirthday+')',
+      location.href].join('\n');
+  }
+  U.setupChips(document.getElementById('form'),function(k){
+    if(k==='today') ref.value=U.todayISO();
+    if(k==='child'){ birth.value='2017-11-28'; ref.value=U.todayISO(); }
+    render(); U.flash(res);
+  });
+  [birth,ref].forEach(function(el){el.addEventListener('change',render);el.addEventListener('input',render);});
+  U.bindNumeric();
+  var saved=U.load('age');
+  if(saved){ if(saved.b) birth.value=saved.b; if(saved.r) ref.value=saved.r; }
+  if(!C.parseDate(ref.value)) ref.value=U.todayISO();
+  if(!C.parseDate(birth.value)) birth.value='1990-01-01';
+  U.bindActions({build:build,title:'만나이 계산기'});
+  render();
+});
+</script>
+</body>
+</html>

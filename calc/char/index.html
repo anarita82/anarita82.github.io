@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>글자 수 세기 — 공백 포함·제외, 바이트(UTF-8/EUC-KR), 원고지 환산</title>
+<meta name="description" content="입력하는 즉시 글자 수(공백 포함·제외), 단어 수, 줄 수, UTF-8/EUC-KR 바이트, 원고지 200자 매수를 계산합니다. 자기소개서·블로그·과제 글자수 확인용 무료 도구.">
+<link rel="canonical" href="https://anarita82.github.io/calc/char/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="글자 수 세기 — 공백 포함·제외, 바이트(UTF-8/EUC-KR), 원고지 환산">
+<meta property="og:description" content="입력하는 즉시 글자 수(공백 포함·제외), 단어 수, 줄 수, UTF-8/EUC-KR 바이트, 원고지 200자 매수를 계산합니다. 자기소개서·블로그·과제 글자수 확인용 무료 도구.">
+<meta property="og:url" content="https://anarita82.github.io/calc/char/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="글자 수 세기 — 공백 포함·제외, 바이트(UTF-8/EUC-KR), 원고지 환산">
+<meta name="twitter:description" content="입력하는 즉시 글자 수(공백 포함·제외), 단어 수, 줄 수, UTF-8/EUC-KR 바이트, 원고지 200자 매수를 계산합니다. 자기소개서·블로그·과제 글자수 확인용 무료 도구.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "글자 수 세기", "url": "https://anarita82.github.io/calc/char/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "입력하는 즉시 글자 수(공백 포함·제외), 단어 수, 줄 수, UTF-8/EUC-KR 바이트, 원고지 200자 매수를 계산합니다. 자기소개서·블로그·과제 글자수 확인용 무료 도구.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "자기소개서 '공백 제외 1,000자'는 어느 값을 보면 되나요?", "acceptedAnswer": {"@type": "Answer", "text": "이 페이지의 공백 제외 값을 보면 됩니다. 띄어쓰기와 줄바꿈을 뺀 숫자이며, 대부분의 채용 사이트가 같은 방식으로 셉니다."}}, {"@type": "Question", "name": "한글 1자는 몇 바이트인가요?", "acceptedAnswer": {"@type": "Answer", "text": "UTF-8에서는 3byte, EUC-KR(CP949)에서는 2byte입니다. 영문·숫자·공백은 두 방식 모두 1byte입니다."}}, {"@type": "Question", "name": "이모지나 특수문자도 글자 수에 포함되나요?", "acceptedAnswer": {"@type": "Answer", "text": "네, 한 글자로 셉니다. 다만 UTF-8 바이트는 4byte로 늘어나고 EUC-KR로는 표현되지 않아 추정치로 계산됩니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "글자 수 세기", "item": "https://anarita82.github.io/calc/char/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>글자 수 세기</span></nav>
+<h1>글자 수 세기</h1>
+<p class="lede">붙여넣는 즉시 공백 포함·제외 글자수, 바이트, 원고지 매수를 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="field">
+    <label for="text">글을 입력하거나 붙여넣으세요</label>
+    <div class="input-shell sm" style="align-items:stretch;padding:10px 12px">
+      <textarea id="text" rows="8" placeholder="여기에 입력하면 바로 계산됩니다." style="border:0;outline:0;background:transparent;width:100%;resize:vertical;font:inherit;font-size:16px;line-height:1.7;color:inherit"></textarea>
+    </div>
+    <span class="hint">입력한 글은 서버로 전송되지 않고 브라우저에서만 계산됩니다.</span>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" id="clearBtn">지우기</button>
+    <button type="button" class="chip" id="sampleBtn">예시 넣기</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">공백 포함 글자 수</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">한눈에 보기</h2>
+  <div class="stat-grid">
+    <div class="stat"><span>공백 포함</span><b id="sChars">0<small>자</small></b></div>
+    <div class="stat"><span>공백 제외</span><b id="sNoSpace">0<small>자</small></b></div>
+    <div class="stat"><span>단어 수</span><b id="sWords">0<small>개</small></b></div>
+    <div class="stat"><span>줄 수</span><b id="sLines">0<small>줄</small></b></div>
+    <div class="stat"><span>UTF-8</span><b id="sUtf8">0<small>byte</small></b></div>
+    <div class="stat"><span>EUC-KR (추정)</span><b id="sEuc">0<small>byte</small></b></div>
+    <div class="stat"><span>원고지 200자</span><b id="sManu">0<small>매</small></b></div>
+    <div class="stat"><span>공백 포함 원고지</span><b id="sManu2">0<small>매</small></b></div>
+  </div>
+</section>
+
+<section class="guide">
+<h2>글자 수, 무엇을 기준으로 세야 할까요</h2>
+<p>같은 글이라도 <strong>공백을 포함하느냐</strong>, <strong>줄바꿈을 글자로 세느냐</strong>, <strong>바이트로 환산하느냐</strong>에 따라 숫자가 달라집니다. 자기소개서·과제·블로그·SNS는 각각 기준이 다르므로, 제출처가 요구하는 기준을 먼저 확인하는 것이 가장 중요합니다.</p>
+<div class="formula">
+공백 포함 글자 수 = 띄어쓰기·줄바꿈을 포함한 모든 문자 수<br>
+공백 제외 글자 수 = 띄어쓰기·줄바꿈·탭을 뺀 문자 수<br>
+UTF-8 바이트 = 한글 3 · 영문/숫자 1 · 줄바꿈 1<br>
+EUC-KR 바이트 = 한글 2 · 영문/숫자 1<br>
+원고지 매수 = 공백 제외 글자 수 ÷ 200 (올림)
+</div>
+<h3>공백 포함과 공백 제외</h3>
+<p>이 계산기는 두 가지를 동시에 보여줍니다. <strong>공백 포함</strong>은 띄어쓰기와 줄바꿈을 모두 한 글자로 세는 방식으로, 워드프로세서의 '글자 수(공백 포함)'와 같습니다. <strong>공백 제외</strong>는 띄어쓰기·줄바꿈·탭을 빼고 세는 방식으로, 자기소개서나 논술처럼 "공백 제외 1,000자"를 요구하는 곳에서 씁니다. 줄바꿈은 운영체제에 따라 1~2바이트로 계산되지만, 이 도구는 글자 수에서 1자, UTF-8 바이트에서 1byte로 셉니다.</p>
+<h3>바이트 계산이 필요한 이유</h3>
+<p>웹에서는 UTF-8을 주로 쓰므로 한글이 3byte, 영문·숫자가 1byte입니다. 반면 오래된 시스템이나 일부 관공서·학교 서식은 EUC-KR(CP949)을 쓰며 한글이 2byte입니다. "1,000byte 이내" 같은 제한이 있다면 어떤 인코딩 기준인지에 따라 한글을 쓸 수 있는 양이 1.5배까지 차이 나므로, 두 값을 함께 확인하세요. 이모지나 특수문자는 인코딩에 따라 2~4byte로 늘어나므로 EUC-KR 값은 추정치입니다.</p>
+<h3>원고지 환산</h3>
+<p>원고지 1매는 200자입니다. 공백 제외 글자 수를 200으로 나눠 올림하면 필요한 매수를 알 수 있습니다. 예를 들어 공백 제외 1,050자라면 6매(1,050 ÷ 200 = 5.25)입니다. 출판·공모전에서는 공백 포함 200자 원고지를 기준으로 세는 경우도 있으므로 두 값을 함께 봐 주세요.</p>
+<h3>단어와 줄 수</h3>
+<p>단어 수는 공백을 기준으로 나눈 덩어리 수입니다. 영어 에세이의 단어 제한을 볼 때 유용하지만, 한국어는 조사가 붙어 있어 단어 수가 실제 어휘 수와 다를 수 있습니다. 줄 수는 줄바꿈 문자를 기준으로 세며, 빈 줄도 한 줄로 포함합니다.</p>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>자기소개서 '공백 제외 1,000자'는 어느 값을 보면 되나요?</summary><div class="a">이 페이지의 <strong>공백 제외</strong> 값을 보면 됩니다. 띄어쓰기와 줄바꿈을 뺀 숫자이며, 대부분의 채용 사이트가 같은 방식으로 셉니다. 제출 직전에 사이트의 미리보기 글자 수와 한 번 더 대조하세요.</div></details>
+<details><summary>한글 1자는 몇 바이트인가요?</summary><div class="a">UTF-8에서는 3byte, EUC-KR(CP949)에서는 2byte입니다. 영문·숫자·공백은 두 방식 모두 1byte입니다. byte 제한이 있는 서식은 어떤 인코딩을 쓰는지 확인해야 정확합니다.</div></details>
+<details><summary>이모지나 특수문자도 글자 수에 포함되나요?</summary><div class="a">네, 한 글자로 셉니다. 다만 UTF-8 바이트는 4byte, EUC-KR로는 표현되지 않아 추정치가 3byte로 계산됩니다. 특수문자가 많으면 사이트의 실제 카운터와 차이가 날 수 있습니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 글자 수는 유니코드 문자 기준이며, 줄바꿈은 1자로 셉니다. EUC-KR 바이트는 한글 2byte·그 외 2~3byte로 계산한 추정치이므로, 정확한 인코딩 byte 제한이 있는 제출처에서는 해당 사이트의 검사 결과를 함께 확인하세요.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/dday/"><span class="i">📅</span>디데이 계산기</a>
+  <a class="rel" href="/calc/percent/"><span class="i">％</span>퍼센트 계산기</a>
+  <a class="rel" href="/calc/area/"><span class="i">📐</span>평수 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var ta=document.getElementById('text');
+  var res=document.getElementById('result');
+  function render(){
+    var s=C.textStats(ta.value);
+    document.getElementById('sChars').innerHTML=s.chars+'<small>자</small>';
+    document.getElementById('sNoSpace').innerHTML=s.charsNoSpace+'<small>자</small>';
+    document.getElementById('sWords').innerHTML=s.words+'<small>개</small>';
+    document.getElementById('sLines').innerHTML=s.lines+'<small>줄</small>';
+    document.getElementById('sUtf8').innerHTML=s.bytesUtf8+'<small>byte</small>';
+    document.getElementById('sEuc').innerHTML=s.bytesEuckr+'<small>byte</small>';
+    document.getElementById('sManu').innerHTML=s.manuscript+'<small>매</small>';
+    document.getElementById('sManu2').innerHTML=s.manuscriptWithSpace+'<small>매</small>';
+    document.getElementById('rValue').innerHTML=s.chars+'<small>자</small>';
+    document.getElementById('rSub').textContent='공백 제외 '+s.charsNoSpace+'자 · 단어 '+s.words+'개 · 줄 '+s.lines+'줄';
+    var rows=[
+      ['UTF-8 바이트', s.bytesUtf8+' byte'],
+      ['EUC-KR 바이트(추정)', s.bytesEuckr+' byte'],
+      ['원고지 200자(공백 제외)', s.manuscript+'매'],
+      ['한글 1자 기준', 'UTF-8 3byte · EUC-KR 2byte']
+    ];
+    document.getElementById('rRows').innerHTML=rows.map(function(r){return '<div class="r-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>';}).join('');
+    U.save('char',{t:ta.value});
+  }
+  function build(){
+    var s=C.textStats(ta.value);
+    return ['[글자 수 세기]',
+      '공백 포함 '+s.chars+'자 / 공백 제외 '+s.charsNoSpace+'자',
+      '단어 '+s.words+'개 · 줄 '+s.lines+'줄',
+      'UTF-8 '+s.bytesUtf8+'byte · EUC-KR '+s.bytesEuckr+'byte',
+      '원고지 200자 약 '+s.manuscript+'매',
+      'https://anarita82.github.io/calc/char/'].join('\n');
+  }
+  ta.addEventListener('input',render);
+  document.getElementById('clearBtn').addEventListener('click',function(){ ta.value=''; render(); ta.focus(); });
+  document.getElementById('sampleBtn').addEventListener('click',function(){
+    ta.value='안녕하세요. 생활 계산기입니다.\n글자 수를 실시간으로 세어 드립니다.';
+    render(); U.flash(res);
+  });
+  U.bindNumeric();
+  var saved=U.load('char');
+  if(saved && saved.t) ta.value=saved.t;
+  U.bindActions({build:build,title:'글자 수 세기'});
+  render();
+});
+</script>
+</body>
+</html>

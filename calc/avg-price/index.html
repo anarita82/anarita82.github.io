@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>주식·코인 물타기 계산기 — 추가 매수 후 평단가와 수익률</title>
+<meta name="description" content="기존 보유 단가·수량과 추가 매수 단가·수량을 넣으면 최종 평단가, 총 수량, 총 매수금액, 목표가 수익률을 계산합니다. 주식·코인 평단가 관리용 무료 계산기.">
+<link rel="canonical" href="https://anarita82.github.io/calc/avg-price/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="주식·코인 물타기 계산기 — 추가 매수 후 평단가와 수익률">
+<meta property="og:description" content="기존 보유 단가·수량과 추가 매수 단가·수량을 넣으면 최종 평단가, 총 수량, 총 매수금액, 목표가 수익률을 계산합니다. 주식·코인 평단가 관리용 무료 계산기.">
+<meta property="og:url" content="https://anarita82.github.io/calc/avg-price/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="주식·코인 물타기 계산기 — 추가 매수 후 평단가와 수익률">
+<meta name="twitter:description" content="기존 보유 단가·수량과 추가 매수 단가·수량을 넣으면 최종 평단가, 총 수량, 총 매수금액, 목표가 수익률을 계산합니다. 주식·코인 평단가 관리용 무료 계산기.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "주식·코인 물타기 계산기", "url": "https://anarita82.github.io/calc/avg-price/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "기존 보유 단가·수량과 추가 매수 단가·수량을 넣으면 최종 평단가, 총 수량, 총 매수금액, 목표가 수익률을 계산합니다. 주식·코인 평단가 관리용 무료 계산기.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "평단가가 내려가면 무조건 유리한가요?", "acceptedAnswer": {"@type": "Answer", "text": "아닙니다. 본전 도달가는 가까워지지만 추가 투자금만큼 손실 위험도 커집니다. 하락 이유와 투자 근거를 먼저 확인하세요."}}, {"@type": "Question", "name": "목표 평단가를 만들려면 얼마나 더 사야 하나요?", "acceptedAnswer": {"@type": "Answer", "text": "필요 수량 = (기존 단가 − 목표 평단가) × 기존 수량 ÷ (목표 평단가 − 추가 매수 단가)입니다."}}, {"@type": "Question", "name": "코인에도 같은 공식을 쓰나요?", "acceptedAnswer": {"@type": "Answer", "text": "네. 수량 단위만 다를 뿐 평단가는 동일한 가중평균 공식으로 계산합니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "주식·코인 물타기 계산기", "item": "https://anarita82.github.io/calc/avg-price/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>주식·코인 물타기 계산기</span></nav>
+<h1>주식·코인 물타기 계산기</h1>
+<p class="lede">추가 매수 후 평단가와 목표가 수익률을 한 번에 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <h2 class="card-title">기존 보유</h2>
+  <div class="grid2">
+    <div class="field">
+      <label for="price1">평단가</label>
+      <div class="input-shell"><input id="price1" data-num type="text" inputmode="decimal" placeholder="70,000"><span class="unit">원</span></div>
+    </div>
+    <div class="field">
+      <label for="qty1">수량</label>
+      <div class="input-shell"><input id="qty1" data-num type="text" inputmode="decimal" placeholder="100"><span class="unit">주</span></div>
+    </div>
+  </div>
+  <h2 class="card-title" style="margin-top:16px">추가 매수</h2>
+  <div class="grid2">
+    <div class="field">
+      <label for="price2">매수 단가</label>
+      <div class="input-shell"><input id="price2" data-num type="text" inputmode="decimal" placeholder="50,000"><span class="unit">원</span></div>
+    </div>
+    <div class="field">
+      <label for="qty2">수량</label>
+      <div class="input-shell"><input id="qty2" data-num type="text" inputmode="decimal" placeholder="100"><span class="unit">주</span></div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="target">목표가 (선택)</label>
+    <div class="input-shell"><input id="target" data-num type="text" inputmode="decimal" placeholder="목표가를 넣으면 수익률을 계산"><span class="unit">원</span></div>
+  </div>
+  <div class="chips">
+    <button type="button" class="chip" data-chip="same">같은 수량으로 물타기</button>
+    <button type="button" class="chip" data-chip="double">두 배로 물타기</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">새 평단가</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+<section class="card">
+  <h2 class="card-title">계산 내역</h2>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>구분</th><th>단가</th><th>수량</th><th>금액</th></tr></thead>
+    <tbody id="detailRows"></tbody>
+  </table></div>
+</section>
+
+<section class="guide">
+<h2>물타기, 평단가가 어떻게 바뀌는지부터</h2>
+<p>물타기는 주가가 하락했을 때 <strong>더 낮은 가격으로 추가 매수</strong>해 평균 매입단가를 낮추는 방법입니다. 평단가는 보유 수량으로 가중 평균한 값이므로, 추가 매수 금액이 클수록 평단가가 더 많이 움직입니다. 이 계산기는 기존 보유와 추가 매수를 합쳐 새 평단가·총 수량·총 투자금을 보여줍니다.</p>
+<div class="formula">
+새 평단가 = (기존 단가 × 기존 수량 + 추가 단가 × 추가 수량) ÷ (기존 수량 + 추가 수량)<br>
+목표가 수익률 = (목표가 − 새 평단가) ÷ 새 평단가 × 100<br>
+평가손익 = (목표가 − 새 평단가) × 총 수량
+</div>
+<h3>예시로 보기</h3>
+<p>70,000원에 100주를 보유한 상태에서 50,000원에 100주를 추가 매수하면 총 투자금은 1,200만원, 총 수량은 200주이므로 새 평단가는 60,000원입니다. 평단가가 14.29% 내려갔지만, 총 투자금은 두 배로 늘었습니다. 목표가를 65,000원으로 잡으면 새 평단가 기준 수익률은 8.33%, 평가이익은 100만원입니다.</p>
+<h3>물타기의 위험</h3>
+<p>평단가가 낮아지면 '본전'까지 필요한 상승률이 줄어드는 것처럼 보이지만, <strong>투자금이 커진 만큼 손실도 커질 수 있습니다</strong>. 추세가 계속 하락하면 물타기는 손실을 확대하는 결과가 됩니다. 추가 매수 전에 ① 이 종목이 왜 하락했는지, ② 투자 근거가 여전히 유효한지, ③ 총 투자금이 내가 감당할 수 있는 범위인지를 먼저 확인하세요. 한 종목에 자산이 몰리지 않도록 비중도 함께 보세요.</p>
+<h3>수수료와 세금</h3>
+<p>이 계산기는 수수료·세금을 반영하지 않습니다. 국내 주식은 매수 시 수수료, 매도 시 수수료와 증권거래세가 붙고, 해외 주식은 환전 수수료와 양도소득세(연 250만원 기본공제 초과분 22%)가 적용됩니다. 코인은 거래소 수수료와 출금 수수료가 별도입니다. 실제 수익률은 이 비용을 뺀 뒤 계산해야 합니다.</p>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>평단가가 내려가면 무조건 유리한가요?</summary><div class="a">아닙니다. 평단가가 낮아져 본전 도달가가 가까워지는 효과는 있지만, 추가 투자금만큼 손실 위험도 커집니다. 하락 이유와 투자 근거를 확인하지 않은 물타기는 손실을 키울 수 있습니다.</div></details>
+<details><summary>목표 평단가를 만들려면 얼마나 더 사야 하나요?</summary><div class="a">필요 수량 = (기존 단가 − 목표 평단가) × 기존 수량 ÷ (목표 평단가 − 추가 매수 단가)입니다. 추가 매수 단가가 목표 평단가보다 낮아야 계산이 성립합니다.</div></details>
+<details><summary>코인에도 같은 공식을 쓰나요?</summary><div class="a">네. 수량 단위만 다를 뿐 평단가는 동일한 가중평균 공식으로 계산합니다. 다만 거래소별 수수료와 최소 주문 단위가 다르니 실제 주문 전에 확인하세요.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 수수료·세금·환율을 반영하지 않은 단순 평균단가 계산입니다. 투자 판단과 손실에 대한 책임은 투자자 본인에게 있으며, 이 계산기는 투자 권유가 아닙니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/loan/"><span class="i">🏦</span>대출 이자 계산기</a>
+  <a class="rel" href="/calc/percent/"><span class="i">％</span>퍼센트 계산기</a>
+  <a class="rel" href="/calc/vat/"><span class="i">🧾</span>부가세 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var res=document.getElementById('result');
+  function f(n){ var r=C.round(n, n>=1000?0:2); return C.comma(r, Math.round(r)===r?0:2); }
+  function render(){
+    var r=C.avgPrice({price1:U.readNum('price1'),qty1:U.readNum('qty1'),
+      price2:U.readNum('price2'),qty2:U.readNum('qty2'),target:U.readNum('target'),
+      targetAvg:U.readNum('targetAvg')});
+    var alertBox=document.getElementById('alertBox');
+    document.getElementById('rValue').innerHTML=f(r.avg)+'<small>원</small>';
+    document.getElementById('rSub').textContent='총 '+f(r.qty)+'주 · 총 매수금액 '+C.won(r.amount);
+    var chg=r.price1>0?((r.avg-r.price1)/r.price1)*100:0;
+    var data=[
+      ['총 수량', f(r.qty)+'주'],
+      ['총 매수금액', C.won(r.amount)],
+      ['평단가 변동', (chg>0?'+':'')+chg.toFixed(2)+'%']
+    ];
+    if(r.target>0 && r.targetReturn!==null){
+      data.push(['목표가 수익률', (r.targetReturn>0?'+':'')+r.targetReturn.toFixed(2)+'%']);
+      data.push(['목표가 평가손익', (r.targetProfit>0?'+':'')+C.won(r.targetProfit)]);
+    }
+    document.getElementById('rRows').innerHTML=data.map(function(x){
+      return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    var rows=[
+      ['기존 보유', f(r.price1)+'원', f(r.qty1)+'주', C.won(r.amount1)],
+      ['추가 매수', f(r.price2)+'원', f(r.qty2)+'주', C.won(r.amount2)],
+      ['합계', f(r.avg)+'원', f(r.qty)+'주', C.won(r.amount)]
+    ];
+    document.getElementById('detailRows').innerHTML=rows.map(function(x){
+      return '<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td>'+x[3]+'</td></tr>';}).join('');
+    var warn='';
+    if(r.qty2===0||r.price2===0){ warn='<div class="hl">추가 매수 단가와 수량을 입력하면 평단가가 바뀝니다.</div>'; }
+    else if(chg<-0.0001) warn='<div class="hl ok"><b>평단가 '+Math.abs(chg).toFixed(2)+'% 하락</b> '+f(r.price1)+'원 → '+f(r.avg)+'원으로 내려갔습니다. 총 투자금은 '+C.won(r.amount)+'입니다.</div>';
+    else if(chg>0.0001) warn='<div class="hl warn"><b>평단가 '+chg.toFixed(2)+'% 상승</b> 추가 매수 단가가 기존 평단가보다 높아 평균이 올라갔습니다.</div>';
+    else warn='<div class="hl">기존 평단가와 같은 가격으로 매수해 평단가가 유지됩니다.</div>';
+    alertBox.innerHTML=warn;
+    U.save('avg',{p1:document.getElementById('price1').value,q1:document.getElementById('qty1').value,
+      p2:document.getElementById('price2').value,q2:document.getElementById('qty2').value,t:document.getElementById('target').value});
+  }
+  function build(){
+    var r=C.avgPrice({price1:U.readNum('price1'),qty1:U.readNum('qty1'),price2:U.readNum('price2'),qty2:U.readNum('qty2'),target:U.readNum('target')});
+    var lines=['[물타기 계산기]',
+      '기존 '+f(r.price1)+'원 × '+f(r.qty1)+'주 + 추가 '+f(r.price2)+'원 × '+f(r.qty2)+'주',
+      '새 평단가 '+f(r.avg)+'원 · 총 '+f(r.qty)+'주 · '+C.won(r.amount)];
+    if(r.target>0 && r.targetReturn!==null) lines.push('목표가 '+f(r.target)+'원 수익률 '+(r.targetReturn>0?'+':'')+r.targetReturn.toFixed(2)+'%');
+    lines.push(location.href);
+    return lines.join('\n');
+  }
+  U.setupChips(document.getElementById('form'),function(v){
+    var q1=U.readNum('qty1');
+    if(v==='same') U.setValue('qty2',q1?String(q1):'0');
+    if(v==='double') U.setValue('qty2',q1?String(q1*2):'0');
+    render(); U.flash(res);
+  });
+  ['price1','qty1','price2','qty2','target'].forEach(function(id){
+    var el=document.getElementById(id); el.addEventListener('input',render); el.addEventListener('change',render);
+  });
+  U.bindNumeric();
+  var saved=U.load('avg');
+  if(saved){ if(saved.p1) U.setValue('price1',saved.p1,true); if(saved.q1) U.setValue('qty1',saved.q1,true);
+    if(saved.p2) U.setValue('price2',saved.p2,true); if(saved.q2) U.setValue('qty2',saved.q2,true);
+    if(saved.t) U.setValue('target',saved.t,true); }
+  if(!document.getElementById('price1').value) U.setValue('price1','70000',true);
+  if(!document.getElementById('qty1').value) U.setValue('qty1','100',true);
+  if(!document.getElementById('price2').value) U.setValue('price2','50000',true);
+  if(!document.getElementById('qty2').value) U.setValue('qty2','100',true);
+  U.bindActions({build:build,title:'주식·코인 물타기 계산기'});
+  render();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>퍼센트 계산기 — A의 B%, 증감률, 할인가·할인율 역산</title>
+<meta name="description" content="A의 B%는 얼마인지, A는 B의 몇 %인지, 얼마에서 얼마로 늘었는지 증감률, 정가에서 할인가와 할인율 역산까지 네 가지를 한 화면에서 계산합니다.">
+<link rel="canonical" href="https://anarita82.github.io/calc/percent/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2f6bff">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="생활 계산기">
+<meta property="og:title" content="퍼센트 계산기 — A의 B%, 증감률, 할인가·할인율 역산">
+<meta property="og:description" content="A의 B%는 얼마인지, A는 B의 몇 %인지, 얼마에서 얼마로 늘었는지 증감률, 정가에서 할인가와 할인율 역산까지 네 가지를 한 화면에서 계산합니다.">
+<meta property="og:url" content="https://anarita82.github.io/calc/percent/">
+<meta property="og:image" content="https://anarita82.github.io/calc/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="퍼센트 계산기 — A의 B%, 증감률, 할인가·할인율 역산">
+<meta name="twitter:description" content="A의 B%는 얼마인지, A는 B의 몇 %인지, 얼마에서 얼마로 늘었는지 증감률, 정가에서 할인가와 할인율 역산까지 네 가지를 한 화면에서 계산합니다.">
+<link rel="icon" href="/calc/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/calc/assets/icon-192.png">
+<link rel="stylesheet" href="/calc/assets/calc.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "name": "퍼센트 계산기", "url": "https://anarita82.github.io/calc/percent/", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "inLanguage": "ko-KR", "description": "A의 B%는 얼마인지, A는 B의 몇 %인지, 얼마에서 얼마로 늘었는지 증감률, 정가에서 할인가와 할인율 역산까지 네 가지를 한 화면에서 계산합니다.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "isAccessibleForFree": true}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "할인율이 여러 개 겹치면 어떻게 계산하나요?", "acceptedAnswer": {"@type": "Answer", "text": "할인율을 더하지 말고 남는 비율을 곱합니다. 20% 할인 후 10% 추가 할인이면 0.8 × 0.9 = 0.72, 즉 최종 28% 할인입니다."}}, {"@type": "Question", "name": "증감률이 -100%면 무슨 뜻인가요?", "acceptedAnswer": {"@type": "Answer", "text": "값이 0이 되어 완전히 사라졌다는 뜻입니다. 이전 값이 0이면 나누기가 성립하지 않아 증감률을 계산할 수 없습니다."}}, {"@type": "Question", "name": "부가세 포함 가격에서 공급가액은 어떻게 구하나요?", "acceptedAnswer": {"@type": "Answer", "text": "합계금액을 1.1로 나누면 공급가액이 됩니다. 110,000원이면 공급가액 100,000원, 부가세 10,000원입니다."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "생활 계산기", "item": "https://anarita82.github.io/calc/"}, {"@type": "ListItem", "position": 2, "name": "퍼센트 계산기", "item": "https://anarita82.github.io/calc/percent/"}]}]}</script>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="/calc/"><span class="brand-mark">계</span> 생활 계산기</a>
+  <span class="spacer"></span>
+  <a class="tlink" href="/calc/">전체 계산기</a>
+</div></header>
+<main class="wrap wrap-narrow">
+<nav class="crumb" aria-label="위치"><a href="/calc/">전체 계산기</a><span>›</span><span>퍼센트 계산기</span></nav>
+<h1>만능 퍼센트 계산기</h1>
+<p class="lede">A의 B%, 몇 %인지, 증감률, 할인가와 할인율 역산을 한 화면에서 계산합니다.</p>
+
+<form class="card" id="form" autocomplete="off" onsubmit="return false">
+  <div class="tabs" role="tablist" id="modeTabs" aria-label="계산 방식">
+    <button role="tab" data-value="of" aria-selected="true" type="button">A의 B%</button>
+    <button role="tab" data-value="ratio" aria-selected="false" type="button">몇 %인지</button>
+    <button role="tab" data-value="change" aria-selected="false" type="button">증감률</button>
+    <button role="tab" data-value="discount" aria-selected="false" type="button">할인·역산</button>
+  </div>
+
+  <div data-mode="of">
+    <div class="grid2">
+      <div class="field"><label for="ofA">A (기준값)</label>
+        <div class="input-shell"><input id="ofA" data-num type="text" inputmode="decimal" placeholder="예: 300,000"><span class="unit">원</span></div></div>
+      <div class="field"><label for="ofB">B (%)</label>
+        <div class="input-shell"><input id="ofB" data-num type="text" inputmode="decimal" placeholder="예: 20"><span class="unit">%</span></div></div>
+    </div>
+  </div>
+
+  <div data-mode="ratio">
+    <div class="grid2">
+      <div class="field"><label for="ratioA">A (부분)</label>
+        <div class="input-shell"><input id="ratioA" data-num type="text" inputmode="decimal" placeholder="예: 30"></div></div>
+      <div class="field"><label for="ratioB">B (전체)</label>
+        <div class="input-shell"><input id="ratioB" data-num type="text" inputmode="decimal" placeholder="예: 200"></div></div>
+    </div>
+  </div>
+
+  <div data-mode="change">
+    <div class="grid2">
+      <div class="field"><label for="changeA">이전 값</label>
+        <div class="input-shell"><input id="changeA" data-num type="text" inputmode="decimal" placeholder="예: 1,000"></div></div>
+      <div class="field"><label for="changeB">이후 값</label>
+        <div class="input-shell"><input id="changeB" data-num type="text" inputmode="decimal" placeholder="예: 1,250"></div></div>
+    </div>
+  </div>
+
+  <div data-mode="discount">
+    <div class="grid2">
+      <div class="field"><label for="disPrice">정가</label>
+        <div class="input-shell"><input id="disPrice" data-num type="text" inputmode="decimal" placeholder="예: 50,000"><span class="unit">원</span></div></div>
+      <div class="field"><label for="disRate">할인율</label>
+        <div class="input-shell"><input id="disRate" data-num type="text" inputmode="decimal" placeholder="예: 30"><span class="unit">%</span></div></div>
+    </div>
+    <div class="field"><label for="disSale">판매가 (선택 · 할인율 역산)</label>
+      <div class="input-shell"><input id="disSale" data-num type="text" inputmode="decimal" placeholder="판매가를 넣으면 실제 할인율을 계산"><span class="unit">원</span></div>
+      <span class="hint">정가와 판매가만 알 때 할인율을 역산합니다.</span></div>
+  </div>
+
+  <div class="chips" id="pctChips">
+    <button type="button" class="chip" data-chip="10">10%</button>
+    <button type="button" class="chip" data-chip="20">20%</button>
+    <button type="button" class="chip" data-chip="30">30%</button>
+    <button type="button" class="chip" data-chip="50">50%</button>
+  </div>
+</form>
+
+<section class="result" id="result" aria-live="polite">
+  <div class="r-label">계산 결과</div>
+  <div class="r-value" id="rValue">&nbsp;</div>
+  <div class="r-sub" id="rSub"></div>
+  <div class="r-rows" id="rRows"></div>
+</section>
+
+<div id="alertBox"></div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="copyBtn" type="button">📋 결과 복사</button>
+  <button class="btn btn-ghost" id="shareBtn" type="button">🌐 링크 공유</button>
+</div>
+
+<div class="ad-slot" aria-hidden="true">광고 영역</div>
+
+
+
+<section class="guide">
+<h2>퍼센트 계산, 네 가지만 알면 됩니다</h2>
+<p>퍼센트(%)는 기준이 되는 수를 100으로 봤을 때의 비율입니다. 쇼핑할 때의 할인, 연봉 인상률, 시험 점수, 주식 수익률까지 모두 같은 원리로 계산합니다. 아래 네 가지 공식만 기억하면 대부분의 상황을 해결할 수 있습니다.</p>
+<div class="formula">
+A의 B% = A × B ÷ 100<br>
+A는 B의 몇 % = A ÷ B × 100<br>
+증감률 = (이후 값 − 이전 값) ÷ 이전 값 × 100<br>
+할인가 = 정가 × (1 − 할인율 ÷ 100) &nbsp;·&nbsp; 할인율 = (정가 − 판매가) ÷ 정가 × 100
+</div>
+<h3>1. A의 B% — "30만 원의 20%는?"</h3>
+<p>기준값에 비율을 곱하면 됩니다. 300,000원의 20%는 300,000 × 0.2 = 60,000원입니다. 부가세 10%, 팁 15%, 성과급 5%처럼 <strong>정해진 비율만큼 더하거나 떼는</strong> 상황에서 가장 많이 씁니다.</p>
+<h3>2. A는 B의 몇 % — "30은 200의 몇 %?"</h3>
+<p>부분을 전체로 나누고 100을 곱합니다. 30 ÷ 200 × 100 = 15%입니다. 설문 응답 비율, 시험 정답률, 진행률, 할인 폭 비교에 쓰입니다. 전체가 0이면 나눌 수 없으므로 결과가 나오지 않습니다.</p>
+<h3>3. 증감률 — "1,000에서 1,250으로 올랐으면?"</h3>
+<p>(1,250 − 1,000) ÷ 1,000 × 100 = 25% 증가입니다. <strong>기준이 되는 값은 항상 '이전 값'</strong>이라는 점이 중요합니다. 반대로 1,250에서 1,000으로 내려가면 −20%이며, 같은 금액 차이(250)라도 오를 때와 내릴 때의 비율이 다릅니다. 연봉 인상률, 매출 신장률, 물가 상승률을 볼 때 이 공식을 씁니다.</p>
+<h3>4. 할인가와 할인율 역산</h3>
+<p>정가 50,000원에서 30% 할인하면 할인액 15,000원, 판매가는 35,000원입니다. 반대로 정가와 판매가만 알고 실제 할인율을 구하려면 (50,000 − 35,000) ÷ 50,000 × 100 = 30%로 역산합니다. 쿠폰·카드 할인이 겹칠 때는 <strong>각 할인율을 더하지 말고 순서대로 곱</strong>해야 정확합니다. 예를 들어 20% 할인 후 10% 추가 할인은 30%가 아니라 28% 할인입니다(0.8 × 0.9 = 0.72).</p>
+<h3>퍼센트와 퍼센트포인트</h3>
+<p>금리나 지지율이 10%에서 12%로 올랐을 때 "2%p 올랐다"고 하고, 증가율은 20%입니다. 뉴스에서 말하는 '2% 상승'이 실제로는 2%p인 경우가 많으니 구분해서 읽어야 합니다.</p>
+<div class="faq">
+<h3>자주 묻는 질문</h3>
+<details><summary>할인율이 여러 개 겹치면 어떻게 계산하나요?</summary><div class="a">할인율을 더하지 말고 남는 비율을 곱합니다. 20% 할인 후 10% 추가 할인이면 0.8 × 0.9 = 0.72, 즉 최종 28% 할인입니다. 정가에 순서대로 곱해도 같은 결과가 나옵니다.</div></details>
+<details><summary>증감률이 -100%면 무슨 뜻인가요?</summary><div class="a">값이 0이 되어 완전히 사라졌다는 뜻입니다. 이전 값이 0이면 나누기가 성립하지 않아 증감률을 계산할 수 없고, 이때는 "0에서 얼마로 늘었다"처럼 금액으로 표현해야 합니다.</div></details>
+<details><summary>부가세 포함 가격에서 공급가액은 어떻게 구하나요?</summary><div class="a">합계금액을 1.1로 나누면 공급가액이 됩니다. 예를 들어 110,000원이면 공급가액 100,000원, 부가세 10,000원입니다. 자세한 계산은 <a href="/calc/vat/">부가세 계산기</a>를 쓰면 편합니다.</div></details>
+</div>
+<div class="notice"><b>계산 기준 안내</b> 비율 계산은 입력한 값을 기준으로 한 산술 결과입니다. 할인·적립·금리 상품은 반올림·중복 할인·최소 결제액 등 실제 약관 조건에 따라 달라질 수 있습니다.</div>
+</section>
+
+<section class="related">
+  <h2>함께 쓰는 계산기</h2>
+  <div class="rel-grid"><a class="rel" href="/calc/vat/"><span class="i">🧾</span>부가세 계산기</a>
+  <a class="rel" href="/calc/salary/"><span class="i">💰</span>연봉 실수령액 계산기</a>
+  <a class="rel" href="/calc/avg-price/"><span class="i">📈</span>주식·코인 물타기 계산기</a></div>
+</section>
+</main>
+<footer class="site-foot">
+  <a href="/calc/">전체 계산기</a>
+  <a href="/calc/privacy.html">개인정보처리방침</a>
+  <a href="/">서울마우스</a>
+  <span class="sp"></span>
+  <small>계산 결과는 입력값을 바탕으로 한 참고용 추정치이며 법적·세무·금융 자문이 아닙니다. 요율과 제도는 바뀔 수 있으니 중요한 결정 전에 관계 기관의 최신 기준을 확인하세요.<br>© 2026 생활 계산기 · 입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</small>
+</footer>
+<script src="/calc/assets/calc-core.js" defer></script>
+<script src="/calc/assets/calc-ui.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var C=CalcCore,U=CalcUI;
+  var mode='of';
+  var res=document.getElementById('result');
+  var val=document.getElementById('rValue'), sub=document.getElementById('rSub'), rows=document.getElementById('rRows');
+  var chips=document.getElementById('pctChips');
+
+  function f(n){
+    if(!isFinite(n)) return '-';
+    var r=C.round(n,2);
+    return C.comma(r, Math.round(r)===r?0:2);
+  }
+  function show(){
+    [].forEach.call(document.querySelectorAll('[data-mode]'),function(d){
+      d.classList.toggle('hidden', d.getAttribute('data-mode').indexOf(mode)<0);
+    });
+    chips.classList.toggle('hidden', !(mode==='of'||mode==='discount'));
+    render();
+  }
+  function render(){
+    var big='-', s='', r=[];
+    if(mode==='of'){
+      var a=U.readNum('ofA'), b=U.readNum('ofB');
+      big=f(C.percentOf(a,b));
+      s=f(a)+'의 '+f(b)+'%';
+      r=[['계산식', f(a)+' × '+f(b)+' ÷ 100'], ['A의 1%', f(a/100)]];
+    }else if(mode==='ratio'){
+      var x=U.readNum('ratioA'), y=U.readNum('ratioB');
+      var p=C.percentRatio(x,y);
+      big=p===null?'-':f(p)+'<small>%</small>';
+      s=p===null?'전체(B)가 0이면 계산할 수 없습니다':f(x)+' ÷ '+f(y)+' × 100';
+      r=[['비율', p===null?'-':f(p/100)+' 배'], ['남는 부분', p===null?'-':f(100-p)+'%']];
+    }else if(mode==='change'){
+      var from=U.readNum('changeA'), to=U.readNum('changeB');
+      var ch=C.percentChange(from,to);
+      big=ch===null?'-':(ch>0?'+':'')+f(ch)+'<small>%</small>';
+      s=ch===null?'이전 값이 0이면 증감률을 계산할 수 없습니다':(ch>0?'증가':ch<0?'감소':'변화 없음')+' · '+f(to-from)+' 차이';
+      r=[['변화량', f(to-from)], ['배수', from?f(to/from,2)+' 배':'-']];
+    }else{
+      var price=U.readNum('disPrice'), rate=U.readNum('disRate'), sale=U.readNum('disSale');
+      var d=C.discount(price,rate);
+      big=f(d.final)+'<small>원</small>';
+      s='정가 '+f(price)+'원에서 '+f(rate)+'% 할인';
+      r=[['할인액', f(d.off)+'원'], ['할인율', f(rate)+'%']];
+      if(sale>0){
+        var real=C.discountRate(price,sale);
+        r.push(['판매가', f(sale)+'원']);
+        r.push(['실제 할인율', real===null?'-':f(real)+'%']);
+        r.push(['계산 할인가와 차이', f(sale-d.final)+'원']);
+      }
+    }
+    val.innerHTML=big;
+    sub.textContent=s;
+    rows.innerHTML=r.map(function(x){return '<div class="r-row"><span>'+x[0]+'</span><span>'+x[1]+'</span></div>';}).join('');
+    U.save('percent',{m:mode,a:document.getElementById('ofA').value,b:document.getElementById('ofB').value,
+      ra:document.getElementById('ratioA').value,rb:document.getElementById('ratioB').value,
+      ca:document.getElementById('changeA').value,cb:document.getElementById('changeB').value,
+      p:document.getElementById('disPrice').value,r:document.getElementById('disRate').value,s:document.getElementById('disSale').value});
+  }
+  function build(){
+    var lines=['[퍼센트 계산기]'];
+    if(mode==='of'){
+      var a=U.readNum('ofA'), b=U.readNum('ofB');
+      lines.push(f(a)+'의 '+f(b)+'% = '+f(C.percentOf(a,b)));
+    }else if(mode==='ratio'){
+      var p=C.percentRatio(U.readNum('ratioA'),U.readNum('ratioB'));
+      lines.push(f(U.readNum('ratioA'))+' / '+f(U.readNum('ratioB'))+' = '+(p===null?'-':f(p)+'%'));
+    }else if(mode==='change'){
+      var ch=C.percentChange(U.readNum('changeA'),U.readNum('changeB'));
+      lines.push(f(U.readNum('changeA'))+' → '+f(U.readNum('changeB'))+' : '+(ch===null?'-':(ch>0?'+':'')+f(ch)+'%'));
+    }else{
+      var d=C.discount(U.readNum('disPrice'),U.readNum('disRate'));
+      lines.push('정가 '+f(d.price)+'원, '+f(d.rate)+'% 할인 → '+f(d.final)+'원 (할인액 '+f(d.off)+'원)');
+      var sale=U.readNum('disSale');
+      if(sale>0){ var r=C.discountRate(d.price,sale); if(r!==null) lines.push('판매가 '+f(sale)+'원 → 실제 할인율 '+f(r)+'%'); }
+    }
+    lines.push(location.href);
+    return lines.join('\n');
+  }
+  U.setupTabs(document.getElementById('modeTabs'),function(v){ mode=v; show(); });
+  U.setupChips(document.getElementById('form'),function(v){
+    if(mode==='discount') U.setValue('disRate',v);
+    else U.setValue('ofB',v);
+    render(); U.flash(res);
+  });
+  [].forEach.call(document.querySelectorAll('#form input'),function(el){
+    el.addEventListener('input',render); el.addEventListener('change',render);
+  });
+  U.bindNumeric();
+  var saved=U.load('percent');
+  if(saved){
+    if(saved.a) U.setValue('ofA',saved.a,true); if(saved.b) U.setValue('ofB',saved.b,true);
+    if(saved.ra) U.setValue('ratioA',saved.ra,true); if(saved.rb) U.setValue('ratioB',saved.rb,true);
+    if(saved.ca) U.setValue('changeA',saved.ca,true); if(saved.cb) U.setValue('changeB',saved.cb,true);
+    if(saved.p) U.setValue('disPrice',saved.p,true); if(saved.r) U.setValue('disRate',saved.r,true);
+    if(saved.s) U.setValue('disSale',saved.s,true);
+    if(saved.m) U.setupTabs(document.getElementById('modeTabs'),function(v){ mode=v; show(); }).selectByValue(saved.m);
+  }
+  if(!document.getElementById('ofA').value){ U.setValue('ofA','300000',true); U.setValue('ofB','20',true); }
+  if(!document.getElementById('disPrice').value){ U.setValue('disPrice','50000',true); U.setValue('disRate','30',true); }
+  if(!document.getElementById('ratioA').value){ U.setValue('ratioA','30',true); U.setValue('ratioB','200',true); }
+  if(!document.getElementById('changeA').value){ U.setValue('changeA','1000',true); U.setValue('changeB','1250',true); }
+  U.bindActions({build:build,title:'퍼센트 계산기'});
+  show();
+});
+</script>
+</body>
+</html>
