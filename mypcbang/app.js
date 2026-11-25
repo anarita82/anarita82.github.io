@@ -37,7 +37,9 @@ const ago = iso => {
 
 const S = {
   stores: [], live: null, history: null, method: 'icmp', view: 'today',
-  month: kstDate().slice(0, 7), day: kstDate(), settings: {hourly: null, coupon: null}
+  month: kstDate().slice(0, 7), day: kstDate(), settings: (() => {
+    try { return JSON.parse(localStorage.getItem('mypcbang.revenue') || '{}'); } catch (e) { return {}; }
+  })()
 };
 
 async function getJSON(path, bust) {
@@ -301,13 +303,13 @@ function renderMonth() {
     });
     return {on: n ? sumOn / n : null, dayN};
   });
-  const hourRate = S.settings.hourly || null;
   const head = '<thead><tr><th>항목</th>' + ids.map(id => `<th class="${id === ids[1] ? 'g' : 'ox'}">${esc(storeById(id).short)}</th>`).join('') + '</tr></thead><tbody>';
   const rows = [];
   const calc = rowStats.map((st, i) => {
     const s = storeById(ids[i]);
-    const rate = hourRate || s.hourly || 1290;
-    const couponPct = (S.settings.coupon && i === 0) ? S.settings.coupon : (s.coupon || 60);
+    const conf = S.settings[s.id] || {};
+    const rate = conf.hourly || s.hourly || 1290;
+    const couponPct = conf.coupon || s.coupon || 60;
     if (st.on == null) return null;
     const coupon = st.on * 24 * rate;
     const total = coupon / (couponPct / 100);
@@ -319,9 +321,31 @@ function renderMonth() {
   rows.push('<tr><th>월 추정 매출 (30일)</th>' + calc.map(c => c ? `<td><b>${num(Math.round(c.total * 30 / 10000))}</b>만원</td>` : '<td>—</td>').join('') + '</tr>');
   rows.push('<tr><th>PC 1대당 하루</th>' + calc.map((c, i) => c ? `<td>${num(Math.round(c.total / (storeById(ids[i]).pcs || 1) / 100) / 10)}천원</td>` : '<td>—</td>').join('') + '</tr>');
   $('#tableRevenue').innerHTML = head + rows.join('') + '</tbody>';
-  const cs = storeById(ids[0]);
-  if (!$('#setHourly').value) $('#setHourly').value = hourRate || cs.hourly || 1290;
-  if (!$('#setCoupon').value) $('#setCoupon').value = cs.coupon || 52;
+  renderRevSettings(ids);
+}
+
+function renderRevSettings(ids) {
+  const el = $('#revSettings');
+  if (!el) return;
+  const sig = ids.join(',') + '|' + JSON.stringify(S.settings);
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  el.innerHTML = ids.map(id => {
+    const s = storeById(id);
+    const conf = S.settings[s.id] || {};
+    return `<label>${esc(s.short)} 단가<input type="number" inputmode="numeric" step="10" min="0" data-store="${esc(s.id)}" data-field="hourly" value="${conf.hourly || s.hourly || 1290}"></label>`
+      + `<label>${esc(s.short)} 쿠폰 %<input type="number" inputmode="numeric" min="1" max="99" data-store="${esc(s.id)}" data-field="coupon" value="${conf.coupon || s.coupon || 60}"></label>`;
+  }).join('');
+  el.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const id = inp.dataset.store, field = inp.dataset.field;
+      S.settings[id] = S.settings[id] || {};
+      S.settings[id][field] = Number(inp.value) || null;
+      try { localStorage.setItem('mypcbang.revenue', JSON.stringify(S.settings)); } catch (e) {}
+      el.dataset.sig = '';
+      renderMonth();
+    });
+  });
 }
 
 function renderLog() {
@@ -376,8 +400,6 @@ $('#monthPick').addEventListener('change', e => { S.month = e.target.value; rend
 $('#dayPick').addEventListener('change', e => { S.day = e.target.value; renderDayChart(); });
 $('#reload').addEventListener('click', () => load(true));
 $('#reload2').addEventListener('click', () => load(true));
-$('#setHourly').addEventListener('change', e => { S.settings.hourly = Number(e.target.value) || null; renderMonth(); });
-$('#setCoupon').addEventListener('change', e => { S.settings.coupon = Number(e.target.value) || null; renderMonth(); });
 
 $('#csv').addEventListener('click', () => {
   const rows = [['시각', '매장', '대수', '응답률']].concat((S.live && S.live.recent || []).map(r => [r.t, storeById(r.store).short, r.on, r.pct]));

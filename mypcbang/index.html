@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="stylesheet" href="style.css?v=1.0.3">
+<link rel="stylesheet" href="style.css?v=1.0.4">
 </head>
 <body>
 <header>
@@ -81,11 +81,8 @@
       <div class="phead"><h2>매출 추정</h2></div>
       <div class="tablewrap"><table id="tableRevenue"></table></div>
       <p class="note">추정식: 평균 가동대수 × 24시간 × 시간당 단가 ÷ (쿠폰 비중) — 쿠폰 매출과 음식 매출을 비중대로 나눕니다. 실제 POS 매출이 아닌 추정치입니다.</p>
-      <div class="srow">
-        <label>시간당 단가 <input type="number" id="setHourly" inputmode="numeric" step="10" min="0"></label>
-        <label>쿠폰 % <input type="number" id="setCoupon" inputmode="numeric" min="1" max="99"></label>
-      </div>
-      <p class="note">옥스피씨방·긱스타피씨방 공통 값으로 계산합니다. (기본 1,290원 · 쿠폰 52% / 70%는 매장별 기본값 사용)</p>
+      <div id="revSettings" class="srow"></div>
+      <p class="note">매장별로 시간당 단가와 쿠폰 비중을 바꾸면 바로 다시 계산됩니다. (기본 1,290원 · 쿠폰 옥스 52% / 긱스타 70%)</p>
     </div>
   </section>
 
@@ -122,6 +119,6 @@
     <p class="note">IP 응답률·응답 IP 대수는 실제 좌석 이용률·방문자 수와 다릅니다. 같은 측정 방식끼리 비교하세요.</p>
   </footer>
 </main>
-<script src="app.js?v=1.0.3"></script>
+<script src="app.js?v=1.0.4"></script>
 </body>
 </html>
