@@ -45,3 +45,12 @@
 
 - `live.json` 의 `runner.error` 가 있으면 측정기 쪽 문제입니다(제어 ping 실패 등). 기록을 남기지 않습니다.
 - 측정이 멈췄는지 보려면 `updated_at` 을 확인하세요. 40분이 넘으면 대시보드 상단이 붉게 바뀝니다.
+
+## 자동 측정 켜기 (한 번만)
+
+`.github/workflows/mypcbang-probe.yml` 은 저장소의 GitHub Actions 설정 파일이라 피클의 GitHub 앱 권한으로는 올릴 수 없습니다.
+아래 둘 중 하나만 하면 10분 자동 측정이 시작됩니다.
+
+1. 피클 GitHub 앱에 **Actions 쓰기** 권한을 주면 피클이 바로 올립니다.
+2. GitHub 웹에서 <https://github.com/anarita82/anarita82.github.io/new/main?filename=.github/workflows/mypcbang-probe.yml> 을 열고
+   `mypcbang/tools/probe-workflow.yml.txt` 내용을 그대로 붙여 넣고 커밋합니다.

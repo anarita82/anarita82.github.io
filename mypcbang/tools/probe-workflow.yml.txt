@@ -1,0 +1,35 @@
+name: 마이피씨방 자동 측정
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: mypcbang-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 측정 (ICMP · 10분 주기)
+        run: python3 mypcbang/tools/probe.py
+
+      - name: 기록 커밋
+        run: |
+          git config user.name "mypcbang-bot"
+          git config user.email "anarita82@users.noreply.github.com"
+          git add mypcbang/data/live.json mypcbang/data/archive-*.json 2>/dev/null || git add mypcbang/data
+          if git diff --cached --quiet; then
+            echo "변경 없음"
+            exit 0
+          fi
+          git commit -m "📊 마이피씨방 측정 $(TZ=Asia/Seoul date '+%m-%d %H:%M')"
+          git push
