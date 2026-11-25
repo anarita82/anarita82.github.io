@@ -83,6 +83,16 @@ def probe_store(store: dict, hosts: list[str]) -> dict:
     }
 
 
+def diagnose(stores) -> dict:
+    """ICMP 가 막혔을 때 어디까지 되는지 남긴다(기록에는 쓰지 않음)."""
+    targets = ["1.1.1.1", "8.8.8.8", "223.5.5.5"]
+    out = {"control": {t: ping_once(t) for t in targets}, "store_sample": {}}
+    for st in stores:
+        hosts = parse_range(st.get("ip", ""))[:6]
+        out["store_sample"][st["id"]] = sum(1 for h in hosts if ping_once(h))
+    return out
+
+
 def bump(row: dict, res: dict) -> None:
     """한 번의 측정을 일별·시간별 누적에 더한다(누적 필드 sp·sn·so·son)."""
     row["samples"] = int(row.get("samples") or 0) + 1
@@ -128,9 +138,14 @@ def main() -> int:
         return 1
 
     if not ping_once(CONTROL_HOST):
-        live["runner"] = {"at": stamp, "error": f"제어 ping 실패({CONTROL_HOST}) — 측정기 네트워크 점검 필요"}
-        write_json(live_path, live)
+        diag = diagnose(stores)
+        prev = (live.get("runner") or {}).get("error") or ""
+        err = f"제어 ping 실패({CONTROL_HOST}) — ICMP 가 막힌 네트워크입니다"
+        live["runner"] = {"at": stamp, "error": err, "diag": diag}
+        if err != prev or not (live.get("days")):
+            write_json(live_path, live)
         print("!! 제어 ping 실패 — 기록하지 않음", file=sys.stderr)
+        print("diag " + json.dumps(diag, ensure_ascii=False), file=sys.stderr)
         return 0
 
     live["runner"] = {"at": stamp, "error": None}
