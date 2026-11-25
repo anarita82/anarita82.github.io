@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: ping 준비 (없으면 설치·권한 허용)
+        run: |
+          command -v ping || sudo apt-get update -qq && sudo apt-get install -y -qq iputils-ping || true
+          sudo sysctl -w net.ipv4.ping_group_range="0 2147483647" || true
+
       - name: 측정 (ICMP · 10분 주기)
         run: python3 mypcbang/tools/probe.py
 
@@ -26,7 +31,7 @@ jobs:
         run: |
           git config user.name "mypcbang-bot"
           git config user.email "anarita82@users.noreply.github.com"
-          git add mypcbang/data/live.json mypcbang/data/archive-*.json 2>/dev/null || git add mypcbang/data
+          git add mypcbang/data
           if git diff --cached --quiet; then
             echo "변경 없음"
             exit 0
