@@ -373,31 +373,23 @@ function render() {
 }
 
 async function load(bust) {
-  window.__mb = 'start';
   try {
     if (!S.stores.length) {
       const cfg = await getJSON('data/stores.json', true);
       S.stores = cfg.stores.filter(s => s.enabled !== false);
     }
-    window.__mb = 'stores';
     try { S.live = await getJSON('data/live.json', bust); } catch (e) { S.live = null; }
-    window.__mb = 'livejson';
     /* 휴대폰이 10분마다 올린 측정(Firestore)을 합친다 — 실패해도 위 정적 값만으로 계속 동작 */
     if (window.MpbCloud) {
       try {
-        window.__mb = 'cloud-load';
         const cloud = await MpbCloud.load((S.month || kstDate().slice(0, 7)));
-        window.__mb = 'cloud-done';
         S.live = MpbCloud.merge(S.live, cloud);
       } catch (e) { /* 규칙·네트워크 오류는 무시 */ }
     }
     if (!S.history) { try { S.history = await getJSON('data/history.json'); } catch (e) { S.history = null; } }
-    window.__mb = 'history';
     render();
-    window.__mb = 'rendered';
     if (!S.liveLoaded) { S.liveLoaded = true; setView(S.live && S.live.updated_at ? 'today' : 'daily'); }
   } catch (e) {
-    window.__mb = 'error:' + (e && e.message);
     $('#status').textContent = '자료를 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.';
     $('#status').className = 'status bad';
   }
