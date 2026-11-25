@@ -125,9 +125,11 @@ function renderStatus() {
     return;
   }
   const min = Math.round((Date.now() - Date.parse(S.live.updated_at)) / 60000);
-  const base = '마지막 측정 ' + fmtTime(S.live.updated_at) + ' (' + ago(S.live.updated_at) + ')';
+  const phone = S.live.phone;
+  const who = phone && phone.device ? ' · ' + phone.device + '에서 측정' : '';
+  const base = '마지막 측정 ' + fmtTime(S.live.updated_at) + ' (' + ago(S.live.updated_at) + ')' + who;
   if (min > 40) {
-    el.textContent = base + ' · 측정이 지연되고 있습니다';
+    el.textContent = base + ' · 측정이 지연되고 있습니다' + (phone && phone.error ? ' (' + phone.error + ')' : '');
     el.classList.add('bad');
   } else {
     el.textContent = base + ' · 10분마다 자동 측정';
@@ -377,6 +379,13 @@ async function load(bust) {
       S.stores = cfg.stores.filter(s => s.enabled !== false);
     }
     try { S.live = await getJSON('data/live.json', bust); } catch (e) { S.live = null; }
+    /* 휴대폰이 10분마다 올린 측정(Firestore)을 합친다 — 실패해도 위 정적 값만으로 계속 동작 */
+    if (window.MpbCloud) {
+      try {
+        const cloud = await MpbCloud.load((S.month || kstDate().slice(0, 7)));
+        S.live = MpbCloud.merge(S.live, cloud);
+      } catch (e) { /* 규칙·네트워크 오류는 무시 */ }
+    }
     if (!S.history) { try { S.history = await getJSON('data/history.json'); } catch (e) { S.history = null; } }
     render();
     if (!S.liveLoaded) { S.liveLoaded = true; setView(S.live && S.live.updated_at ? 'today' : 'daily'); }
@@ -396,7 +405,7 @@ function setView(name) {
 }
 $$('.seg button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
 $('#method').addEventListener('change', e => { S.method = e.target.value; render(); });
-$('#monthPick').addEventListener('change', e => { S.month = e.target.value; renderDaily(); renderMonth(); });
+$('#monthPick').addEventListener('change', e => { S.month = e.target.value; render(); load(true); });
 $('#dayPick').addEventListener('change', e => { S.day = e.target.value; renderDayChart(); });
 $('#reload').addEventListener('click', () => load(true));
 $('#reload2').addEventListener('click', () => load(true));
