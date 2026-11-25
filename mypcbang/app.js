@@ -255,7 +255,13 @@ function renderDaily() {
     }).join('') + '</tr>';
   });
   $('#tableDaily').innerHTML = html + '</tbody>';
-  $('#monthNote').textContent = days.length ? `보관 기록: ${days[days.length - 1]} ~ ${days[0]} · ${days.length}일 (미수집 날짜 제외)` : '';
+  const dayInput = $('#dayPick');
+  if (!dayInput.value || !dayInput.value.startsWith(S.month)) dayInput.value = days[0] || kstDate();
+  const other = S.method === 'icmp' ? 'source' : 'icmp';
+  const otherDays = Object.entries(dayMap(other)).filter(([d]) => d.startsWith(S.month) && !days.includes(d)).map(([d]) => d.slice(5)).sort();
+  let note = days.length ? `보관 기록: ${days[days.length - 1]} ~ ${days[0]} · ${days.length}일 (미수집 날짜 제외)` : '이 달의 기록이 없습니다.';
+  if (otherDays.length) note += ` · ${otherDays.join(', ')}은(는) ${other === 'source' ? '이전 사이트 가동률' : '자동 측정'} 기록만 있어 위 '측정 방식'을 바꾸면 볼 수 있습니다.`;
+  $('#monthNote').textContent = note;
   renderDayChart();
 }
 
