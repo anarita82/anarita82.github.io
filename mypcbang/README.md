@@ -17,6 +17,25 @@
 | `data/archive-YYYY-MM.json` | 62일이 지난 일별 기록 보관 |
 | `tools/probe.py` | 측정기 — IP 대역에 ICMP 를 보내 응답 대수를 집계 |
 | `.github/workflows/mypcbang-probe.yml` | 10분마다 `probe.py` 실행 → `live.json` 커밋 |
+| `firestore.js` | 휴대폰 앱이 올린 측정값(Firestore)을 읽어 위 자료와 합칩니다 |
+
+## 측정은 휴대폰에서 (2026-11-26~)
+
+안드로이드 앱 `마이피씨방`(v1.1)이 휴대폰에서 직접 `/system/bin/ping` 으로 재서 10분마다 올립니다.
+앱은 상단 막대의 **📡 지금 측정** 버튼과 **10분 자동** 스위치로 동작하고, 결과는 Firestore(`family-calendar-woo`)에 저장됩니다.
+
+| 컬렉션 | 내용 |
+|---|---|
+| `mypcbang_live/{ox\|geek}` | 매장별 최신 측정값(대수·응답률·시각·기기) |
+| `mypcbang_days/{YYYY-MM-DD}` | 하루 누적(매장별 합계 + 시간대별 합계) — 일별·월별 표가 이 값을 씁니다 |
+| `mypcbang_samples/{YYYYMMDD-HHmm-store}` | 개별 측정 기록(최근 기록 목록) |
+| `mypcbang_status/latest` | 앱 상태(마지막 시도·오류·자동 측정 여부) |
+| `mypcbang_writers/{uid}` | 쓰기가 허용된 기기(앱이 등록 코드로 한 번 등록, 읽기는 막힘) |
+
+읽기는 공개(로그인 없이), 쓰기는 등록된 기기만입니다. 그래서 브라우저로 열어도 폰이 올린 최신 값이 그대로 보입니다.
+GitHub Actions 측정기는 ICMP 가 막혀 있어 예비용으로만 남겨 두었습니다(성공하면 그 값도 함께 표시).
+
+`python3 work/mypcbang/tools/fetch_live.py --date 2026-11-25` 로 하루치 요약(평균 대수·응답률·측정 횟수·추정 매출)을 볼 수 있습니다.
 
 ## 측정 방식
 
