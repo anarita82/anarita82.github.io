@@ -1,0 +1,15 @@
+{
+  "name": "마이피씨방",
+  "short_name": "마이피씨방",
+  "description": "옥스피씨방·긱스타피씨방 가동률 비교 대시보드",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10233d",
+  "theme_color": "#10233d",
+  "lang": "ko",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}
