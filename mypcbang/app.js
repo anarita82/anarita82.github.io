@@ -108,7 +108,7 @@ function latestOf(method) {
     const map = dayMap(method);
     const days = Object.keys(map).sort();
     const last = days[days.length - 1];
-    if (last) Object.entries(map[last]).forEach(([id, v]) => out[id] = {...v, t: null});
+    if (last) Object.entries(map[last]).forEach(([id, v]) => out[id] = {...v, t: null, day: last});
   }
   return out;
 }
@@ -141,13 +141,13 @@ function renderCards() {
   $('#cards').innerHTML = all.map((s, i) => {
     const v = latest[s.id];
     const row = (dm[today] || {})[s.id];
-    const stale = !v || (v.t && Date.now() - Date.parse(v.t) > 40 * 60000);
+    const stale = !v || (v.t ? Date.now() - Date.parse(v.t) > 40 * 60000 : true);
     const cls = (i % 2 ? 'card g' : 'card') + (stale ? ' stale' : '');
     return `<article class="${cls}">
       <b>${esc(s.short || s.name)}${s.local ? ' <span class="badge warn">이 기기</span>' : ''}</b>
       <span class="big">${v && v.on != null ? num(v.on) : '—'}<span>대 / ${num(s.pcs)}대</span></span>
       <div class="pct">${label} ${pctTxt(v ? v.pct : null)}</div>
-      <span class="when">${v ? (v.t ? fmtTime(v.t) : '기록') : '측정 대기'}</span>
+      <span class="when">${v ? (v.t ? fmtTime(v.t) + ' · ' + ago(v.t) : (v.day ? v.day.slice(5) + ' 기록' : '기록')) : '측정 대기'}</span>
       <div class="avg">오늘 평균 ${row && row.on != null ? onTxt(row.on) + '대 · ' + pctTxt(row.pct) : '—'}</div>
     </article>`;
   }).join('');
@@ -182,7 +182,7 @@ function drawChart(el, hours, ids, label) {
     svg += `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')}" fill="none" stroke="${st.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
     pts.forEach(p => { svg += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.2" fill="${st.color}"/>`; });
   });
-  el.innerHTML = svg + '</svg>';
+  el.innerHTML = svg + '</svg>' + (vals.length ? '' : '<p class="chartEmpty">이 날짜의 측정 기록이 없습니다</p>');
 }
 
 function legend(ids, el) {
@@ -349,6 +349,7 @@ async function load(bust) {
     try { S.live = await getJSON('data/live.json', bust); } catch (e) { S.live = null; }
     if (!S.history) { try { S.history = await getJSON('data/history.json'); } catch (e) { S.history = null; } }
     render();
+    if (!S.liveLoaded) { S.liveLoaded = true; setView(S.live && S.live.updated_at ? 'today' : 'daily'); }
   } catch (e) {
     $('#status').textContent = '자료를 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.';
     $('#status').className = 'status bad';
@@ -356,13 +357,14 @@ async function load(bust) {
 }
 
 /* ── 조작 ────────────────────────────────────────────────────── */
-$$('.seg button').forEach(b => b.addEventListener('click', () => {
-  $$('.seg button').forEach(x => x.classList.toggle('on', x === b));
-  S.view = b.dataset.view;
-  $$('.view').forEach(v => { v.hidden = v.dataset.view !== S.view; });
-  if (S.view === 'daily') renderDaily();
-  if (S.view === 'month') renderMonth();
-}));
+function setView(name) {
+  S.view = name;
+  $$('.seg button').forEach(x => x.classList.toggle('on', x.dataset.view === name));
+  $$('.view').forEach(v => { v.hidden = v.dataset.view !== name; });
+  if (name === 'daily') renderDaily();
+  if (name === 'month') renderMonth();
+}
+$$('.seg button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
 $('#method').addEventListener('change', e => { S.method = e.target.value; render(); });
 $('#monthPick').addEventListener('change', e => { S.month = e.target.value; renderDaily(); renderMonth(); });
 $('#dayPick').addEventListener('change', e => { S.day = e.target.value; renderDayChart(); });

@@ -76,3 +76,5 @@ footer p{margin:4px 0}
   .hourly td,.hourly th{font-size:12.5px}
   .panel{padding:18px}
 }
+.chart{position:relative}
+.chartEmpty{position:absolute;left:0;right:0;top:44%;text-align:center;font-size:12px;color:#9aa8ba;margin:0}
