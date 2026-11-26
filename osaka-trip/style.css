@@ -240,6 +240,7 @@ main{
 .jp-grid{display:grid;grid-template-columns:1fr;gap:9px}
 .jp-card{
   text-align:left;background:var(--card);border:1px solid var(--line);
+  min-width:0;overflow-wrap:anywhere;
   border-radius:14px;padding:13px 14px;
   box-shadow:0 1px 2px rgba(16,24,40,.05);
   transition:transform .1s;
@@ -248,7 +249,7 @@ main{
 .jp-card .ko{display:block;font-size:13.5px;font-weight:800;color:#475467}
 .jp-card .ja{
   display:block;font-size:21px;font-weight:800;color:var(--ink);margin-top:5px;line-height:1.35;
-  letter-spacing:.01em;
+  letter-spacing:.01em;overflow-wrap:anywhere;word-break:normal;
 }
 .jp-card .rd{display:block;font-size:12px;color:#98a2b3;margin-top:5px;font-weight:600}
 .jp-card .use{
@@ -289,3 +290,44 @@ main{
 @media(min-width:560px){
   .jp-grid{grid-template-columns:1fr 1fr}
 }
+
+/* ---------- line chip (노선 배지) ---------- */
+.stop .line-chip{
+  display:inline-block;margin:0 0 5px 5px;
+  font-size:11px;font-weight:800;color:#fff;letter-spacing:-.01em;
+  border-radius:6px;padding:2px 7px;vertical-align:2px;
+  box-shadow:0 1px 2px rgba(16,24,40,.12);
+}
+
+/* ---------- 예약·준비 (info) tab ---------- */
+.info-wrap{display:flex;flex-direction:column;gap:11px}
+.info-card{
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px 15px 12px;border-left:4px solid var(--accent);
+}
+.info-card h3{
+  font-size:14.5px;font-weight:800;letter-spacing:-.01em;
+  display:flex;align-items:center;gap:6px;margin-bottom:9px;
+}
+.info-card h3 .em{font-size:15px}
+.itable{margin:0;display:flex;flex-direction:column;gap:7px}
+.irow{
+  display:grid;grid-template-columns:84px 1fr;gap:9px;
+  padding-bottom:7px;border-bottom:1px dashed var(--line);
+}
+.irow:last-child{padding-bottom:0;border-bottom:0}
+.irow dt{font-size:12px;font-weight:800;color:#7b8794;line-height:1.45;padding-top:1px}
+.irow dd{margin:0;font-size:13.5px;font-weight:600;color:#1d2939;line-height:1.45}
+.irow dd a{color:var(--accent);font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.check-card{border-left-color:#16a34a}
+.check-list{display:flex;flex-direction:column;gap:2px}
+.check-row{
+  display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;
+  padding:8px 2px;font-size:13.5px;font-weight:600;color:#1d2939;
+  line-height:1.45;border-bottom:1px solid #f1f4f9;
+}
+.check-row:last-child{border-bottom:0}
+.check-row input{
+  width:20px;height:20px;margin:0;accent-color:#16a34a;
+}
+.check-row.on span{color:#98a2b3;text-decoration:line-through}

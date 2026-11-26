@@ -24,6 +24,7 @@
   var tileErrors = 0;
   var tileOk = 0;
   var hintEl = null;
+  var renderSeq = 0;
 
   /* ---------------- helpers ---------------- */
   function el(tag, cls, html) {
@@ -90,6 +91,15 @@
 
   /* ---------------- render ---------------- */
   function render(t, v) {
+    renderSeq++;
+    // 탭을 바꿀 때 DOM 을 비우기 전에 지도를 먼저 걷어낸다(떨어진 노드에서 Leaflet 오류 방지)
+    if (map) {
+      try { map.stop(); map.off(); map.remove(); } catch (e) {}
+      map = null;
+      layerGroup = null;
+      markers = [];
+      lines = [];
+    }
     root.style.setProperty("--accent", (v.accent || t.accent || "#2f6bff"));
     metaEl.textContent = window.TRIP.meta.dates + " · " + window.TRIP.meta.party;
 
@@ -107,6 +117,11 @@
 
     if (t.cards) {
       renderCards(v);
+      return;
+    }
+
+    if (t.info) {
+      renderInfo(v);
       return;
     }
 
@@ -155,6 +170,7 @@
       '<div class="num">' + (i + 1) + "</div>" +
       "<div>" +
       '<span class="time">' + esc(s.time) + "</span>" +
+      (s.line ? '<span class="line-chip" style="background:' + esc(s.line.c) + '">' + esc(s.line.t) + "</span>" : "") +
       "<h3>" + esc(s.name) + "</h3>" +
       (s.jp ? '<p class="jp">' + esc(s.jp) + "</p>" : "") +
       (s.lines && s.lines.length
@@ -192,6 +208,44 @@
       sec.appendChild(grid);
       wrap.appendChild(sec);
     });
+    mainEl.appendChild(wrap);
+  }
+
+  /* 예약·준비 탭: 표 형태 정보 + 체크리스트(localStorage 저장) */
+  function renderInfo(v) {
+    var wrap = el("div", "info-wrap");
+    (v.groups || []).forEach(function (g) {
+      var sec = el("section", "info-card");
+      var h = '<h3><span class="em">' + esc(g.emoji || "") + "</span>" + esc(g.title) + "</h3>";
+      var rows = (g.rows || []).map(function (r) {
+        var val = esc(r[1]);
+        if (r[2]) val = '<a href="' + esc(r[2]) + '" target="_blank" rel="noopener">' + val + " ↗</a>";
+        return '<div class="irow"><dt>' + esc(r[0]) + "</dt><dd>" + val + "</dd></div>";
+      }).join("");
+      sec.innerHTML = h + '<dl class="itable">' + rows + "</dl>";
+      wrap.appendChild(sec);
+    });
+
+    if (v.checklist && v.checklist.length) {
+      var cl = el("section", "info-card check-card");
+      cl.innerHTML = '<h3><span class="em">✅</span>출발 준비물</h3>';
+      var list = el("div", "check-list");
+      v.checklist.forEach(function (txt, i) {
+        var key = "osaka-trip-check-" + i;
+        var on = false;
+        try { on = localStorage.getItem(key) === "1"; } catch (e) {}
+        var lab = el("label", "check-row" + (on ? " on" : ""));
+        lab.innerHTML = '<input type="checkbox"' + (on ? " checked" : "") + "><span>" + esc(txt) + "</span>";
+        var box = lab.querySelector("input");
+        box.addEventListener("change", function () {
+          lab.classList.toggle("on", box.checked);
+          try { localStorage.setItem(key, box.checked ? "1" : "0"); } catch (err) {}
+        });
+        list.appendChild(lab);
+      });
+      cl.appendChild(list);
+      wrap.appendChild(cl);
+    }
     mainEl.appendChild(wrap);
   }
 
@@ -237,9 +291,10 @@
     mapWrap.appendChild(btn);
 
     if (map) {
-      try { map.remove(); } catch (e) {}
+      try { map.off(); map.remove(); } catch (e) {}
     }
     map = null;
+    layerGroup = null;
     markers = [];
     tileErrors = 0;
     tileOk = 0;
@@ -256,6 +311,8 @@
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
+      zoomAnimation: false,
+      fadeAnimation: false,
       tap: true
     }).setView([34.66, 135.5], 12);
 
@@ -324,7 +381,7 @@
 
   function drawRoute(stops, accent, tab) {
     initMap();
-    if (!map) return;
+    if (!map || !layerGroup) return;
     layerGroup.clearLayers();
     markers = [];
     lines = [];
@@ -377,10 +434,10 @@
       markers.push(m);
     });
 
+    var seq = renderSeq;
     setTimeout(function () {
-      if (!map) return;
-      map.invalidateSize();
-      reflow();
+      if (!map || seq !== renderSeq) return;
+      try { map.invalidateSize(); reflow(); } catch (e) {}
     }, 60);
 
     if (zoomHandler) map.off("zoomend", zoomHandler);
@@ -390,7 +447,7 @@
 
   /* 지도를 확대·축소하면 화면 기준으로 다시 배치한다. */
   function reflow() {
-    if (!map || !markers.length) return;
+    if (!map || !layerGroup || !markers.length) return;
     var pts = layoutPoints(currentStops);
     markers.forEach(function (m, i) { if (pts[i]) m.setLatLng(pts[i]); });
     lines.forEach(function (ln, i) {

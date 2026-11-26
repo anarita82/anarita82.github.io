@@ -1,14 +1,14 @@
 /* 오사카 여행 동선 앱 — 현지에서 인터넷이 느려도 바로 열리도록 앱 본체를 캐시한다.
    캐시 이름과 아래 ?v= 값은 index.html 의 값과 함께 올린다. */
-var V = "osaka-trip-v12";
+var V = "osaka-trip-v13";
 var SHELL = [
   "./",
   "./index.html",
-  "./style.css?v=12",
-  "./app.js?v=12",
-  "./data.js?v=12",
-  "./leaflet.js?v=12",
-  "./leaflet.css?v=12",
+  "./style.css?v=13",
+  "./app.js?v=13",
+  "./data.js?v=13",
+  "./leaflet.js?v=13",
+  "./leaflet.css?v=13",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png"
